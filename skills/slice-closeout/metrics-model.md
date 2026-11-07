@@ -23,11 +23,11 @@
 
 ## 变异
 
-- **位点集合** 由适配器按类别生成：relational（`<`↔`<=`、`>`↔`>=`）、equality（`==`↔`!=`、`===`↔`!==`）、logical（`&&`↔`||`、`??`→`||`）、arithmetic（`+`↔`-`、`*`↔`/`）、boolean（`true`↔`false`）、negation（删去一元 `!`）、optional（`?.`→`.`）。只生成改动单元自己的行上的位点。
+- **位点集合** 由适配器按类别生成：relational（`<`↔`<=`、`>`↔`>=`）、equality（`==`↔`!=`、`===`↔`!==`）、logical（`&&`↔`||`、`??`→`||`）、arithmetic（`+`↔`-`、`*`↔`/`）、boolean（`true`↔`false`）、negation（删去一元 `!`）、optional（属性上的 `?.`→`.`，调用与下标上的 `?.` 删去）。只生成改动单元自己的行上的位点。
 - **选择** 有覆盖报告时只跑 line 或 anchorLine 被命中的位点，其余裁定 uncovered。有历史时，单元摘要未变且上次 killed 的位点不再跑，沿用上次裁定。
 - **运行** 先在未变异的工作树上跑一次测试命令，不通过则整程 notRun(baselineFailed)。每个位点：读原文进内存，写入变异，跑测试命令，还原并逐字节核对。超时按 killed。进程中断时先还原全部已改文件再退出。
 - **没跑测试** 测试命令输出匹配「没跑测试」模式时，同一位点按位置复跑一次，仍匹配记 notRun(noTests)。
-- **预算** 到时间预算后剩余位点记 notRun(budget)，退出码仍为 0，JSON 标 `budgetExceeded`。
+- **预算** 到时间预算后剩余位点记 notRun(budget)，退出码仍为 0，JSON 的 `budget.exceeded` 为 true。
 - **分数** `killed / (killed + survived)`，没有已执行的位点时为 null。
 
 ## 适配器要给的

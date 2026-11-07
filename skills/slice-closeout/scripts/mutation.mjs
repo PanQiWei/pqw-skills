@@ -47,7 +47,7 @@ for (const [path, ranges] of changedLines(root, base)) {
     const own = new Set(ownLines(unit, nestedUnits(unit, units)));
     const changed = ranges.some(([a, b]) => a >= 1 && [...own].some((l) => l >= a && l <= b));
     if (!changed) continue;
-    for (const s of findSites(ts, sourceFile, text, unit, own)) all.push({ file: path, unit: unit.name, digest: digests.get(unit.name), ...s, verdict: "planned", reason: null, attempts: 0, seconds: null });
+    for (const s of findSites(ts, sourceFile, text, unit, own)) all.push({ file: path, unit: unit.name, digest: digests.get(unit.name), ...s, verdict: "planned", reason: null, runs: 0, seconds: null });
   }
 }
 all.sort((a, b) => a.file.localeCompare(b.file) || a.start - b.start);
@@ -95,8 +95,8 @@ if (!opts["plan-only"]) {
     const original = files.get(s.file).text;
     const mutated = original.slice(0, s.start) + s.mutant + original.slice(s.end);
     let verdict = null; let reason = null; let seconds = 0;
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      s.attempts = attempt;
+    for (let round = 1; round <= 2; round++) {
+      s.runs = round;
       applied = { path: s.file, original };
       writeFileSync(join(root, s.file), mutated);
       let r;

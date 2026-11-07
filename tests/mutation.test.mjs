@@ -82,7 +82,7 @@ test("「没跑测试」自动复跑一次后记 notRun(noTests)", { skip }, () 
     const out = JSON.parse(r.stdout);
     assert.ok(out.sites.length > 0);
     assert.ok(out.sites.every((s) => s.verdict === "notRun" && s.reason === "noTests"), JSON.stringify(out.sites[0]));
-    assert.ok(out.sites.every((s) => s.attempts === 2));
+    assert.ok(out.sites.every((s) => s.runs === 2));
   } finally { dispose(dir); }
 });
 
