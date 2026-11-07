@@ -1,0 +1,141 @@
+// 与语言无关的核心，按 ../metrics-model.md：改动行、lcov、覆盖率、CRAP、单元摘要、裁定。
+// 定义取自 unclebob/crapper 与 unclebob/mutator（0BSD）。不认识任何语言的语法。
+import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+export const sh = (cwd, args) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, GIT_PAGER: "cat", NO_COLOR: "1" } }).trimEnd();
+
+/** 基线：显式 ref，否则与目标分支的合并点；目标分支缺省依次试 main、master。 */
+export function resolveBase(cwd, base, target) {
+  if (base) return sh(cwd, ["rev-parse", base]);
+  const candidates = target ? [target] : ["main", "master"];
+  for (const t of candidates) {
+    try { sh(cwd, ["rev-parse", "--verify", "--quiet", t]); } catch { continue; }
+    return sh(cwd, ["merge-base", "HEAD", t]);
+  }
+  throw new Error(`找不到目标分支（试过 ${candidates.join("、")}），用 --base 或 --target 指定`);
+}
+
+/** 基线到工作树的改动行：path → 新一侧的闭区间列表。纯删除记 [0,0]，没有可执行行。 */
+export function changedLines(cwd, base) {
+  const out = sh(cwd, ["diff", "-U0", "--no-color", "--no-ext-diff", base, "--"]);
+  const result = new Map();
+  let file = null;
+  for (const line of out.split("\n")) {
+    if (line.startsWith("+++ ")) { file = line.slice(4).replace(/^b\//, "").trim(); if (file === "/dev/null") file = null; continue; }
+    const m = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line);
+    if (!m || !file) continue;
+    const start = Number(m[1]); const count = m[2] === undefined ? 1 : Number(m[2]);
+    const range = count === 0 ? [0, 0] : [start, start + count - 1];
+    result.set(file, [...(result.get(file) ?? []), range]);
+  }
+  // 未跟踪的新文件也是工作树的改动：整份算改动行。
+  const untracked = sh(cwd, ["ls-files", "--others", "--exclude-standard"]);
+  for (const file of untracked.split("\n").filter(Boolean)) {
+    if (result.has(file)) continue;
+    let count = 0;
+    try { count = readFileSync(join(cwd, file), "utf8").split("\n").length; } catch { continue; }
+    result.set(file, [[1, Math.max(1, count)]]);
+  }
+  return result;
+}
+
+export const touches = (ranges, start, end) => ranges.some(([a, b]) => a >= 1 && a <= end && b >= start);
+
+/** lcov：file → { lines: Map<line,[covered,total]>, branches: Map<line,[covered,total]> }。 */
+export function parseLcov(text) {
+  const files = new Map();
+  let current = null; let name = null;
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (line.startsWith("SF:")) { name = normalizePath(line.slice(3)); current = { lines: new Map(), branches: new Map() }; continue; }
+    if (!current) continue;
+    let m;
+    if ((m = /^DA:(\d+),(\d+)/.exec(line))) current.lines.set(Number(m[1]), [Number(m[2]) > 0 ? 1 : 0, 1]);
+    else if ((m = /^BRDA:(\d+),[^,]*,[^,]*,(-|\d+)$/.exec(line))) {
+      const ln = Number(m[1]); const hit = m[2] !== "-" && Number(m[2]) > 0 ? 1 : 0;
+      const [c, t] = current.branches.get(ln) ?? [0, 0]; current.branches.set(ln, [c + hit, t + 1]);
+    } else if (line === "end_of_record") { files.set(name, current); current = null; }
+  }
+  if (current && name) files.set(name, current);
+  return files;
+}
+
+export const normalizePath = (p) => p.replace(/\\/g, "/").replace(/^file:/, "").replace(/^(\.\/)+/, "").replace(/\/{2,}/g, "/");
+
+/** 报告里找一个源码文件：先全等，再按后缀最长匹配。 */
+export function lookupFile(report, path) {
+  const target = normalizePath(path);
+  if (report.has(target)) return report.get(target);
+  const parts = target.split("/");
+  let best = null; let bestLen = 0;
+  for (const [key, value] of report) {
+    const kp = key.split("/");
+    const n = Math.min(kp.length, parts.length);
+    let i = 0; while (i < n && kp[kp.length - 1 - i] === parts[parts.length - 1 - i]) i++;
+    if (i === Math.min(kp.length, parts.length) && i > bestLen) { best = value; bestLen = i; }
+  }
+  return best;
+}
+
+/** 单元自己的行：扣掉更内层单元。 */
+export function ownLines(unit, nested) {
+  const lines = [];
+  for (let l = unit.startLine; l <= unit.endLine; l++) if (!nested.some((n) => l >= n.startLine && l <= n.endLine)) lines.push(l);
+  return lines;
+}
+
+export const nestedUnits = (outer, units) => units.filter((o) => o !== outer && o.startLine >= outer.startLine && o.endLine <= outer.endLine && (o.startLine > outer.startLine || o.endLine < outer.endLine));
+
+/** 覆盖率：分支记录优先，否则行记录；范围内没记录记 0；文件不在报告记 0；没有报告记 null。 */
+export function coverageOf(report, path, unit, nested) {
+  if (!report) return null;
+  const rec = lookupFile(report, path);
+  if (!rec) return 0;
+  const lines = ownLines(unit, nested);
+  const sum = (map) => lines.reduce(([c, t], l) => { const e = map.get(l); return e ? [c + e[0], t + e[1]] : [c, t]; }, [0, 0]);
+  const [bc, bt] = sum(rec.branches);
+  if (bt > 0) return bc / bt;
+  const [lc, lt] = sum(rec.lines);
+  return lt === 0 ? 0 : lc / lt;
+}
+
+export const crap = (cc, coverage) => (coverage === null || coverage === undefined ? null : cc * cc * (1 - coverage) ** 3 + cc);
+
+/** 限定名 → 单元摘要。 */
+export function unitDigests(text, units) {
+  const lines = text.split("\n");
+  const sha = (s) => createHash("sha256").update(s).digest("hex");
+  const parts = new Map();
+  for (const unit of [...units].sort((a, b) => a.startLine - b.startLine)) {
+    const own = ownLines(unit, nestedUnits(unit, units)).filter((l) => l <= lines.length).map((l) => lines[l - 1].trimEnd());
+    parts.set(unit.name, [...(parts.get(unit.name) ?? []), sha(own.join("\n"))]);
+  }
+  return new Map([...parts].map(([k, v]) => [k, v.length === 1 ? v[0] : sha(v.join(""))]));
+}
+
+export const round = (v, d = 2) => (v === null || v === undefined ? null : Math.round(v * 10 ** d) / 10 ** d);
+
+/** 变异分数：killed / (killed + survived)，没有已执行的位点为 null。 */
+export function score(verdicts) {
+  let k = 0, s = 0;
+  for (const v of verdicts) { if (v.verdict === "killed") k++; else if (v.verdict === "survived") s++; }
+  return k + s === 0 ? null : k / (k + s);
+}
+
+/** 通用参数解析：spec = { name: "flag" | "value" }。返回 { opts, error }。 */
+export function parseArgs(argv, spec) {
+  const opts = {};
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--help" || a === "-h") return { opts: { help: true } };
+    if (!a.startsWith("--") || !(a.slice(2) in spec)) return { error: `未知参数 ${a}` };
+    const key = a.slice(2);
+    if (spec[key] === "flag") { opts[key] = true; continue; }
+    if (i + 1 >= argv.length || argv[i + 1].startsWith("--")) return { error: `${a} 缺少值` };
+    opts[key] = argv[++i];
+  }
+  return { opts };
+}
