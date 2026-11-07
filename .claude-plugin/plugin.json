@@ -19,6 +19,7 @@
     "./skills/delegate-brief",
     "./skills/one-lesson-rule",
     "./skills/slice-closeout",
-    "./skills/progress-artifacts"
+    "./skills/progress-artifacts",
+    "./skills/cleanup"
   ]
 }

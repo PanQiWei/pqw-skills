@@ -56,9 +56,10 @@
 | 7 | [spec-and-plan](./skills/spec-and-plan/SKILL.md) | 先写 spec 定目标、边界、验收标准，再写 plan 切成有序切片 | to-spec、to-tickets |
 | 8 | [context-pack](./skills/context-pack/SKILL.md) | 整程开工前整理上下文包并做关键环节的细化设计与技术验证，每切片前增量补 | 无 |
 | 9 | [delegate-brief](./skills/delegate-brief/SKILL.md) | 派子代理必须给齐目标、边界、规格、信息包四样东西 | poteto-mode |
-| 10 | [one-lesson-rule](./skills/one-lesson-rule/SKILL.md) | 每 45 到 60 分钟从顶层回看一次，子代理每 30 分钟看一次健康度 | 无 |
+| 10 | [one-lesson-rule](./skills/one-lesson-rule/SKILL.md) | 便宜的后台哨兵用宿主原生定时机制唤醒自己并汇报增量；主代理每 45 到 60 分钟从顶层回看，子代理每 30 分钟看一次健康度 | 无 |
 | 11 | [slice-closeout](./skills/slice-closeout/SKILL.md) | 每切片收口：评审、圈复杂度与 CRAP 读数、差分变异、去 AI slop | code-review、deslop、ub-mode |
-| 12 | [progress-artifacts](./skills/progress-artifacts/SKILL.md) | 用架构图、UML、快速 demo 等用完即弃的汇报件让人留在高层 | 无 |
+| 12 | [progress-artifacts](./skills/progress-artifacts/SKILL.md) | 用架构图、UML、快速 demo 等用完即弃的汇报件让人留在高层，放系统临时目录 | 无 |
+| 13 | [cleanup](./skills/cleanup/SKILL.md) | 每切片清一次不必留给下一切片的中间产物；一程交付后全盘清理 | 无 |
 
 实施本身走 TDD，不过度设计，不过度优化，由 `pstack:poteto-mode` 与 `pstack:tdd` 承载，本仓库不另写。
 
@@ -166,4 +167,4 @@ bash scripts/link-skills.sh
 
 ## 状态
 
-0.0.0。十三个技能都有名字与触发描述，正文是要点与「待写」，逐环节确认后补全。
+0.0.0。十四个技能都有名字与触发描述，正文是要点与「待写」，逐环节确认后补全。
