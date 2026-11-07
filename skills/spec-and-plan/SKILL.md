@@ -11,8 +11,7 @@ description: 交付期开工第一步：用 to-spec 和 to-tickets 加项目模�
 
 ## 外部技能
 
-- 写 spec 调用 Skill 工具加载 `mattpocock-skills:to-spec`。
-- 拆切片调用 Skill 工具加载 `mattpocock-skills:to-tickets`。
+- 写 spec 按 Matt 的 `to-spec` 做，拆切片按 Matt 的 `to-tickets` 做。两者声明了 `disable-model-invocation: true`，宿主不让模型用 Skill 工具调用，所以按已安装路径直接读它们的 `SKILL.md`，并在报告里写明读取方式。
 - 项目有自己的模板时以项目模板为准。
 
 ## 待写

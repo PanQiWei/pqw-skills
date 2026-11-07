@@ -46,12 +46,12 @@ pqw-skills/
 | changesets 发版流水线 | 手工改 `CHANGELOG.md` 与 `plugin.json` 版本 | 单人维护，少一层工具 |
 | `.agents/` 写作约定与 ADR | 规则合进 `AGENTS.md` | 篇幅小，不值得分文件 |
 | `ask-matt` 路由技能 | `single-session-dev-flow` 兼任路由 | 流本身就是路由 |
-| 用户触发与模型触发两类 | 待定 | 要在正文确认后按环节决定 |
+| 用户触发与模型触发两类 | 全部模型可触发 | 交付期由主代理自主加载环节技能，不能有只许人触发的环节 |
 
 ## 技能的两类
 
 - **自定义**：正文在本仓库，例如 `formal-guard`、`one-lesson-rule`。
-- **引用外部**：正文只写本仓库的补充，用「调用 Skill 工具加载 `<外部技能>`」指向 pstack、ub-mode、mattpocock 的技能，不复制它们的正文。外部技能的名字和版本登记在 `README.md` 的依赖表。
+- **引用外部**：正文只写本仓库的补充，用「调用 Skill 工具加载 `<外部技能>`」指向 pstack、ub-mode、mattpocock 的技能，不复制它们的正文；Matt 的 `to-spec`、`to-tickets` 禁止模型调用，改为按已安装路径直接读正文。外部技能的名字和版本登记在 `README.md` 的依赖表。
 
 ## 适用范围
 

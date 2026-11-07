@@ -8,7 +8,7 @@
 
 | omne 里的东西 | 位置 | 通用还是专有 |
 | --- | --- | --- |
-| 四面代码评审的流程 | `review-code/SKILL.md` | 通用，迁进 `slice-closeout`；命令与基线专有 |
+| 代码评审的确定性三面 | `review-code/SKILL.md` | 通用，迁进 `slice-closeout`；命令与基线专有；「设计与实践」面不迁 |
 | 文档评审的五类判据 | `review-docs/SKILL.md` | 通用，迁进 `formal-docs-landing`；检查命令专有 |
 | 交付边界核对 | `review-delivery/SKILL.md` | 通用，迁进 `slice-closeout`；「任务卡」改为 spec |
 | spec 模板 | `claim/references/spec-template.md` | 通用，但混了卡号、attempt、跨域五问等项目概念 |
@@ -45,7 +45,7 @@
 | 切片开工包模板 | `context-pack` | 四节：上下文增量（绑定、依据、缺口）、技术细节设计与验证、细化的推进方案（有序步骤）、里程碑待办清单（可勾选、带完成判据）。写在 plan 的该切片之下 |
 | 派发简报模板 | `delegate-brief` | 四要素各一节：目标与指令、边界（写范围、禁写、停点、完成即止）、规格、信息包；加模型与档位、交回格式。合并 omne 的任务信息包与闭包规格 |
 | 回看记录模板 | `one-lesson-rule` | 哨兵汇报的固定字段：切片状态、子代理运行时长、停滞与反复信号；主代理的回看结论与动作 |
-| 收口清单 | `slice-closeout` | 顺序：评审、结构读数、差分变异、去 slop、证明可用；每项的接入命令从项目接入点取 |
+| 收口清单 | `slice-closeout` | 顺序：类型检查与 lint、对照 spec 与不变式逐条核、结构读数、差分变异、去 slop、证明可用；每项的接入命令从项目接入点取 |
 | 汇报件骨架 | `progress-artifacts` | Mermaid 架构图与 UML 的最小骨架；单文件 HTML demo 的最小骨架；「变了什么、还缺什么」的固定段 |
 | 清理清单与交付声明 | `cleanup` | 切片级与一程级的清单；一程交付声明的固定字段，含清理已做 |
 
@@ -53,7 +53,7 @@
 
 | 脚本 | 归哪个技能 | 做什么 | 备注 |
 | --- | --- | --- | --- |
-| `artifacts-dir` | `progress-artifacts` | 解析并创建 `<系统临时目录>/pqw-skills/<会话标识>/<一程标识>/artifacts/`，打印路径 | 用各宿主都有的运行时写，Node 或 Python 二选一，三个操作系统一致 |
+| `artifacts-dir` | `progress-artifacts` | 解析并创建 `<系统临时目录>/pqw-skills/<会话标识>/<一程标识>/artifacts/`，打印路径 | 用 Node 写，各宿主与三个操作系统一致 |
 | 哨兵唤醒脚本 | `one-lesson-rule` | 按宿主选原生机制：Claude Code 用会话内的定时唤醒或 cron 工具；Codex 与 Cursor 没有原生定时时用后台脚本定时循环，到点写一个唤醒文件或发一条消息 | 每个宿主一份适配说明加一个脚本；绝不在循环里调用模型 |
 | 清理脚本 | `cleanup` | 列出本程的子代理工作树与分支、临时目录；先列后删，删前要确认已合回 | 只做 Git 工作树、分支和临时目录三类，项目专有的产物由项目接入点声明 |
 | `link-skills.sh` | 仓库根 | 本机软链进宿主技能目录 | 已有 |
@@ -96,7 +96,7 @@
 
 ## 接入点：消费者项目要提供什么
 
-本仓库不替项目决定命令和位置，只定一份接入清单。消费者在自己的代理入口文件（AGENTS.md 或 CLAUDE.md）里写一节「pqw-skills 接入」，逐项填。技能正文里凡是写「从项目接入点取」的地方，读这一节。
+本仓库不替项目决定命令和位置，只定一份接入清单。消费者在自己的 AGENTS.md 里写一节「pqw-skills 接入」，逐项填。技能正文里凡是写「从项目接入点取」的地方，读这一节。
 
 | 槽位 | 谁用 | omne 现在的值 |
 | --- | --- | --- |
@@ -130,7 +130,7 @@
 - `review-code`、`review-docs`、`review-delivery` 三份技能整个退役，由 `slice-closeout` 与 `formal-docs-landing` 替代；omne 只在接入节填命令、基线规则和文档位置。
 - `claim` 的 spec、plan、context-map、task-pack、self-contained-check 五份模板，由本仓库的模板替代，omne 只保留卡号与绑定的附加节。
 - `delegate` 的 closure-spec 与 writer-conventions 的通用半边，由 `delegate-brief` 替代；台账留在 omne。
-- `asd-ste100` 与 `write-agents-md` 若迁为支撑技能，omne 改为引用本仓库的版本。
+- `asd-ste100` 与 `write-agents-md` 迁为本仓库的元技能后，omne 改为引用本仓库的版本。
 
 ## 已定的事
 

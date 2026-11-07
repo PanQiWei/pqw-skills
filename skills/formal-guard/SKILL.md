@@ -28,4 +28,10 @@ description: 定义期第四步：出现较高性能要求、数据生命周期�
 - 数理模型、定理与证明。
 - 实施时要转成契约测试的清单。
 
+## 外部技能
+
+- 选工具、生成项目内的验证技能并先证明检查能失败，调用 Skill 工具加载 `pstack:create-formal-verification-skill`。
+- TLA+ 模型的结果读成状态图，调用 Skill 工具加载 `pstack:statechart`。
+- 代码变化后把模型、性质同步回代码，调用 Skill 工具加载 `pstack:maintain-formal-verification-skill`。
+
 ## 待写

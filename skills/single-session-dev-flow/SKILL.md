@@ -22,7 +22,7 @@ description: 单会话研发流的总入口。只用于复杂系统新增领域�
 | 子系统重构 | 小规模的增量接口设计与实现 |
 | 较大规模的改造 | 一处局部修改，影响范围一眼看得清 |
 
-判据是影响范围：改动会触及领域边界、跨域协作或系统全局的架构时才走。不走这条流的工作直接按各自的技能做，例如 `pstack:tdd`、`mattpocock-skills:prototype`、`mattpocock-skills:diagnosing-bugs`。
+判据是影响范围：改动会触及领域边界、跨域协作或系统全局的架构时才走。不走这条流的工作直接按各自的技能做，例如 `mattpocock-skills:tdd`、`mattpocock-skills:prototype`、`mattpocock-skills:diagnosing-bugs`。
 
 ## 阶段与环节
 
