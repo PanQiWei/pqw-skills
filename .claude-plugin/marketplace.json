@@ -1,0 +1,17 @@
+{
+  "name": "pqw",
+  "owner": {
+    "name": "PanQiWei",
+    "url": "https://github.com/PanQiWei"
+  },
+  "description": "PanQiWei 的技能集，可作为 Claude Code 插件安装。",
+  "plugins": [
+    {
+      "name": "pqw-skills",
+      "source": "./",
+      "description": "与 coding agent 协作的工程方法论技能集。",
+      "category": "engineering",
+      "keywords": ["engineering", "skills", "ddd", "delegation"]
+    }
+  ]
+}

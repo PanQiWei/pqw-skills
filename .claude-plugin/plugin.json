@@ -1,0 +1,24 @@
+{
+  "name": "pqw-skills",
+  "version": "0.0.0",
+  "description": "PanQiWei 与 Claude Code、Codex、Cursor 等 coding agent 协作沉淀出的单会话研发流：一个总入口技能，加上定义期与交付期各环节按需加载的技能。",
+  "author": { "name": "PanQiWei", "url": "https://github.com/PanQiWei" },
+  "repository": "https://github.com/PanQiWei/pqw-skills",
+  "license": "MIT",
+  "keywords": ["engineering", "skills", "ddd", "formal-methods", "delegation", "tdd", "workflow"],
+  "skills": [
+    "./skills/single-session-dev-flow",
+    "./skills/requirement-and-invariants",
+    "./skills/domain-impact-analysis",
+    "./skills/tech-research-and-reuse",
+    "./skills/formal-guard",
+    "./skills/detailed-domain-design",
+    "./skills/formal-docs-landing",
+    "./skills/spec-and-plan",
+    "./skills/context-pack",
+    "./skills/delegate-brief",
+    "./skills/one-lesson-rule",
+    "./skills/slice-closeout",
+    "./skills/progress-artifacts"
+  ]
+}
