@@ -1,13 +1,16 @@
 # 本仓库要自带的模板、脚本与接入点
 
-整理时间：2026-11-07。前提：pqw-skills 独立于 omne-harness-lite。omne-harness-lite 以后可以直接采用它，反过来不行。所以这条流用到的模板和脚本，凡是通用的，本仓库自己带；凡是项目专有的，本仓库只定接入点，由消费者项目填。
+整理时间：2026-11-07。前提：pqw-skills 独立于 omne-harness-lite，指依赖方向：本仓库不读 omne 的文件、不依赖 omne 的命令；omne 以后直接采用它，反过来不行。所以这条流用到的技能正文、模板和脚本，凡是通用的，从 omne 迁过来自包含，再综合 pstack 与 Matt；凡是项目专有的，本仓库只定接入点，由消费者项目填。技能正文的迁移分类在 [skill-mapping.md](./skill-mapping.md)，本页只管模板、脚本与接入点。
 
-## 消费者现在提供了什么
+## omne 现在提供了什么
 
-下面是 omne-harness-lite 里这条流实际依赖的东西，按「通用还是项目专有」分开。它们是本清单的来源。
+下面是 omne-harness-lite 里这条流实际依赖的东西，按「通用还是项目专有」分开。通用的迁过来，专有的变成接入点。
 
 | omne 里的东西 | 位置 | 通用还是专有 |
 | --- | --- | --- |
+| 四面代码评审的流程 | `review-code/SKILL.md` | 通用，迁进 `slice-closeout`；命令与基线专有 |
+| 文档评审的五类判据 | `review-docs/SKILL.md` | 通用，迁进 `formal-docs-landing`；检查命令专有 |
+| 交付边界核对 | `review-delivery/SKILL.md` | 通用，迁进 `slice-closeout`；「任务卡」改为 spec |
 | spec 模板 | `claim/references/spec-template.md` | 通用，但混了卡号、attempt、跨域五问等项目概念 |
 | plan 模板 | `claim/references/plan-template.md` | 通用，但混了线、角色模型分配、交回清单等项目概念 |
 | 上下文地图与本卡附录 | `claim/references/context-map.md` | 通用，但以线为单位 |
@@ -87,9 +90,10 @@
 
 列出来只是为了以后那一步心里有数，这一轮不动 omne。
 
+- `review-code`、`review-docs`、`review-delivery` 三份技能整个退役，由 `slice-closeout` 与 `formal-docs-landing` 替代；omne 只在接入节填命令、基线规则和文档位置。
 - `claim` 的 spec、plan、context-map、task-pack、self-contained-check 五份模板，由本仓库的模板替代，omne 只保留卡号与绑定的附加节。
 - `delegate` 的 closure-spec 与 writer-conventions 的通用半边，由 `delegate-brief` 替代；台账留在 omne。
-- `review-code` 的流程骨架由 `slice-closeout` 替代，命令与基线规则留在 omne 作接入点的值。
+- `asd-ste100` 与 `write-agents-md` 若迁为支撑技能，omne 改为引用本仓库的版本。
 
 ## 要你拍板的
 
