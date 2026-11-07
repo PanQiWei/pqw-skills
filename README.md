@@ -64,13 +64,13 @@
 
 ## 外部依赖
 
-| 技能 | 来源 | 本机名 |
-| --- | --- | --- |
-| poteto-mode、tdd、deslop | [pstack](https://github.com/poteto/pstack) | `pstack:poteto-mode`、`pstack:tdd`、`pstack:deslop` |
-| ub-mode | 独立技能 | `ub-mode` |
-| to-spec、to-tickets、research、domain-modeling、codebase-design、code-review、prototype、diagnosing-bugs | [mattpocock/skills](https://github.com/mattpocock/skills) 1.3.1 | `mattpocock-skills:<name>` |
+| 技能 | 来源 | 版本 | 本机名 |
+| --- | --- | --- | --- |
+| poteto-mode、tdd、deslop | Claude Code 与 Codex 用 [michael-denyer/pstack-claude](https://github.com/michael-denyer/pstack-claude/tree/60ae9e25610744bccd45bd405c211413a471aaf8/plugins/pstack)；Cursor 用 [cursor/plugins](https://github.com/cursor/plugins/tree/1b6d44ff26d4e242f4e8f68c391e6d2f7ca16def) 的官方 pstack | port 0.9.79；Cursor 0.15.20 | `pstack:poteto-mode`、`pstack:tdd`、`pstack:deslop` |
+| ub-mode | [unclebob/ub-mode](https://github.com/unclebob/ub-mode/tree/57a8bdd28e45ed41900ace0bafa2ff76dd9ed70f)，只有一份 `SKILL.md`，放进宿主的用户技能目录 | 提交 57a8bdd | `ub-mode` |
+| to-spec、to-tickets、research、domain-modeling、codebase-design、code-review、prototype、diagnosing-bugs | [mattpocock/skills](https://github.com/mattpocock/skills/tree/b0618bc436ad893b3c5e84e55fba86586d34a404/skills) | 1.3.1，提交 b0618bc | `mattpocock-skills:<name>` |
 
-引用外部技能的环节只写本仓库的补充，正文里用「调用 Skill 工具加载 `<技能名>`」指向它们。版本与各宿主的加载方式在环节正文确认后钉死。
+引用外部技能的环节只写本仓库的补充，正文里用「调用 Skill 工具加载 `<技能名>`」指向它们。表里的版本是本仓库正文核对过的版本，升级时重新核对被引用的技能有没有改名或改行为。
 
 ## 安装
 
