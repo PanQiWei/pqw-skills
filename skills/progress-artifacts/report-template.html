@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<style>
+  :root { --bg: #ffffff; --fg: #24292f; --muted: #57606a; --line: #d0d7de; --box: #f6f8fa; --acc: #0969da; --ok: #1a7f37; --warn: #9a6700; --bad: #cf222e; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0d1117; --fg: #c9d1d9; --muted: #8b949e; --line: #30363d; --box: #161b22; --acc: #58a6ff; --ok: #3fb950; --warn: #d29922; --bad: #f85149; } }
+  body { margin: 0; padding: 24px 16px 48px; background: var(--bg); color: var(--fg); font: 15px/1.6 "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Source Han Sans SC", "Microsoft YaHei", sans-serif; }
+  main { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 17px; margin: 28px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+  .lead { font-size: 16px; padding: 12px 14px; border-left: 4px solid var(--acc); background: var(--box); border-radius: 4px; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .bar { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--box); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line); display: inline-block; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; } th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; } th { background: var(--box); }
+  .st-done { color: var(--ok); } .st-doing { color: var(--acc); } .st-blocked { color: var(--bad); } .st-todo { color: var(--muted); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; } @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+  .fig { background: var(--box); border: 1px solid var(--line); border-radius: 6px; padding: 10px; overflow-x: auto; } .fig h3 { margin: 0 0 6px; font-size: 14px; color: var(--muted); }
+  pre.mermaid { margin: 0; white-space: pre; font-size: 13px; }
+  ul { padding-left: 20px; } li { margin: 2px 0; }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>{{title}}</h1>
+  <div class="meta">{{generatedAt}}</div>
+  <p class="lead">{{lead}}</p>
+
+  <h2>变了什么</h2>
+  <p><span class="bar">{{progress}}</span></p>
+  <p class="meta">当前：{{current}}</p>
+  {{sliceTable}}
+
+  <h2>架构层面</h2>
+  {{architecture}}
+
+  <h2>读数</h2>
+  {{metrics}}
+
+  <h2>还缺什么</h2>
+  {{remaining}}
+
+  <h2>等你决定</h2>
+  {{decisions}}
+
+  <h2>体验</h2>
+  {{demo}}
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.4.1/mermaid.min.js"></script>
+<script>
+  if (window.mermaid) {
+    const dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    window.mermaid.initialize({ startOnLoad: true, theme: dark ? "dark" : "neutral" });
+  }
+</script>
+</body>
+</html>
