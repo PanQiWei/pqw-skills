@@ -17,25 +17,26 @@ pqw-skills/
 │   ├── clear-writing/
 │   └── write-agents-md/
 ├── scripts/
-│   └── link-skills.sh        本机开发：把每个技能与元技能软链进 ~/.claude/skills 与 ~/.agents/skills
+│   ├── link-skills.sh        本机开发：把每个技能与元技能软链进 ~/.claude/skills 与 ~/.agents/skills
+│   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接
 └── skills/
-    ├── single-session-dev-flow/   总入口
-    ├── requirement-and-invariants/
-    ├── domain-impact-analysis/
-    ├── tech-research-and-reuse/
-    ├── formal-guard/
-    ├── detailed-domain-design/
-    ├── formal-docs-landing/
-    ├── spec-and-plan/
-    ├── context-pack/
-    ├── delegate-brief/
-    ├── one-lesson-rule/
-    ├── slice-closeout/
-    ├── progress-artifacts/
-    └── cleanup/
+    ├── single-session-dev-flow/   总入口；handoff-checklist.md
+    ├── requirement-and-invariants/   requirement-template.md
+    ├── domain-impact-analysis/       impact-template.md
+    ├── tech-research-and-reuse/      reuse-template.md
+    ├── formal-guard/                 formal-trigger-template.md
+    ├── detailed-domain-design/       design-template.md
+    ├── formal-docs-landing/          landing-template.md
+    ├── spec-and-plan/                spec-template.md、plan-template.md
+    ├── context-pack/                 run-pack-template.md、slice-kickoff-template.md
+    ├── delegate-brief/               brief-template.md
+    ├── one-lesson-rule/              review-record-template.md、hosts.md、scripts/sentinel.mjs
+    ├── slice-closeout/               closeout-checklist.md
+    ├── progress-artifacts/           report-skeleton.md、scripts/artifacts-dir.mjs
+    └── cleanup/                      checklist-template.md、scripts/cleanup.mjs
 ```
 
-每个技能目录只有一个 `SKILL.md`。需要附件时放在同目录，由 `SKILL.md` 链接。
+每个技能目录一个 `SKILL.md`，模板与说明放同目录并由 `SKILL.md` 链接，脚本放 `scripts/`。脚本都是无依赖的 Node，`--help` 可用。
 
 ## 与 mattpocock/skills 的差别
 
@@ -71,7 +72,7 @@ pqw-skills/
 
 ## 现在的状态
 
-十四个技能都只有骨架：frontmatter 的名字与触发描述，正文是要点与「待写」。下一步逐环节讨论后补正文。
+0.1.0：十四个发行技能正文齐全，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。`node scripts/check-repo.mjs` 退出 0。结构读数与差分变异的可移植工具、HTML 汇报件与 demo 骨架归下一程，方向在 `design/self-contained-assets.md`。
 
 ## 校验
 

@@ -90,7 +90,7 @@ for (const dir of allSkillDirs) {
   if (/^## 待写\s*$/m.test(text)) fail("待写", `${rel(skillMd)} 仍有「## 待写」节`);
   // 模板与附件要被 SKILL.md 链接
   for (const f of readdirSync(dir)) {
-    if (f === "SKILL.md" || !f.endsWith(".md")) continue;
+    if (f === "SKILL.md" || f === "README.md" || !f.endsWith(".md")) continue;
     if (!text.includes(`(${f})`) && !text.includes(`(./${f})`)) fail("模板链接", `${rel(join(dir, f))} 没有被 ${rel(skillMd)} 链接`);
   }
 }
@@ -143,15 +143,17 @@ for (const file of checkedFiles) {
   if (/`ub-mode`/.test(text) && !existsSync(config.ubMode)) fail("无法核对", `${rel(file)} 引用 ub-mode，本机没有 ${config.ubMode}`);
 }
 
-// ---- 4. 发行技能与模板里的项目概念禁词、工作日志措辞
+// ---- 4. 发行技能与模板里的项目概念禁词、工作日志措辞。meta/skills/clear-writing 是原样引入的上游英文正文（attempt 是普通英文词），免检。
 for (const file of [...walkMd(config.skillsDir), ...walkMd(config.metaSkillsDir)]) {
+  if (file.includes("/meta/skills/clear-writing/")) continue;
   const text = read(file);
   for (const w of config.forbidden) if (text.includes(w)) fail("项目概念", `${rel(file)} 含「${w}」`);
   for (const w of config.workLog) if (text.includes(w)) fail("工作日志措辞", `${rel(file)} 含「${w}」`);
 }
 
-// ---- 5. 全仓散文无破折号
+// ---- 5. 全仓散文无破折号。meta/skills/clear-writing 是原样引入的上游英文正文，免检。
 for (const file of checkedFiles) {
+  if (file.includes("/meta/skills/clear-writing/")) continue;
   const lines = read(file).split("\n");
   lines.forEach((line, i) => {
     for (const d of config.dashes) if (line.includes(d)) fail("破折号", `${rel(file)}:${i + 1}`);
