@@ -74,20 +74,91 @@
 
 ## 安装
 
-作为 Claude Code 插件：
+两条路线：插件路线是只读的托管包，自动更新；skills.sh 路线把可编辑的文件复制进你的项目，手动更新。每个宿主只选一条，两条都装会让每个技能出现两次。能自动更新的宿主优先走插件路线。
+
+本仓库自带插件市场（`.claude-plugin/marketplace.json`），市场名 `pqw`，插件名 `pqw-skills`。版本号在 `.claude-plugin/plugin.json` 里，变了才会触发托管路线重装。
+
+| 宿主 | 路线 | 自动更新 |
+| --- | --- | --- |
+| Claude Code | `@pqw` 市场 | 是，默认 |
+| Codex | `@pqw` 市场 | 是，启动时 |
+| GitHub Copilot CLI | `@pqw` 市场 | 是，需一次性开 `autoUpdate` |
+| VS Code | Chat: Install Plugin From Source | 是，每天 |
+| Gemini CLI | `gemini skills install`，复制文件 | 否，重跑命令 |
+| Cursor 及其他 | skills.sh，复制文件 | 否，`npx skills update` |
+
+### Claude Code
 
 ```bash
 claude plugin marketplace add PanQiWei/pqw-skills
 claude plugin install pqw-skills@pqw
 ```
 
-本机开发时用软链接，拉取后即生效：
+### Codex
+
+Codex 没有 `.codex-plugin/` 时读 `.claude-plugin/`，同一份清单直接可用。
+
+```bash
+codex plugin marketplace add PanQiWei/pqw-skills
+codex plugin add pqw-skills@pqw
+```
+
+### GitHub Copilot，CLI 与 VS Code
+
+```bash
+copilot plugin marketplace add PanQiWei/pqw-skills
+copilot plugin install pqw-skills@pqw
+```
+
+然后在 `~/.copilot/settings.json` 加一次：
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "pqw": { "source": { "source": "github", "repo": "PanQiWei/pqw-skills" }, "autoUpdate": true }
+  }
+}
+```
+
+VS Code 里运行 **Chat: Install Plugin From Source**，填 `https://github.com/PanQiWei/pqw-skills`。
+
+### Gemini CLI
+
+Gemini 不读 `.claude-plugin`，`--path` 指一个目录。本仓库扁平，一条命令装全套。
+
+```bash
+gemini skills install https://github.com/PanQiWei/pqw-skills.git --path skills
+```
+
+更新时重跑。
+
+### Cursor、OpenCode、Windsurf、Amp 及其他
+
+走 skills.sh。`-a` 预选宿主，省略则交互选择。
+
+```bash
+npx skills@latest add PanQiWei/pqw-skills -a cursor   # cursor、opencode、devin、windsurf、amp、pi
+```
+
+更新用 `npx skills@latest update`。它不会带上新增的技能，所以有新技能时重跑 `add`。
+
+只装一个技能：
+
+```bash
+npx skills@latest add PanQiWei/pqw-skills --skill=<name>
+```
+
+### 本机开发
+
+软链接进本机宿主目录，拉取后即生效：
 
 ```bash
 bash scripts/link-skills.sh
 ```
 
-外部依赖要各自安装，本插件不打包它们。
+### 外部依赖
+
+本插件不打包 pstack、ub-mode 与 mattpocock/skills，按它们各自的说明安装。
 
 ## 仓库结构
 
