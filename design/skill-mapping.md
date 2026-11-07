@@ -37,7 +37,7 @@
 | 9 | `delegate-brief` | 自写加辅助 | `delegate` 的通用半边（D1 到 D8 派发契约、闭包规格、写者共用约定、追加要求留痕、升级模型）、`claim` 的任务信息包 | `pstack:poteto-mode`（子代理章节） | `pstack:swarm`（并行扇出的收口方式）、`pstack:principle-separate-before-serializing-shared-state`（写范围不相交） | 四要素的模板与核对、模型与推理档位的选法、交回格式 |
 | 10 | `one-lesson-rule` | 自写加辅助 | `delegate` 的升级阶梯（两轮不收敛先质疑判定再换更强模型） | 无 | `pstack:show-me-your-work`（决策日志，哨兵醒来先读它）、`pstack:recall` | 哨兵机制、各宿主原生定时机制清单、唤醒脚本、回看清单、常规出口 |
 | 执行 | 不单设技能 | 引用 | 无 | `mattpocock-skills:tdd`（seam、mocking、好测试的判据） | `pstack:typescript-best-practices`、`ub-mode` | 入口技能里一句：实施走 TDD，不过度设计 |
-| 11 | `slice-closeout` | 自写加辅助 | `review-code` 整个（四面评审：正确性对规格、结构读数、设计与实践按 ub-mode、固定差分变异；父会话先自跑类型检查与 lint；变异只打热点；两轮同类阻断就缩窄承诺）、`review-delivery`（候选是否达到 spec 的交付边界与验收标准） | `mattpocock-skills:code-review` | `pstack:thermos`（深度评审，高风险切片用）、`pstack:deslop`、`pstack:unslop`、`pstack:blast-radius`、`pstack:principle-prove-it-works`、`ub-mode` | 收口清单的顺序；读数与变异的命令从接入点取；两轮不收敛就升级的阶梯 |
+| 11 | `slice-closeout` | 自写加辅助 | `review-code` 的确定性三面（对规格核验收、结构读数、固定差分变异；父会话先自跑类型检查与 lint；变异只打热点；两轮同类阻断就缩窄承诺）、`review-delivery`（候选是否达到 spec 的交付边界与验收标准） | `mattpocock-skills:code-review`，只用标准面 | `pstack:deslop`、`pstack:unslop`、`pstack:principle-prove-it-works`、`ub-mode` | 收口清单的顺序；读数与变异的命令从接入点取；两轮不收敛就先问承诺是否本阶段必需。不做对抗性评审，所以不引 `thermos`、`interrogate`、`thermo-nuclear-review`，`review-code` 里「设计与实践」那一面也不迁 |
 | 12 | `progress-artifacts` | 自写加辅助 | 无 | 无 | `pstack:ketchup`（追进度的讲法：说变化，不说过程）、`mattpocock-skills:prototype`（demo 的做法：单文件 HTML） | 汇报件的三种形式、放置位置、用完即弃 |
 | 13 | `cleanup` | 自写 | `delegate` 的工作树清理条件 | 无 | 无 | 两个尺度的清理清单、删前核对、交付声明含清理 |
 
@@ -50,9 +50,9 @@
 | `review-delivery` | 迁移 | 进 `slice-closeout` 与一程交付声明。「任务卡现行正文」改为 spec 的交付边界与验收标准 |
 | `delegate` | 通用半边迁移 | 派发契约、闭包规格、写者约定、追加留痕、升级阶梯进 `delegate-brief` 与 `one-lesson-rule`；台账、反思、合回留 omne |
 | `claim` | 通用半边迁移 | 模板五份与卡循环的切片推进进 `spec-and-plan`、`context-pack`、入口；线级准备、卡级绑定、准入留 omne |
-| `asd-ste100` | 迁移为支撑技能 | 独立成 `clear-writing`，不是环节；`formal-docs-landing`、`progress-artifacts`、本仓库自身写作引用它。综合 pstack `unslop` |
-| `write-agents-md` | 迁移为支撑技能 | 独立保留，消费者写接入节和本仓库维护时用。综合 Matt `writing-for-agents` |
-| `design-subagents` | 待裁 | 909 行，角色定义与多宿主适配那半边通用，可支撑 `delegate-brief` 的模型与角色选法。是否整份迁移要你定 |
+| `asd-ste100` | 迁移为元技能 | 放 `meta/skills/clear-writing`，只给维护本仓库的代理用，不发行。综合 pstack `unslop` |
+| `write-agents-md` | 迁移为元技能 | 放 `meta/skills/write-agents-md`，不发行。综合 Matt `writing-for-agents` |
+| `design-subagents` | 通用半边迁移 | 只迁角色定义那半边，进 `delegate-brief` 的模型与角色选法；多宿主适配留 omne |
 | `harness-design-handbook` | 通用半边迁移 | 维度分解与正交、边界再核、反向核对进 `domain-impact-analysis`；Cordis 承载、项目评审判据留 omne |
 | `verification-facility` | 通用半边迁移 | 形式工具适配、跨边界场景、故障注入进 `formal-guard` 与 `slice-closeout` |
 | `ubiquitous-language`、`domain-objects`、`product-design` | 留 omne | 设计链治理，项目专有；通用概念由 Matt `domain-modeling` 承担，位置从接入点取 |
@@ -71,18 +71,21 @@
 | `pstack:figure-it-out` | 它是「没有 playbook 时设计 playbook」，本流就是 playbook |
 | `pstack:arena`、`babysit`、`fix-ci`、`fix-merge-conflicts`、`make-pr-easy-to-review` | 工具性技能，由代理在需要时自行用，不进流 |
 | `pstack:tdd` | 它的触发条件是「用户明确要求 TDD 时」，比 Matt 的 `tdd` 窄；本流固定走 TDD，用 Matt 的做方法参考 |
+| `pstack:thermos`、`thermo-nuclear-review`、`thermo-nuclear-code-quality-review`、`interrogate` | 对抗性评审。本流的验收与评审只用确定性上下文：测试、证明、读数、变异、对照 spec |
 | `pstack:automate-me`、`reflect`、`correct` | 维护技能仓库本身时用，不进交付流 |
 
 ## 版本钉法
 
-- pstack 钉移植版 0.9.132 或更新，提交 df9bc05b8。消费者项目当前钉 0.9.79，采用本仓库时要同步升级。
-- mattpocock/skills 钉 1.3.1，提交 b0618bc。
-- ub-mode 钉提交 57a8bdd。
+本机两个宿主已于 2026-11-07 升到下面的版本。消费者项目当前钉 0.9.79 与 1.3.1，采用本仓库时要同步升级。
 
-## 要你拍板的
+- pstack 钉移植版 0.9.132，提交 df9bc05b818e2457ac23d3343e96e4ff284dd9e9。
+- mattpocock/skills 钉 1.3.2，提交 4ae2317ddb22b046e26455e4f9c9b3aaaf62212d。
+- ub-mode 钉提交 3da62bf3f，内容与 57a8bdd 相同。
 
-1. **到交付期执行的切片推进，要不要一个独立技能。** 现在是入口技能一句话加 Matt 的 `tdd`。我倾向不单设，因为 `poteto-mode` 加 `tdd` 已经够，再设一个就是复制。
-2. **`slice-closeout` 的深度评审默认用哪个。** Matt 的 `code-review` 轻，pstack 的 `thermos` 重且派两个子代理。我倾向默认 `code-review`，形式化守护过的切片或触及不变式的切片才用 `thermos`。
-3. **`to-spec` 与 `to-tickets` 的读法。** 沿用 omne 的「按已安装路径直接读正文」，还是本仓库自带一份精简的 spec 与 plan 写法、不再依赖它们。前者少维护，后者少一个用户触发限制带来的坑。
-4. **`design-subagents` 要不要整份迁移。** 它通用，但大。只迁角色定义那半边，还是整份。
-5. **两个支撑技能的去留。** `clear-writing`（迁自 `asd-ste100`）和 `write-agents-md` 不是流的环节，放进本仓库会让「一个入口加环节」的扁平布局多出一类。可以接受，也可以另立一个仓库。
+## 已定的事
+
+1. 切片执行不单设技能：`poteto-mode` 加 Matt `tdd` 已经够。
+2. 收口不做对抗性评审，只用确定性上下文；Matt `code-review` 只用标准面，不引 pstack 的 thermo 系列。
+3. `to-spec` 与 `to-tickets` 沿用按已安装路径直接读正文，在报告里写明读取方式。
+4. `design-subagents` 只迁角色定义那半边。
+5. `clear-writing` 与 `write-agents-md` 作元技能放 `meta/skills/`，只给维护本仓库的代理用，不发行。

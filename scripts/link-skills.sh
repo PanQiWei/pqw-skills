@@ -5,7 +5,7 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 DESTS=("$HOME/.claude/skills" "$HOME/.agents/skills")
 for DEST in "${DESTS[@]}"; do
   mkdir -p "$DEST"
-  for skill_md in "$REPO"/skills/*/SKILL.md; do
+  for skill_md in "$REPO"/skills/*/SKILL.md "$REPO"/meta/skills/*/SKILL.md; do
     src="$(dirname "$skill_md")"
     name="$(basename "$src")"
     target="$DEST/$name"
