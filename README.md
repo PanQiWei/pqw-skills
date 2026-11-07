@@ -1,5 +1,13 @@
 # pqw-skills
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Version](https://img.shields.io/badge/version-0.1.0-informational.svg)](./CHANGELOG.md)
+[![Skills](https://img.shields.io/badge/skills-14-success.svg)](#技能)
+[![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#安装)
+[![Language](https://img.shields.io/badge/lang-%E4%B8%AD%E6%96%87%20%7C%20English-lightgrey.svg)](./README_EN.md)
+
+[English](./README_EN.md)
+
 我与 Claude Code、Codex、Cursor 等 coding agent 协作沉淀出的单会话研发流。它是一条控制回路：先在动手前把不确定性尽量消掉，再把执行放手给代理，再用固定节拍从顶层回看。人的注意力只花在定义边界和高层判断上，不花在逐行盯实现上。
 
 仓库是扁平的：一个总入口技能，加上定义期与交付期各环节按需加载的技能。自定义的环节正文在这里，已有成熟做法的环节直接引用 pstack、ub-mode、mattpocock 的技能，不复制它们的正文。
@@ -19,16 +27,7 @@
 
 ## 流的形状
 
-```
-人主导 ─────────────────────────────────────▶│◀───────────── 代理自主 ──────────────▶
-                                              │
-1 需求与不变式 → 2 领域影响与顶层设计            │  7 spec 与 plan → 8 前置消熵 → 切片 TDD
-→ 3 技术调研与复用 → 4 形式化守护                │     → 9 派发 → 11 切片收口 → 12 向人汇报 → 13 清理
-→ 5 细化领域设计 → 6 正式落盘                   │            ▲                                │
-                                              │            └── 10 哨兵定时唤醒，每 45～60 分钟回看 ──┘
-                                              │
-                                   交接点：长期维护的知识已进唯一源并过评审
-```
+![单会话研发流：定义期六步，交接点，交付期按切片循环，哨兵定时唤醒](./assets/flow.svg)
 
 定义期由人主导，每一步回答一个问题、产出一样东西，并且是下一步的输入，顺序不能跳。交接点是物理条件：没进唯一源、没过评审的边界不算定好。到了交接点，人可以把注意力移开，由主代理自己上手或作为编排者自主推进交付。
 
@@ -169,7 +168,7 @@ bash scripts/link-skills.sh
 
 ## 仓库结构
 
-见 [STRUCTURE.md](./STRUCTURE.md)。维护规则见 [AGENTS.md](./AGENTS.md)。
+见 [STRUCTURE.md](./STRUCTURE.md)。维护规则见 [AGENTS.md](./AGENTS.md)，本机开发与发版步骤见 [DEVELOPMENT.md](./DEVELOPMENT.md)，参与方式见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
 
 ## 状态
 

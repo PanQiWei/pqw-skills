@@ -3,12 +3,20 @@
 ```
 pqw-skills/
 ├── README.md                 人读的入口：安装方式、技能表、外部依赖表
+├── README_EN.md              README 的英文版，技能表与安装路线同步
 ├── AGENTS.md                 代理读的入口：布局规则与维护规则
 ├── CLAUDE.md                 只有一行 @AGENTS.md，Claude Code 由此读到 AGENTS.md
 ├── STRUCTURE.md              本文件
 ├── CHANGELOG.md              每次改技能行为记一条
+├── CONTRIBUTING.md           参与方式：改动理由、改哪一层、开 PR 前的检查
+├── DEVELOPMENT.md            本机开发：链接、检查、跑脚本、升级钉定版本、发版
+├── SECURITY.md               安全问题的报告渠道与范围
+├── CODE_OF_CONDUCT.md        行为准则
 ├── LICENSE                   MIT
 ├── .gitignore
+├── .github/                  PR 模板与 issue 模板
+├── assets/
+│   └── flow.svg              README 里的流程图，手写 SVG，带深色模式样式
 ├── .claude-plugin/
 │   ├── plugin.json           插件清单：名字、版本、skills 数组逐个列出技能目录
 │   └── marketplace.json      仓库自带的单插件市场，供 claude plugin marketplace add
@@ -43,7 +51,7 @@ pqw-skills/
 | 他的 | 我们的 | 为什么 |
 | --- | --- | --- |
 | 五个分桶（engineering、productivity、misc、in-progress、deprecated） | 不分桶，`skills/` 下扁平 | 技能数量小，而且它们是一条流上的环节，分桶没有意义 |
-| `docs/<bucket>/<skill>.md` 人读页 | 没有，`README.md` 的表就是索引 | 环节的「为什么」写在 `SKILL.md` 里，不维护第二份 |
+| `docs/<bucket>/<skill>.md` 人读页 | 没有，`README.md` 与 `README_EN.md` 的表就是索引 | 环节的「为什么」写在 `SKILL.md` 里，不维护第二份 |
 | changesets 发版流水线 | 手工改 `CHANGELOG.md` 与 `plugin.json` 版本 | 单人维护，少一层工具 |
 | `.agents/` 写作约定与 ADR | 规则合进 `AGENTS.md` | 篇幅小，不值得分文件 |
 | `ask-matt` 路由技能 | `single-session-dev-flow` 兼任路由 | 流本身就是路由 |

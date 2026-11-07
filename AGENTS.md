@@ -40,7 +40,7 @@
 - `single-session-dev-flow` 是总入口。它只写适用范围、阶段、顺序、交接点和每个环节加载哪个技能。环节的做法写在环节技能里，不写进总入口。
 - 环节技能分两类。自定义的，正文在本仓库。引用外部的，正文只写本仓库的补充和「调用 Skill 工具加载 `<技能名>`」，不复制外部正文，不用相对路径跨目录链接。
 - 外部技能的名字、来源与版本登记在 `README.md` 的依赖表。改引用先改那张表。
-- 增删或重命名技能同步三处：`skills/` 目录、`.claude-plugin/plugin.json` 的 `skills` 数组、`README.md` 的技能表。三处对不上就是缺陷。
+- 增删或重命名技能同步三处：`skills/` 目录、`.claude-plugin/plugin.json` 的 `skills` 数组、`README.md` 的技能表。三处对不上就是缺陷。`README_EN.md` 的技能表与依赖表跟着 `README.md` 改。
 
 ## 写作规则
 
@@ -56,7 +56,7 @@
 - 改技能行为后在 `CHANGELOG.md` 记一条，改 `.claude-plugin/plugin.json` 的 `version`。两处一起改。
 - 改清单后跑 `claude plugin validate .`。不用 `--strict`：它把根目录 `CLAUDE.md` 不作为插件上下文、以及没有图标这两条警告算失败，这两条是有意接受的。
 - 本机开发用 `scripts/link-skills.sh` 把每个技能软链进 `~/.claude/skills` 与 `~/.agents/skills`。增删重命名后重跑。
-- `STRUCTURE.md` 描述目录与和 mattpocock/skills 的差别。布局变了就同步它。
+- `STRUCTURE.md` 描述目录与和 mattpocock/skills 的差别。布局变了就同步它。本机开发与发版步骤归 `DEVELOPMENT.md`，参与规则归 `CONTRIBUTING.md`，两者都是给人看的，不在这里重复。
 - 不新增仓库级机制。单人维护，少一层工具胜过多一层自动化。
 - 用 Claude Code 的 `skill-creator` 插件审技能：删冗余、去重、重组。量每个技能的成本与使用率，没人用的删掉，宿主有 `/skill-doctor` 一类报告就用它。
 - 改一个技能后，带与不带各走一遍同一程，留好的那个。一次只改一处。

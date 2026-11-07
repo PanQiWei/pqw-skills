@@ -16,7 +16,7 @@ const config = {
   metaSkillsDir: join(repo, "meta", "skills"),
   pluginJson: join(repo, ".claude-plugin", "plugin.json"),
   readme: join(repo, "README.md"),
-  proseFiles: ["README.md", "AGENTS.md", "STRUCTURE.md", "CHANGELOG.md"],
+  proseFiles: ["README.md", "README_EN.md", "AGENTS.md", "STRUCTURE.md", "CHANGELOG.md", "CONTRIBUTING.md", "DEVELOPMENT.md", "SECURITY.md", "CODE_OF_CONDUCT.md"],
   proseDirs: ["skills", "meta/skills", "design"],
   // 外部技能安装根。pstack 与 Matt 取缓存里版本号最大的目录。
   pstackCache: join(home, ".claude", "plugins", "cache", "pstack-claude", "pstack"),
