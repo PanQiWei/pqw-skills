@@ -120,3 +120,31 @@ export function analyze(ts, path, text) {
   if (moduleUnit.cyclomatic > 1) units.unshift(moduleUnit);
   return { sourceFile: sf, units };
 }
+
+const BINARY_SITES = { "<": ["<=", "relational"], "<=": ["<", "relational"], ">": [">=", "relational"], ">=": [">", "relational"], "==": ["!=", "equality"], "!=": ["==", "equality"], "===": ["!==", "equality"], "!==": ["===", "equality"], "&&": ["||", "logical"], "||": ["&&", "logical"], "??": ["||", "logical"], "+": ["-", "arithmetic"], "-": ["+", "arithmetic"], "*": ["/", "arithmetic"], "/": ["*", "arithmetic"] };
+
+/** 位点：只在给定单元自己的行上生成。lines 是允许的行集合（null 表示单元全部自己的行）。 */
+export function sites(ts, sf, text, unit, ownLineSet) {
+  const found = [];
+  const lineOf = (pos) => sf.getLineAndCharacterOfPosition(pos).line + 1;
+  const inUnit = (pos) => pos >= unit.startByte && pos < unit.endByte && ownLineSet.has(lineOf(pos));
+  const anchor = (node) => { let n = node; while (n.parent && !ts.isStatement(n) && !ts.isSourceFile(n.parent)) n = n.parent; return lineOf(n.getStart(sf)); };
+  const push = (node, start, end, original, mutant, category) => { if (inUnit(start)) found.push({ line: lineOf(start), anchorLine: anchor(node), start, end, original, mutant, category }); };
+  const walk = (node) => {
+    if (ts.isBinaryExpression(node)) {
+      const op = node.operatorToken.getText(sf);
+      const m = BINARY_SITES[op];
+      if (m) push(node, node.operatorToken.getStart(sf), node.operatorToken.getEnd(), op, m[0], m[1]);
+    } else if (node.kind === ts.SyntaxKind.TrueKeyword || node.kind === ts.SyntaxKind.FalseKeyword) {
+      const t = node.getText(sf); push(node, node.getStart(sf), node.getEnd(), t, t === "true" ? "false" : "true", "boolean");
+    } else if (ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.ExclamationToken) {
+      push(node, node.getStart(sf), node.operand.getStart(sf), "!", "", "negation");
+    } else if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node) || ts.isCallExpression(node)) && node.questionDotToken) {
+      const q = node.questionDotToken; const replacement = ts.isPropertyAccessExpression(node) ? "." : "";
+      push(node, q.getStart(sf), q.getEnd(), "?.", replacement, "optional");
+    }
+    ts.forEachChild(node, walk);
+  };
+  walk(sf);
+  return found.sort((a, b) => a.start - b.start);
+}
