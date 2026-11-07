@@ -6,6 +6,7 @@
 //   --scope slice   清子代理的工作树与分支（按前缀匹配），保留汇报件与过程材料
 //   --scope run     再加系统临时目录下本程子目录，以及 --project-tmp 指定的过程材料目录
 //   --prefix        子代理分支与工作树的名字前缀，例如 run-1/ 或 closure-
+//   --plan          只列清单，是默认行为的显式写法
 //   --apply         真的删。没有它只列清单
 //
 // 安全规则：主工作树不删；当前分支不删；有未提交改动的工作树不删；没合进当前 HEAD 的分支不删。这些条目列为「跳过」并写原因。
@@ -15,7 +16,7 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execSync } from "node:child_process";
 
-const USAGE = "用法：cleanup.mjs --scope slice|run --prefix <前缀> [--repo <路径>] [--session <id>] [--run <id>] [--project-tmp <目录>] [--apply]";
+const USAGE = "用法：cleanup.mjs --scope slice|run --prefix <前缀> [--repo <路径>] [--session <id>] [--run <id>] [--project-tmp <目录>] [--plan|--apply]";
 const opts = { apply: false, repo: process.cwd(), run: "run" };
 const argv = process.argv.slice(2);
 for (let i = 0; i < argv.length; i++) {
@@ -32,6 +33,7 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === "--run") opts.run = next();
   else if (a === "--project-tmp") opts.projectTmp = next();
   else if (a === "--apply") opts.apply = true;
+  else if (a === "--plan") opts.apply = false;
   else { console.error(`未知参数 ${a}`); console.error(USAGE); process.exit(2); }
 }
 if (!["slice", "run"].includes(opts.scope) || !opts.prefix) { console.error(USAGE); process.exit(2); }

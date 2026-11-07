@@ -7,7 +7,7 @@ metadata:
 
 # Simplified Technical English (ASD-STE100)
 
-来源：正文与附件原样取自 [danyuchn/asd-ste100-skill](https://github.com/danyuchn/asd-ste100-skill) 0.4.0（MIT，作者 Dustin Yuchen Teng），经 omne-harness-lite 的 `asd-ste100` 采用；本仓库只改了名字、触发描述和「Documentation in This Workspace」一节指向的采用规则。上游英文正文里的破折号原样保留，不在本仓库的写作规则之内。
+来源：正文与附件原样取自 [danyuchn/asd-ste100-skill](https://github.com/danyuchn/asd-ste100-skill) 0.4.0（MIT，作者 Dustin Yuchen Teng）；本仓库只改了名字、触发描述和「Documentation in This Workspace」一节指向的采用规则。上游英文正文里的破折号原样保留，不在本仓库的写作规则之内。
 
 ## Documentation in This Workspace
 

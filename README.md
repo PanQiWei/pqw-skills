@@ -36,7 +36,7 @@
 
 ### 总入口
 
-- **[single-session-dev-flow](./skills/single-session-dev-flow/SKILL.md)**：判断够不够格走这条流，定阶段、顺序、交接点，指出每个环节加载哪个技能。不写环节的做法。
+- **[single-session-dev-flow](./skills/single-session-dev-flow/SKILL.md)**：判断够不够格走这条流，定阶段、顺序、交接点，指出每个环节加载哪个技能。不写环节的做法。引用 poteto-mode、tdd；不够格时转 prototype、diagnosing-bugs。
 
 ### 定义期，人主导
 
