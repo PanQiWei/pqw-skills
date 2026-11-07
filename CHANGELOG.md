@@ -1,6 +1,8 @@
 # pqw-skills
 
-## 未发布
+## 0.2.0
+
+新增 `teach-pqw-skills`：教人用这套流的技能，自带心智模型与哲学、谁做什么、提示怎么写三份参考。全部 description 按 pstack 与 Matt 的指针写法重写：环节号领头、人会说的原话作触发、一条不加载、容易混的互指，学习结论在 `design/description-and-entry-study.md`。入口技能加开工动作：复述目标、把 13 个环节写进会话任务清单并给跳过留理由、「新任务」重判；规则按主题分组，末尾加容易混的环节。
 
 仓库文档：README 的流程图改为 `assets/flow.svg`，加徽章；新增 `README_EN.md`、`CONTRIBUTING.md`、`DEVELOPMENT.md`、`SECURITY.md`、`CODE_OF_CONDUCT.md` 与 `.github/` 的 PR、issue 模板。技能行为无变化，版本不动。
 

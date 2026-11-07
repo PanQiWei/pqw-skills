@@ -1,8 +1,8 @@
 # pqw-skills
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.0-informational.svg)](./CHANGELOG.md)
-[![Skills](https://img.shields.io/badge/skills-14-success.svg)](#skills)
+[![Version](https://img.shields.io/badge/version-0.2.0-informational.svg)](./CHANGELOG.md)
+[![Skills](https://img.shields.io/badge/skills-15-success.svg)](#skills)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#install)
 [![Language](https://img.shields.io/badge/lang-%E4%B8%AD%E6%96%87%20%7C%20English-lightgrey.svg)](./README.md)
 
@@ -37,7 +37,8 @@ The definition period is human-led. Each step answers one question, produces one
 
 ### Entry
 
-- **[single-session-dev-flow](./skills/single-session-dev-flow/SKILL.md)**: decides whether the work qualifies, sets the stages, their order and the handoff point, and names the skill to load at each stage. It contains no stage method. References poteto-mode and tdd; routes unqualified work to prototype or diagnosing-bugs.
+- **[single-session-dev-flow](./skills/single-session-dev-flow/SKILL.md)**: decides whether the work qualifies, sets the stages, their order and the handoff point, and names the skill to load at each stage. It writes the 13 stages into the session task list and contains no stage method. References in-your-own-words, poteto-mode and tdd; routes unqualified work to prototype or diagnosing-bugs.
+- **[teach-pqw-skills](./skills/teach-pqw-skills/SKILL.md)**: teaches a person how to use the flow. Mental models and philosophy, what the human and the agent each do at every stage, how to write the first prompt, how to steer a run that drifted, how to wire the flow into a project. Answers and gives an example prompt; never starts the work.
 
 ### Definition period, human-led
 
@@ -183,7 +184,7 @@ See [STRUCTURE.md](./STRUCTURE.md). Maintenance rules are in [AGENTS.md](./AGENT
 
 ## Status
 
-0.1.0. Fourteen distributed skills with full text; seventeen templates and three scripts ship inside the skill directories; two meta skills migrated from omne-harness-lite. Portable tools for structure metrics and differential mutation, HTML report artifacts and demo skeletons are planned for the next run.
+0.2.0. Fifteen distributed skills with full text, one of them teaching people the flow; seventeen templates and three scripts ship inside the skill directories; two meta skills migrated from omne-harness-lite. Portable tools for structure metrics and differential mutation, HTML report artifacts and demo skeletons are planned for the next run.
 
 ## License
 

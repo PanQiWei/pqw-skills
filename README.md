@@ -1,8 +1,8 @@
 # pqw-skills
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.0-informational.svg)](./CHANGELOG.md)
-[![Skills](https://img.shields.io/badge/skills-14-success.svg)](#技能)
+[![Version](https://img.shields.io/badge/version-0.2.0-informational.svg)](./CHANGELOG.md)
+[![Skills](https://img.shields.io/badge/skills-15-success.svg)](#技能)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#安装)
 [![Language](https://img.shields.io/badge/lang-%E4%B8%AD%E6%96%87%20%7C%20English-lightgrey.svg)](./README_EN.md)
 
@@ -35,7 +35,8 @@
 
 ### 总入口
 
-- **[single-session-dev-flow](./skills/single-session-dev-flow/SKILL.md)**：判断够不够格走这条流，定阶段、顺序、交接点，指出每个环节加载哪个技能。不写环节的做法。引用 poteto-mode、tdd；不够格时转 prototype、diagnosing-bugs。
+- **[single-session-dev-flow](./skills/single-session-dev-flow/SKILL.md)**：判断够不够格走这条流，定阶段、顺序、交接点，把 13 个环节写进会话任务清单，指出每个环节加载哪个技能。不写环节的做法。引用 in-your-own-words、poteto-mode、tdd；不够格时转 prototype、diagnosing-bugs。
+- **[teach-pqw-skills](./skills/teach-pqw-skills/SKILL.md)**：教人用这套流。心智模型与哲学、每个环节人和代理各做什么、第一条提示怎么写、跑偏了怎么纠、接入自己的项目。只回答并给示例提示，不开工。
 
 ### 定义期，人主导
 
@@ -172,4 +173,4 @@ bash scripts/link-skills.sh
 
 ## 状态
 
-0.1.0。十四个发行技能正文齐全，十七份模板、三个脚本随技能目录发行；两个元技能迁自 omne-harness-lite。结构读数与差分变异的可移植工具、HTML 汇报件与 demo 骨架归下一程。
+0.2.0。十五个发行技能正文齐全，其中一个教人用这套流，十七份模板、三个脚本随技能目录发行；两个元技能迁自 omne-harness-lite。结构读数与差分变异的可移植工具、HTML 汇报件与 demo 骨架归下一程。

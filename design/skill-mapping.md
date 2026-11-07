@@ -25,6 +25,7 @@
 | 环节 | 技能 | 定性 | 迁移自 omne | 主引用 | 辅助引用 | 自写的内容 |
 | --- | --- | --- | --- | --- | --- | --- |
 | 入口 | `single-session-dev-flow` | 自写 | `claim` 的卡循环（切片有序推进、按风险裁剪评审） | 无 | `pstack:poteto-mode`（整条流的执行风格）、`mattpocock-skills:tdd`（实施方法）；不够格时转 `mattpocock-skills:prototype`、`mattpocock-skills:diagnosing-bugs` | 适用范围、阶段与顺序、交接点、规则、路由表 |
+| 教学 | `teach-pqw-skills` | 自写 | 无 | 无 | `pstack:poteto-help` 的帮助台结构、`pstack:teach` 的教法（只借写法，不调用） | 五类需求的单选、心智模型与哲学、谁做什么、提示怎么写、跑偏症状表、接入槽位表 |
 | 1 | `requirement-and-invariants` | 自写加辅助 | 无 | 无 | `pstack:in-your-own-words`（代理先复述目标与问题）、`mattpocock-skills:grilling`（追问到不变式） | 需求的三问（能力、前后差异、谁受益）、不变式清单的格式与判据、什么算不变式什么不算 |
 | 2 | `domain-impact-analysis` | 自写加辅助 | `harness-design-handbook` 的通用半边：维度分解与正交、边界再核信号、反向核对 | `mattpocock-skills:domain-modeling` | `pstack:principle-model-the-domain`、`pstack:blast-radius`（既有领域的消费者普查，判连带范围） | 重点、次要、连带的分级判据；要不要新领域的判据；顶层粗粒度设计的最小产出 |
 | 3 | `tech-research-and-reuse` | 引用为主 | 无 | `mattpocock-skills:research` | `pstack:principle-subtract-before-you-add` | 复用优先的次序（直接复用、二次开发、二次封装、自造）、自造论证的格式 |

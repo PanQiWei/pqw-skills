@@ -29,6 +29,7 @@ pqw-skills/
 │   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接
 └── skills/
     ├── single-session-dev-flow/   总入口；handoff-checklist.md
+    ├── teach-pqw-skills/             教人用这套流；mental-models.md、who-does-what.md、prompting.md
     ├── requirement-and-invariants/   requirement-template.md
     ├── domain-impact-analysis/       impact-template.md
     ├── tech-research-and-reuse/      reuse-template.md
@@ -54,7 +55,7 @@ pqw-skills/
 | `docs/<bucket>/<skill>.md` 人读页 | 没有，`README.md` 与 `README_EN.md` 的表就是索引 | 环节的「为什么」写在 `SKILL.md` 里，不维护第二份 |
 | changesets 发版流水线 | 手工改 `CHANGELOG.md` 与 `plugin.json` 版本 | 单人维护，少一层工具 |
 | `.agents/` 写作约定与 ADR | 规则合进 `AGENTS.md` | 篇幅小，不值得分文件 |
-| `ask-matt` 路由技能 | `single-session-dev-flow` 兼任路由 | 流本身就是路由 |
+| `ask-matt` 路由技能 | `single-session-dev-flow` 兼任路由；给人的路由图归 `teach-pqw-skills` | 流本身就是路由；人要的是教学不是菜单 |
 | 用户触发与模型触发两类 | 全部模型可触发 | 交付期由主代理自主加载环节技能，不能有只许人触发的环节 |
 
 ## 技能的两类
@@ -80,7 +81,7 @@ pqw-skills/
 
 ## 现在的状态
 
-0.1.0：十四个发行技能正文齐全，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。`node scripts/check-repo.mjs` 退出 0。结构读数与差分变异的可移植工具、HTML 汇报件与 demo 骨架归下一程，方向在 `design/self-contained-assets.md`。
+0.2.0：十五个发行技能正文齐全，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。`node scripts/check-repo.mjs` 退出 0。结构读数与差分变异的可移植工具、HTML 汇报件与 demo 骨架归下一程，方向在 `design/self-contained-assets.md`。
 
 ## 校验
 

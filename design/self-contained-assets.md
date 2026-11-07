@@ -106,7 +106,6 @@
 | 结构读数的范围与覆盖率文件位置 | `slice-closeout` | 工具由本仓库带；omne 填范围与 lcov 路径。现在是 `pnpm run metrics --coverage`，不量 `tools/` 与 `scripts/` |
 | 差分变异的测试命令与范围 | `slice-closeout` | 工具由本仓库带；omne 填 vitest 命令与范围。现在是 `pnpm run mutation`，基线由 dev-flow `status` 判定 |
 | 文档检查命令 | `formal-docs-landing` | `pnpm run check:docs`、`check:design` |
-| 文档评审流程 | `formal-docs-landing` | `review-docs` 技能 |
 | 三层正式文档的位置 | `formal-docs-landing` | 产品正文、`docs/`、各包 |
 | 统一语言与领域对象的位置 | `requirement-and-invariants`、`domain-impact-analysis` | `.meta_harness/design/ubiquitous_language`、`domain_objects` |
 | 形式化工具链与声明边界 | `formal-guard` | TLC 工具链、`docs/verification.md` |
