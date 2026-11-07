@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<style>
+  :root { --bg: #ffffff; --fg: #24292f; --muted: #57606a; --line: #d0d7de; --box: #f6f8fa; --acc: #0969da; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0d1117; --fg: #c9d1d9; --muted: #8b949e; --line: #30363d; --box: #161b22; --acc: #58a6ff; } }
+  body { margin: 0; padding: 24px 16px 48px; background: var(--bg); color: var(--fg); font: 15px/1.6 "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; }
+  main { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; } .meta { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+  nav ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; } nav a { color: var(--acc); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: 13px; }
+  section.slice { border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin: 16px 0; background: var(--box); }
+  section.slice h2 { font-size: 17px; margin: 0 0 8px; } section.slice .when { color: var(--muted); font-size: 12px; }
+  pre, code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; } pre { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px; overflow-x: auto; }
+  iframe { width: 100%; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+</style>
+</head>
+<body>
+<main>
+  <h1>{{title}}</h1>
+  <div class="meta">每个切片追加一段，不重写整页。最新的一段在最下面。</div>
+  <nav><ul id="toc"></ul></nav>
+  <!-- pqw:sections -->
+  <!-- /pqw:sections -->
+</main>
+<script>
+  const toc = document.getElementById("toc");
+  for (const s of document.querySelectorAll("section.slice")) { const a = document.createElement("a"); a.href = "#" + s.id; a.textContent = s.querySelector("h2")?.textContent ?? s.id; const li = document.createElement("li"); li.appendChild(a); toc.appendChild(li); }
+</script>
+</body>
+</html>

@@ -1,5 +1,9 @@
 # pqw-skills
 
+## 0.3.0
+
+第二程。`slice-closeout` 自带结构读数与差分变异工具：先写与语言无关的模型 `metrics-model.md`（单元、判定、覆盖、CRAP、位点、裁定，取自 unclebob/crapper 与 mutator，0BSD），核心 `lib/core.mjs` 只认模型对象，`lib/adapter-typescript.mjs` 把 TypeScript 与 JavaScript 源码变成单元与位点。`metrics.mjs` 只摘改动函数的圈复杂度、认知复杂度与 CRAP，基线只认 Git ref；`mutation.mjs` 只打改动单元的位点，覆盖门控、历史沿用、时间预算、「没跑测试」复跑、SIGINT 还原。`progress-artifacts` 自带 `build-report.mjs` 网页汇报件与 `demo-append.mjs` 增量 demo。新增 `tests/`。接入槽位的「结构读数」「差分变异」两行改为只填覆盖率文件、测试命令与范围。已知整理项：三个 CLI 的逻辑写在模块层，模块级圈复杂度 67 到 74，下一程拆成函数。
+
 ## 0.2.0
 
 新增 `teach-pqw-skills`：教人用这套流的技能，自带心智模型与哲学、谁做什么、提示怎么写三份参考。全部 description 按 pstack 与 Matt 的指针写法重写：环节号领头、人会说的原话作触发、一条不加载、容易混的互指，学习结论在 `design/description-and-entry-study.md`。入口技能加开工动作：复述目标、把 13 个环节写进会话任务清单并给跳过留理由、「新任务」重判；规则按主题分组，末尾加容易混的环节。

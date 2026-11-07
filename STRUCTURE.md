@@ -27,6 +27,7 @@ pqw-skills/
 ├── scripts/
 │   ├── link-skills.sh        本机开发：把每个技能与元技能软链进 ~/.claude/skills 与 ~/.agents/skills
 │   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接
+├── tests/                    仓库测试，node:test，无依赖；需要 typescript 的用例从 PQW_TS 取
 └── skills/
     ├── single-session-dev-flow/   总入口；handoff-checklist.md
     ├── teach-pqw-skills/             教人用这套流；mental-models.md、who-does-what.md、prompting.md
@@ -40,8 +41,8 @@ pqw-skills/
     ├── context-pack/                 run-pack-template.md、slice-kickoff-template.md
     ├── delegate-brief/               brief-template.md
     ├── one-lesson-rule/              review-record-template.md、hosts.md、scripts/sentinel.mjs
-    ├── slice-closeout/               closeout-checklist.md
-    ├── progress-artifacts/           report-skeleton.md、scripts/artifacts-dir.mjs
+    ├── slice-closeout/               closeout-checklist.md、metrics-model.md、scripts/metrics.mjs、scripts/mutation.mjs、scripts/lib/{core,adapter-typescript}.mjs
+    ├── progress-artifacts/           report-skeleton.md、report-template.html、demo-skeleton.html、scripts/{artifacts-dir,build-report,demo-append}.mjs
     └── cleanup/                      checklist-template.md、scripts/cleanup.mjs
 ```
 
@@ -81,7 +82,7 @@ pqw-skills/
 
 ## 现在的状态
 
-0.2.0：十五个发行技能正文齐全，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。`node scripts/check-repo.mjs` 退出 0。结构读数与差分变异的可移植工具、HTML 汇报件与 demo 骨架归下一程，方向在 `design/self-contained-assets.md`。
+0.3.0：十五个发行技能正文齐全，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。`node scripts/check-repo.mjs` 退出 0。结构读数与差分变异的可移植工具、HTML 汇报件与 demo 骨架归下一程，方向在 `design/self-contained-assets.md`。
 
 ## 校验
 

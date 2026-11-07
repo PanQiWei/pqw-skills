@@ -20,8 +20,8 @@ description: 交付期第 12 步，向人汇报：用架构图、UML、可增量
 | 形式 | 讲什么 | 怎么做 |
 | --- | --- | --- |
 | 架构图与 UML | 实现在架构层面长什么样，和之前比有什么区别，还缺什么 | Mermaid，前后对照两张图或一张图标出新增与改动。至多六个框，每框至多八个词。只在图能降低理解难度时画 |
-| 快速 demo | 重要的产品功能让人直接上手 | 单文件 HTML，可增量更新：每个切片追加一段，不重写整页。做法调用 Skill 工具加载 `mattpocock-skills:prototype` |
-| 进展文档 | 变了什么、还缺什么、待人决定什么 | 按[汇报件骨架](report-skeleton.md)写 Markdown；交互式网页版归下一程的工具 |
+| 快速 demo | 重要的产品功能让人直接上手 | 单文件 HTML，可增量更新：用 [`scripts/demo-append.mjs`](scripts/demo-append.mjs) 从[骨架](demo-skeleton.html)创建，每个切片追加一段，同一切片号再追加时替换，不重写整页。片段怎么做调用 Skill 工具加载 `mattpocock-skills:prototype` |
+| 进展文档 | 变了什么、还缺什么、待人决定什么 | 网页版用 [`scripts/build-report.mjs`](scripts/build-report.mjs) 从 plan 的进度总览、读数 JSON、前后 Mermaid 与待决事项生成单文件 HTML（模板 [`report-template.html`](report-template.html)，带暗色适配）；只要 Markdown 时按[汇报件骨架](report-skeleton.md)写 |
 
 ## 讲法
 

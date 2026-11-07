@@ -94,7 +94,7 @@
 | 汇报件 | 一份 HTML 骨架：进展（读 plan 的进度表）、架构变化（Mermaid 前后对照）、读数（结构读数与变异的 JSON）、还缺什么、待人决定。图表按统一的配色与暗色适配 |
 | demo 骨架 | 单文件 HTML，可增量更新：每个切片追加一段，不重写整页 |
 
-这四块是实现工作，不是文档工作。等正文确认后立项，这一轮只记方向。
+这四块已在第二程实现：`slice-closeout/scripts/metrics.mjs`、`mutation.mjs`（核心在 `lib/core.mjs`，TypeScript 适配器在 `lib/adapter-typescript.mjs`，模型在 `metrics-model.md`），`progress-artifacts/scripts/build-report.mjs` 与 `demo-append.mjs`。
 
 ## 接入点：消费者项目要提供什么
 
@@ -103,8 +103,8 @@
 | 槽位 | 谁用 | omne 现在的值 |
 | --- | --- | --- |
 | 类型检查与 lint 命令 | `slice-closeout` | `pnpm run typecheck`、`lint:rules`、`lint:oxlint`、`lint:deps` |
-| 结构读数的范围与覆盖率文件位置 | `slice-closeout` | 工具由本仓库带；omne 填范围与 lcov 路径。现在是 `pnpm run metrics --coverage`，不量 `tools/` 与 `scripts/` |
-| 差分变异的测试命令与范围 | `slice-closeout` | 工具由本仓库带；omne 填 vitest 命令与范围。现在是 `pnpm run mutation`，基线由 dev-flow `status` 判定 |
+| 结构读数的覆盖率文件与范围（工具自带） | `slice-closeout` | 工具由本仓库带；omne 填范围与 lcov 路径。现在是 `pnpm run metrics --coverage`，不量 `tools/` 与 `scripts/` |
+| 差分变异的测试命令与范围（工具自带） | `slice-closeout` | 工具由本仓库带；omne 填 vitest 命令与范围。现在是 `pnpm run mutation`，基线由 dev-flow `status` 判定 |
 | 文档检查命令 | `formal-docs-landing` | `pnpm run check:docs`、`check:design` |
 | 三层正式文档的位置 | `formal-docs-landing` | 产品正文、`docs/`、各包 |
 | 统一语言与领域对象的位置 | `requirement-and-invariants`、`domain-impact-analysis` | `.meta_harness/design/ubiquitous_language`、`domain_objects` |

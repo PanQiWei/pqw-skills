@@ -16,12 +16,15 @@ bash scripts/link-skills.sh
 
 把 `skills/*` 与 `meta/skills/*` 软链进 `~/.claude/skills` 与 `~/.agents/skills`。增删重命名技能后重跑。链接后宿主新开会话即可看到技能；已经开着的会话不会重新加载。
 
-## 一致性检查
+## 一致性检查与测试
 
 ```bash
 node scripts/check-repo.mjs
 claude plugin validate .
+PQW_TS=<typescript 包目录> node --test tests/
 ```
+
+`tests/` 用 `node:test`，夹具在系统临时目录建小 Git 仓库。需要 typescript 的用例从 `PQW_TS` 取包目录（要 JS 实现的 typescript，6.x 可用），取不到就跳过并打印原因。差分变异的用例要跑真实的测试命令，整套约一分钟。
 
 第一条核：`skills/` 扁平布局、frontmatter、无「待写」、三处同步、外部引用在钉定版本里存在、DMI 技能的措辞、发行技能与模板里无项目概念禁词、全仓散文无破折号、模板被 `SKILL.md` 链接。退出 0 通过，1 列出失败，2 用法错误。
 

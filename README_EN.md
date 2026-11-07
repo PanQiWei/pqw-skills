@@ -1,7 +1,7 @@
 # pqw-skills
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.0-informational.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.0-informational.svg)](./CHANGELOG.md)
 [![Skills](https://img.shields.io/badge/skills-15-success.svg)](#skills)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#install)
 [![Language](https://img.shields.io/badge/lang-%E4%B8%AD%E6%96%87%20%7C%20English-lightgrey.svg)](./README.md)
@@ -59,8 +59,8 @@ The definition period is human-led. Each step answers one question, produces one
 | 8 | [context-pack](./skills/context-pack/SKILL.md) | Before the run, assemble the context pack and do detailed design plus technical verification of the key parts; before each slice, build the kickoff pack: context delta, technical design and verification, refined execution plan, milestone todo list | architect, prototype, principle-guard-the-context-window, recall |
 | 9 | [delegate-brief](./skills/delegate-brief/SKILL.md) | Pass the delegation gate first; doing it yourself is the default. When delegating, supply goal, boundary, spec and context pack, and take raw results back, not summaries; anti-cheating acceptance, escalation, merge-back | poteto-mode, swarm, principle-separate-before-serializing-shared-state |
 | 10 | [one-lesson-rule](./skills/one-lesson-rule/SKILL.md) | A sentinel script woken by the host's native timer reads the plan and the working tree and writes an incremental report; the main agent reviews from the top every 45 to 60 minutes and checks subagent health every 30 minutes | recall, show-me-your-work |
-| 11 | [slice-closeout](./skills/slice-closeout/SKILL.md) | Six closeout steps per slice: type check and lint, check against spec and invariants, structure metrics, differential mutation, remove AI slop, prove it works; deterministic acceptance, no adversarial review | code-review, deslop, unslop, principle-prove-it-works, typescript-best-practices, ub-mode |
-| 12 | [progress-artifacts](./skills/progress-artifacts/SKILL.md) | Keep the human at the top with disposable artifacts: architecture diagrams, UML, quick demos, stored under the OS temp directory; ships a directory script and a report skeleton | ketchup, prototype |
+| 11 | [slice-closeout](./skills/slice-closeout/SKILL.md) | Six closeout steps per slice: type check and lint, check against spec and invariants, structure metrics, differential mutation, remove AI slop, prove it works; deterministic acceptance, no adversarial review. Ships `metrics.mjs` (cyclomatic, cognitive complexity and CRAP of changed functions) and `mutation.mjs` (hotspot differential mutation with a time budget and guaranteed restore), a language-independent model plus a TypeScript adapter | code-review, deslop, unslop, principle-prove-it-works, typescript-best-practices, ub-mode |
+| 12 | [progress-artifacts](./skills/progress-artifacts/SKILL.md) | Keep the human at the top with disposable artifacts: architecture diagrams, UML, quick demos, stored under the OS temp directory; ships a directory script, `build-report.mjs` for a single-file HTML report, a demo skeleton and `demo-append.mjs` | ketchup, prototype |
 | 13 | [cleanup](./skills/cleanup/SKILL.md) | After each slice, remove intermediate products the next slice does not need; after the run, clean everything; ships a list-then-delete script and a delivery statement | none |
 
 Implementation itself follows TDD, without over-design or over-optimization, carried by `pstack:poteto-mode` and `mattpocock-skills:tdd`. This repository does not rewrite them. The References column lists the external skills each `SKILL.md` currently declares; the full mapping of primary and secondary references is in [design/skill-mapping.md](./design/skill-mapping.md).
@@ -184,7 +184,7 @@ See [STRUCTURE.md](./STRUCTURE.md). Maintenance rules are in [AGENTS.md](./AGENT
 
 ## Status
 
-0.2.0. Fifteen distributed skills with full text, one of them teaching people the flow; seventeen templates and three scripts ship inside the skill directories; two meta skills migrated from omne-harness-lite. Portable tools for structure metrics and differential mutation, HTML report artifacts and demo skeletons are planned for the next run.
+0.3.0. Fifteen distributed skills with full text, one of them teaching people the flow; eighteen templates and skeletons and seven scripts ship inside the skill directories: sentinel, artifacts directory, cleanup, structure metrics, differential mutation, HTML report, demo append; two meta skills migrated from omne-harness-lite. Repository tests run with `node --test tests/`; the cases that need typescript read its path from `PQW_TS`.
 
 ## License
 

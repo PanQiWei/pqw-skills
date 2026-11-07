@@ -1,7 +1,7 @@
 # pqw-skills
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.2.0-informational.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.3.0-informational.svg)](./CHANGELOG.md)
 [![Skills](https://img.shields.io/badge/skills-15-success.svg)](#技能)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#安装)
 [![Language](https://img.shields.io/badge/lang-%E4%B8%AD%E6%96%87%20%7C%20English-lightgrey.svg)](./README_EN.md)
@@ -57,8 +57,8 @@
 | 8 | [context-pack](./skills/context-pack/SKILL.md) | 整程开工前整理上下文包并做关键环节的细化设计与技术验证；每切片前做开工包：上下文增量、技术设计与验证、细化推进方案、里程碑待办清单 | architect、prototype、principle-guard-the-context-window、recall |
 | 9 | [delegate-brief](./skills/delegate-brief/SKILL.md) | 先过派发门，主代理自己做是默认；派时给齐目标、边界、规格、信息包四样东西，交回要原始结果；验收防作弊、升级、合回 | poteto-mode、swarm、principle-separate-before-serializing-shared-state |
 | 10 | [one-lesson-rule](./skills/one-lesson-rule/SKILL.md) | 哨兵脚本由宿主原生定时机制唤醒，读 plan 与工作树写增量汇报；主代理每 45 到 60 分钟从顶层回看，子代理每 30 分钟看一次健康度 | recall、show-me-your-work |
-| 11 | [slice-closeout](./skills/slice-closeout/SKILL.md) | 每切片收口六步：类型检查与 lint、对照 spec 与不变式、结构读数、差分变异、去 AI slop、证明可用；确定性验收，不做对抗性评审 | code-review、deslop、unslop、principle-prove-it-works、typescript-best-practices、ub-mode |
-| 12 | [progress-artifacts](./skills/progress-artifacts/SKILL.md) | 用架构图、UML、快速 demo 等用完即弃的汇报件让人留在高层，放系统临时目录；自带目录脚本与汇报件骨架 | ketchup、prototype |
+| 11 | [slice-closeout](./skills/slice-closeout/SKILL.md) | 每切片收口六步：类型检查与 lint、对照 spec 与不变式、结构读数、差分变异、去 AI slop、证明可用；确定性验收，不做对抗性评审。自带 `metrics.mjs`（改动函数的圈复杂度、认知复杂度、CRAP）与 `mutation.mjs`（热点差分变异，带预算与还原），与语言无关的模型加 TypeScript 适配器 | code-review、deslop、unslop、principle-prove-it-works、typescript-best-practices、ub-mode |
+| 12 | [progress-artifacts](./skills/progress-artifacts/SKILL.md) | 用架构图、UML、快速 demo 等用完即弃的汇报件让人留在高层，放系统临时目录；自带目录脚本、`build-report.mjs` 网页汇报件生成器、demo 骨架与 `demo-append.mjs` | ketchup、prototype |
 | 13 | [cleanup](./skills/cleanup/SKILL.md) | 每切片清一次不必留给下一切片的中间产物；一程交付后全盘清理；自带先列后删的清理脚本与交付声明 | 无 |
 
 实施本身走 TDD，不过度设计，不过度优化，由 `pstack:poteto-mode` 与 `mattpocock-skills:tdd` 承载，本仓库不另写。表里的「引用」列是各 `SKILL.md` 当前声明的外部技能；完整的主引用与辅助引用见 [design/skill-mapping.md](./design/skill-mapping.md)。
@@ -173,4 +173,4 @@ bash scripts/link-skills.sh
 
 ## 状态
 
-0.2.0。十五个发行技能正文齐全，其中一个教人用这套流，十七份模板、三个脚本随技能目录发行；两个元技能迁自 omne-harness-lite。结构读数与差分变异的可移植工具、HTML 汇报件与 demo 骨架归下一程。
+0.3.0。十五个发行技能正文齐全，其中一个教人用这套流。十八份模板与骨架、七个脚本随技能目录发行：哨兵、汇报件目录、清理、结构读数、差分变异、网页汇报件、demo 追加；两个元技能迁自 omne-harness-lite。仓库测试 `node --test tests/`，需要 typescript 的用例从 `PQW_TS` 取。
