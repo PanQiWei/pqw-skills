@@ -169,8 +169,10 @@ function offsetOf(text, { line, column }) {
   return pos + column - 1;
 }
 
+/** 单元表里没有 <module> 时（适配器只在有顶层语句时给）顶层变异体挂到这个占位上。 */
+const MODULE_UNIT = { name: "<module>", startLine: 1, endLine: Infinity, startByte: 0 };
 /** 行所在的最小有名单元；都不在就是 <module>。 */
-const unitAt = (units, line) => units.filter((u) => u.name !== "<module>" && u.startLine <= line && line <= u.endLine).sort((a, b) => (a.endLine - a.startLine) - (b.endLine - b.startLine))[0] ?? units.find((u) => u.name === "<module>");
+const unitAt = (units, line) => units.filter((u) => u.name !== "<module>" && u.startLine <= line && line <= u.endLine).sort((a, b) => (a.endLine - a.startLine) - (b.endLine - b.startLine))[0] ?? units.find((u) => u.name === "<module>") ?? MODULE_UNIT;
 
 /** 一个变异体变一个位点：单元按行找，原文按位置切，状态按表映射。 */
 function mutantSite(path, entry, m, pinned) {
@@ -234,4 +236,38 @@ export const rememberFingerprint = (dir, fingerprint) => writeFileSync(join(dir,
 /** 映射要用的文件表：path → { text, units, digests }；单元由现有适配器按行找。 */
 export function fileEntries(root, ts, files) {
   return new Map(files.map((path) => { const text = readFileSync(join(root, path), "utf8"); const { units } = analyze(ts, path, text); return [path, { text, units, digests: unitDigests(text, units) }]; }));
+}
+
+// ---- 超时复核：第一轮超时的变异体所在的整行再跑一轮，结果按位点 id 并入。
+
+/** 第一轮报告里超时变异体所在的整行范围，作第二轮的 mutate 条目 `路径:起行-止行`，相邻行合并；只看 files 里的文件。用整行而不是行列，避开列号基数的歧义；同行别的变异体顺带再跑，并入时只认超时的那些。 */
+export function timeoutEntries(report, files) {
+  const entries = [];
+  for (const path of files.keys()) {
+    const lines = new Set();
+    for (const m of report?.files?.[path]?.mutants ?? []) if (m.status === "Timeout") for (let l = m.location.start.line; l <= m.location.end.line; l++) lines.add(l);
+    for (const [a, b] of segments([...lines].sort((x, y) => x - y))) entries.push(`${path}:${a}-${b}`);
+  }
+  return entries;
+}
+
+const RECHECK = { Killed: ["killed", "recheck"], Survived: ["survived", "recheck"], Timeout: ["killed", "timeout"] };
+
+/**
+ * 把第二轮报告并进位点：只动第一轮超时的位点，按位点 id（文件、单元内偏移、类别、替换）对上，两轮之间 Stryker 重新编号所以不用它的 id。
+ * Killed、Survived 改裁定、原因记 recheck；仍 Timeout 保持；别的状态或没对上记未复核、裁定不动。返回复核计数。
+ */
+export function mergeRecheck(sites, recheckReport, files) {
+  const found = new Map();
+  for (const [path, entry] of files) for (const m of recheckReport?.files?.[path]?.mutants ?? []) found.set(mutantSite(path, entry, m, false).id, m.status);
+  const r = { total: 0, killed: 0, survived: 0, timedOut: 0, notRun: 0 };
+  for (const s of sites) {
+    if (s.reason !== "timeout") continue;
+    r.total++;
+    const status = found.get(s.id);
+    if (!(status in RECHECK)) { r.notRun++; continue; }
+    [s.verdict, s.reason] = RECHECK[status];
+    r[status === "Killed" ? "killed" : status === "Survived" ? "survived" : "timedOut"]++;
+  }
+  return r;
 }

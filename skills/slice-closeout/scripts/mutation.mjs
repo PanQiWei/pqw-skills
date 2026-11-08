@@ -6,7 +6,7 @@ import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from "node
 import { resolve, join } from "node:path";
 import { parseArgs, parseScope, resolveBase, sh, changedLines } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
-import { chooseEngine, mutateEntries, unitRanges, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries, strykerFingerprint, incrementalFor, rememberFingerprint } from "./lib/stryker.mjs";
+import { chooseEngine, mutateEntries, unitRanges, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries, strykerFingerprint, incrementalFor, rememberFingerprint, timeoutEntries, mergeRecheck } from "./lib/stryker.mjs";
 import { parseDuration, summarize, formatMutation, capacity, plannedWorkers, niceAvailable, isMutable } from "./lib/mutation.mjs";
 
 const USAGE = `用法：mutation.mjs [选项]
@@ -30,9 +30,13 @@ const USAGE = `用法：mutation.mjs [选项]
   --no-nice                  不降低 Stryker 进程的优先级；缺省 nice 10，Windows 不降
 
 增量：Stryker 的 incremental 文件在系统临时目录的工作目录里，指纹（工具版本、vitest 版本与配置文件、测试文件摘要、Stryker 版本）变了整轮重跑，抬头写「沿用 N」。
+
+复核：第一轮有超时的变异体时再起一轮，只打它们所在的行，一个进程、时限放宽、不进增量；结果并回位点，抬头写「复核 N（超时转杀死 a、存活 b、仍超时 c）」。超时常是机器忙而不是测试强，复核过的分数才可信。
+  --no-recheck               不起第二轮
+  --recheck-timeout <时长>   第二轮的 timeoutMS；缺省是第一轮 --timeout（没给按 Stryker 缺省 5000 毫秒）的 4 倍且至少 60 秒
 0.8.0 起退役的参数：--test、--engine、--lcov、--budget、--history、--no-tests-pattern、--load-ceiling（内建引擎及它的预算、覆盖门控、历史沿用、运行中自适应随之删除）；给了退出 2。
 退出 0 正常；1 初跑不通过；2 用法错误、未提供 typescript、项目不是 vitest 或找不到 Stryker；129 收到 SIGHUP、130 被中断、143 被终止。`;
-const SPEC = { repo: "value", base: "value", target: "value", ts: "value", scope: "value", files: "value", json: "value", format: "value", "plan-only": "flag", timeout: "value", "stryker-modules": "value", workers: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "no-nice": "flag" };
+const SPEC = { repo: "value", base: "value", target: "value", ts: "value", scope: "value", files: "value", json: "value", format: "value", "plan-only": "flag", timeout: "value", "no-recheck": "flag", "recheck-timeout": "value", "stryker-modules": "value", workers: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "no-nice": "flag" };
 const RETIRED = { test: "测试命令由 Stryker 起 vitest，不再需要", engine: "内建引擎已删，只有 Stryker 一种", lcov: "覆盖由 Stryker 按用例记，不读 lcov", budget: "Stryker 没有整轮预算，超时的变异体改为单独复核", history: "增量由 Stryker 的 incremental 文件负责", "no-tests-pattern": "「没跑测试」是内建引擎跑整套命令时的问题，Stryker 按用例跑", "load-ceiling": "并行度启动时定下，运行中不调" };
 const retired = process.argv.slice(2).map((a) => /^--([a-z-]+)/.exec(a)?.[1]).find((k) => k && k in RETIRED);
 if (retired) { console.error(`--${retired} 0.8.0 起退役：${RETIRED[retired]}`); process.exit(2); }
@@ -64,7 +68,7 @@ function loadInputs() {
   const ts = load(() => loadTypescript(opts.ts, root));
   const { modules, configFile, ...engine } = load(() => chooseEngine({ root, modulesDir: opts["stryker-modules"] }));
   const { base, baseGiven } = load(() => resolveBase(root, opts.base, opts.target));
-  return { root, ts, engine, stryker: { modules, configFile }, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources: planResources(), fingerprint: strykerFingerprint(root, { ...engine, modules, configFile }), timeoutMs: duration(opts.timeout, null) };
+  return { root, ts, engine, stryker: { modules, configFile }, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources: planResources(), fingerprint: strykerFingerprint(root, { ...engine, modules, configFile }), timeoutMs: duration(opts.timeout, null), recheckTimeoutMs: duration(opts["recheck-timeout"], null) };
 }
 
 /** 写 JSON 文件与打印。 */
@@ -90,33 +94,55 @@ function finish(result) {
   if (result.reused !== undefined) result.summary.carried = result.reused;
 }
 
-/** 起一轮 Stryker 并把报告并进 result。初跑失败（退出非零且无报告）记基线不通过，返回 1。 */
-async function execute(result, { root, stryker, entries, ranges }) {
+/** 正在跑的那轮：收到信号时先结束它、删自己建的 .stryker-tmp，再按信号退出。 */
+let current = null;
+const interrupted = (code) => { const c = current; if (!c) process.exit(code); c.run.kill(); c.run.done.then(() => { c.cleanup(); process.exit(code); }); };
+process.on("SIGHUP", () => interrupted(129));
+process.on("SIGINT", () => interrupted(130));
+process.on("SIGTERM", () => interrupted(143));
+
+/** 起一轮 Stryker：配置、报告、日志都以 name 命名放在工作目录；返回运行结果、报告（没有为 null）与日志路径。 */
+async function runOnce({ root, stryker, name, config }) {
   const dir = workDir(root);
   mkdirSync(dir, { recursive: true });
-  const reportPath = join(dir, "mutation.json"), configPath = join(dir, "stryker.json"), logPath = join(dir, "stryker.log"), tempDir = join(root, ".stryker-tmp");
+  const reportPath = join(dir, `${name}.json`), configPath = join(dir, `stryker-${name}.json`), logPath = join(dir, `${name}.log`), tempDir = join(root, ".stryker-tmp");
   rmSync(reportPath, { force: true }); rmSync(logPath, { force: true });
   const hadTempDir = existsSync(tempDir);
-  const incremental = incrementalFor(dir, inputs.fingerprint);
-  result.incremental = { file: incremental.file, force: incremental.force };
-  writeFileSync(configPath, JSON.stringify(strykerConfig({ entries: result.mutate, configFile: stryker.configFile, concurrency: inputs.resources.workers, reportPath, timeoutMs: inputs.timeoutMs, incremental }), null, 2) + "\n");
+  const cleanup = () => { if (!hadTempDir) rmSync(tempDir, { recursive: true, force: true }); };
+  writeFileSync(configPath, JSON.stringify(strykerConfig({ ...config, configFile: stryker.configFile, reportPath }), null, 2) + "\n");
   const run = runStryker({ root, coreBin: stryker.modules.coreBin, configPath, nice: inputs.resources.nice, logPath, onProgress: (line) => console.error(line) });
-  const interrupted = (code) => { run.kill(); run.done.then(() => { if (!hadTempDir) rmSync(tempDir, { recursive: true, force: true }); process.exit(code); }); };
-  process.on("SIGHUP", () => interrupted(129));
-  process.on("SIGINT", () => interrupted(130));
-  process.on("SIGTERM", () => interrupted(143));
+  current = { run, cleanup };
   const r = await run.done;
-  if (!hadTempDir) rmSync(tempDir, { recursive: true, force: true });
+  current = null;
+  cleanup();
+  return { r, report: readReport(reportPath), logPath };
+}
+
+/** 第一轮：全部范围，带增量。初跑失败（退出非零且无报告）记基线不通过，code 为 1；返回报告给复核用。 */
+async function execute(result, { root, stryker, entries, ranges }) {
+  const incremental = incrementalFor(workDir(root), inputs.fingerprint);
+  result.incremental = { file: incremental.file, force: incremental.force };
+  const { r, report, logPath } = await runOnce({ root, stryker, name: "mutation", config: { entries: result.mutate, concurrency: inputs.resources.workers, timeoutMs: inputs.timeoutMs, incremental } });
   result.resources.timing = { totalSeconds: r.seconds };
-  const report = readReport(reportPath);
-  if (!report) { result.baseline = { passed: false, seconds: r.seconds, tail: `${r.tail}\n（完整日志 ${logPath}）` }; return 1; }
+  if (!report) { result.baseline = { passed: false, seconds: r.seconds, tail: `${r.tail}\n（完整日志 ${logPath}）` }; return { code: 1, report }; }
   result.baseline = { passed: true, seconds: r.dryRunSeconds };
-  rememberFingerprint(dir, inputs.fingerprint);
+  rememberFingerprint(workDir(root), inputs.fingerprint);
   result.reused = r.reused ?? 0;
   if (incremental.force && incremental.previous !== null) result.engine.notes.push("增量：指纹变了，整轮重跑");
   else if (result.reused === 0) result.engine.notes.push("增量：已开，本轮没有沿用");
   Object.assign(result, mapReport({ report, files: entries, ranges, pinned }));
-  return r.status === 0 ? 0 : 1;
+  return { code: r.status === 0 ? 0 : 1, report };
+}
+
+/** 第二轮：第一轮超时的变异体所在的整行，一个进程、时限放宽、不进增量；结果并入位点。第二轮没有报告时全部记未复核，第一轮裁定不动，退出码不变。 */
+async function recheckTimeouts(result, report, { root, stryker, entries }) {
+  const mutate = timeoutEntries(report, entries);
+  if (mutate.length === 0) return;
+  const timeoutMs = inputs.recheckTimeoutMs ?? Math.max(4 * (inputs.timeoutMs ?? 5000), 60000);
+  const { r, report: second, logPath } = await runOnce({ root, stryker, name: "recheck", config: { entries: mutate, concurrency: 1, timeoutMs, incremental: null } });
+  result.resources.timing.recheckSeconds = r.seconds;
+  result.recheck = { ...mergeRecheck(result.sites, second, entries), seconds: r.seconds };
+  if (!second) result.engine.notes.push(`复核未完成：第二轮 Stryker 退出 ${r.status ?? r.signal} 且没有报告（日志 ${logPath}），${result.recheck.total} 个超时位点保持第一轮裁定`);
 }
 
 const { root, ts, stryker } = inputs;
@@ -126,7 +152,12 @@ const entries = fileEntries(root, ts, files);
 // 范围：改动行所在单元自己的全部行；点名的文件整份。
 const ranges = new Map(files.map((p) => [p, unitRanges(entries.get(p).units, changed.get(p) ?? [])]));
 const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, engine: { ...inputs.engine, notes: engineNotes(root) }, fingerprint: inputs.fingerprint, pinned, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, resources: inputs.resources, mutate: mutateEntries(ranges, pinned, files), sites: [], unmutated: [], summary: {}, survivors: [], recheck: null };
-const code = !result.planOnly && result.mutate.length > 0 ? await execute(result, { root, stryker, entries, ranges }) : 0;
+let code = 0;
+if (!result.planOnly && result.mutate.length > 0) {
+  const first = await execute(result, { root, stryker, entries, ranges });
+  code = first.code;
+  if (first.report && !opts["no-recheck"]) await recheckTimeouts(result, first.report, { root, stryker, entries });
+}
 finish(result);
 emit(result);
 process.exit(code);

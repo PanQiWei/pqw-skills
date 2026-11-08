@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { spawnSync, spawn } from "node:child_process";
 import { join } from "node:path";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { makeRepo, writeFiles, dispose, tsPath, strykerModules } from "./fixture.mjs";
+import { makeRepo, writeFiles, dispose, tsPath, strykerModules, git } from "./fixture.mjs";
 
 const SCRIPT = new URL("../skills/slice-closeout/scripts/mutation.mjs", import.meta.url).pathname;
 const TS = tsPath();
@@ -103,7 +103,7 @@ test.skipIf(skipReal)("Stryker 引擎真跑一轮：四类计数与表格同内�
     assert.equal(readFileSync(join(dir, "src/calc.ts"), "utf8"), mutated, "项目文件不变");
     assert.equal(existsSync(join(dir, ".stryker-tmp")), false);
     assert.ok(existsSync(join(workDir(dir), "mutation.json")));
-    assert.ok(existsSync(join(workDir(dir), "stryker.log")));
+    assert.ok(existsSync(join(workDir(dir), "mutation.log")));
     assert.deepEqual(json.incremental, { file: join(workDir(dir), "incremental.json"), force: true });
     assert.equal(json.fingerprint.testCommand, "vitest@4.1.11 + vitest.config.ts");
     assert.equal(json.fingerprint.strykerVersion, "10.1.1");
@@ -120,13 +120,33 @@ test.skipIf(skipReal)("Stryker 引擎真跑一轮：四类计数与表格同内�
   } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); }
 });
 
+test.skipIf(skipReal)("Stryker 真跑的超时复核：死循环变异体第一轮超时，第二轮一个进程、时限按 --recheck-timeout 仍超时，抬头写复核 N（仍超时 N）", () => {
+  const dir = makeVitestRepo(MODULES);
+  try {
+    writeFiles(dir, { "src/loop.ts": "export function count(n: number): number {\n  let total = 0;\n  for (let i = 0; i < n; i++) total += 1;\n  return total;\n}\n", "test/loop.test.ts": 'import { test, expect } from "vitest";\nimport { count } from "../src/loop";\n\ntest("count", () => {\n  expect(count(3)).toBe(3);\n  expect(count(0)).toBe(0);\n});\n' });
+    git(dir, "add -A"); git(dir, 'commit -q -m loop');
+    writeFiles(dir, { "src/loop.ts": readFileSync(join(dir, "src/loop.ts"), "utf8").replace("total += 1", "total = total + 1") });
+    const r = strykerRun(dir, ["--json", join(dir, "out.json"), "--recheck-timeout", "3s"]);
+    assert.equal(r.status, 0, r.stderr + r.stdout);
+    const json = JSON.parse(readFileSync(join(dir, "out.json"), "utf8"));
+    assert.ok(json.recheck && json.recheck.total >= 1, `有超时才有复核：${JSON.stringify(json.recheck)}`);
+    assert.deepEqual([json.recheck.killed, json.recheck.survived, json.recheck.notRun, json.recheck.timedOut, json.summary.timedOut], [0, 0, 0, json.recheck.total, json.recheck.total], "死循环放宽时限仍超时");
+    assert.match(r.stdout, new RegExp(`（其中超时 ${json.recheck.total}）[^\\n]*；复核 ${json.recheck.total}（超时转杀死 0、存活 0、仍超时 ${json.recheck.total}）\\n`));
+    assert.match(r.stdout, /Stryker 一轮 [\d.]+s，复核 [\d.]+s，并行度启动时定下/);
+    const second = JSON.parse(readFileSync(join(workDir(dir), "stryker-recheck.json"), "utf8"));
+    assert.deepEqual([second.concurrency, second.timeoutMS, second.incremental], [1, 3000, false]);
+    assert.ok(second.mutate.every((e) => /^src\/loop\.ts:\d+-\d+$/.test(e)), JSON.stringify(second.mutate));
+    assert.equal(existsSync(join(dir, ".stryker-tmp")), false);
+  } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); }
+});
+
 test.skipIf(skipReal)("Stryker 初跑失败：退出 1，抬头写测量无效（Stryker 初跑失败），基线不通过带日志尾，.stryker-tmp 已删", () => {
   const dir = makeVitestRepo(MODULES);
   try {
     writeFiles(dir, { "src/calc.ts": VITEST_SRC.replace("  return n > 0;", "  return n < 0;") });
     const r = strykerRun(dir, []);
     assert.equal(r.status, 1, r.stdout);
-    assert.match(r.stdout, /^差分变异：基线 [0-9a-f]{12} 到工作树；位点 0：测量无效（Stryker 初跑失败）\n基线不通过：\n[\s\S]*initial test run[\s\S]*完整日志 .*stryker\.log）\n引擎：Stryker 10\.1\.1（vitest）\n/);
+    assert.match(r.stdout, /^差分变异：基线 [0-9a-f]{12} 到工作树；位点 0：测量无效（Stryker 初跑失败）\n基线不通过：\n[\s\S]*initial test run[\s\S]*完整日志 .*mutation\.log）\n引擎：Stryker 10\.1\.1（vitest）\n/);
     assert.equal(existsSync(join(dir, ".stryker-tmp")), false);
   } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); }
 });

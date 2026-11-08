@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { searchDirs, resolveStryker, detectRunner, chooseEngine, SCRIPTS_MODULES } from "../skills/slice-closeout/scripts/lib/stryker.mjs";
+import { searchDirs, resolveStryker, detectRunner, chooseEngine, SCRIPTS_MODULES, timeoutEntries, mergeRecheck, mapReport } from "../skills/slice-closeout/scripts/lib/stryker.mjs";
 
 const tmp = () => mkdtempSync(join(tmpdir(), "pqw-stryker-"));
 const pkg = (dir, name, extra = {}) => { mkdirSync(join(dir, name), { recursive: true }); writeFileSync(join(dir, name, "package.json"), JSON.stringify({ name, version: "9.9.9", ...extra })); };
@@ -242,4 +242,44 @@ test("增量：没有记录 force；记过同样的指纹不 force；指纹变�
       assert.equal(strykerFingerprint(repo, { version: "10.1.1", modules: { vitestVersion: null }, configFile: null }).testCommand, "vitest@? + 无配置");
     } finally { dispose(repo); }
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ---- 超时复核的两个纯函数。位点的 id 由 mutantSite 算，这里给 entry 最小的 text 与 units。
+const ENTRY = { text: "a\nb\nc\nd\ne\n", units: [{ name: "f", startLine: 1, endLine: 5, startByte: 0 }] };
+const at = (line, endLine = line) => ({ start: { line, column: 1 }, end: { line: endLine, column: 2 } });
+const m = (id, status, line, replacement = "x", endLine = line) => ({ id, mutatorName: "EqualityOperator", replacement, status, location: at(line, endLine) });
+
+test("timeoutEntries：只取 Timeout，整行、相邻合并、跨行展开、只看给的文件", () => {
+  const report = { files: { "a.ts": { mutants: [m("4", "Timeout", 5, "y", 7), m("2", "Timeout", 3), m("3", "Killed", 4), m("1", "Timeout", 2)] }, "b.ts": { mutants: [m("5", "Timeout", 1)] } } };
+  assert.deepEqual(timeoutEntries(report, new Map([["a.ts", ENTRY]])), ["a.ts:2-3", "a.ts:5-7"], "报告里的顺序不影响，相邻合并");
+  assert.deepEqual(timeoutEntries(null, new Map([["a.ts", ENTRY]])), []);
+  assert.deepEqual(timeoutEntries({ files: {} }, new Map([["a.ts", ENTRY]])), [], "报告里没有这个文件");
+});
+
+test("mergeRecheck：按位点 id 并入，Killed 与 Survived 改裁定记 recheck，仍 Timeout 保持，没对上或别的状态记未复核且不动", () => {
+  const files = new Map([["a.ts", ENTRY]]);
+  const site = (id, replacement) => ({ id: `a.ts:f:${id}:equality:${replacement}`, verdict: "killed", reason: "timeout" });
+  // 行 2 的偏移是 2，行 3 是 4，行 4 是 6，行 5 是 8。
+  const sites = [site(2, "p"), site(4, "q"), site(6, "r"), site(8, "s"), site(6, "t"), { id: "a.ts:f:0:equality:z", verdict: "killed", reason: null }];
+  const second = { files: { "a.ts": { mutants: [m("9", "Killed", 2, "p"), m("8", "Survived", 3, "q"), m("7", "Timeout", 4, "r"), m("6", "RuntimeError", 5, "s"), m("5", "Timeout", 4, "t")] } } };
+  assert.deepEqual(mergeRecheck(sites, second, files), { total: 5, killed: 1, survived: 1, timedOut: 2, notRun: 1 });
+  assert.deepEqual(sites.map((s) => [s.verdict, s.reason]), [["killed", "recheck"], ["survived", "recheck"], ["killed", "timeout"], ["killed", "timeout"], ["killed", "timeout"], ["killed", null]]);
+  assert.deepEqual(mergeRecheck([site(2, "p")], null, files), { total: 1, killed: 0, survived: 0, timedOut: 0, notRun: 1 });
+  assert.deepEqual(mergeRecheck([site(2, "p")], { files: {} }, files), { total: 1, killed: 0, survived: 0, timedOut: 0, notRun: 1 }, "第二轮报告里没有这个文件");
+});
+
+test("mapReport：单元表里没有 <module> 时顶层行的变异体挂到 <module>，不崩（本仓库 lib/stryker.mjs 顶层常量上的变异体曾让一轮在映射时崩掉）", () => {
+  const entry = { text: "const A = [1];\nexport function f() { return 1; }\n", units: [{ name: "f", startLine: 2, endLine: 2, startByte: 15 }] };
+  const report = { files: { "a.ts": { mutants: [{ id: "1", mutatorName: "ArrayDeclaration", replacement: "[]", status: "Killed", location: { start: { line: 1, column: 11 }, end: { line: 1, column: 14 } } }] } } };
+  const { sites, unmutated } = mapReport({ report, files: new Map([["a.ts", entry]]), ranges: new Map([["a.ts", [[1, 1]]]]) });
+  assert.deepEqual(sites.map((s) => [s.unit, s.id, s.original, s.verdict]), [["<module>", "a.ts:<module>:10:array:[]", "[1]", "killed"]]);
+  assert.deepEqual(unmutated, []);
+});
+
+test("mapReport：行同时在外层与内层单元里时挂到更小的那个", () => {
+  const text = Array.from({ length: 10 }, (_, i) => `line${i + 1}`).join("\n") + "\n";
+  const entry = { text, units: [{ name: "outer", startLine: 1, endLine: 10, startByte: 0 }, { name: "outer.inner", startLine: 8, endLine: 10, startByte: 49 }] };
+  const report = { files: { "a.ts": { mutants: [{ id: "1", mutatorName: "StringLiteral", replacement: '""', status: "Survived", location: { start: { line: 9, column: 1 }, end: { line: 9, column: 6 } } }] } } };
+  const { sites } = mapReport({ report, files: new Map([["a.ts", entry]]), ranges: new Map([["a.ts", [[9, 9]]]]) });
+  assert.deepEqual(sites.map((s) => [s.unit, s.original]), [["outer.inner", "line9"]]);
 });
