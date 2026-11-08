@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // 差分变异：只打改动行所在单元的位点，带时间预算，「没跑测试」自动复跑，四类裁定，还原有保证。模型见 ../metrics-model.md，逻辑在 lib/mutation.mjs，本文件是命令面与进程生命周期。
 // 用法与每个参数的含义见 --help。
-// 退出 0 正常（预算用尽也是 0）；1 基线不通过或有文件还原失败；2 用法错误或未提供 typescript；130 被中断。
+// 退出 0 正常（预算用尽也是 0）；1 基线不通过、有文件还原失败或文件在变异期间被改动；2 用法错误或未提供 typescript；129 收到 SIGHUP、130 被中断、143 被终止。
+// 写入变异体前先把原文落到系统临时目录的还原日志，进程被杀也能在下次启动时还原。
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs, parseScope, resolveBase, parseLcov, sh } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
-import { parseDuration, collectSites, selectSites, createPatcher, createTestRunner, runSites, summarize, formatMutation, capacity, plannedWorkers, runnerEnv, niceAvailable, createAdapter, fingerprintOf } from "./lib/mutation.mjs";
+import { parseDuration, collectSites, selectSites, createPatcher, restorePending, createTestRunner, runSites, summarize, formatMutation, capacity, plannedWorkers, runnerEnv, niceAvailable, createAdapter, fingerprintOf } from "./lib/mutation.mjs";
 
 const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
 只打基线到工作树改动单元的位点，每个位点跑一遍测试命令，裁定为杀死、存活、无覆盖、未跑四类。
@@ -32,7 +33,8 @@ const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
   --load-ceiling <比例>      运行中 1 分钟负载 ÷ CPU 数超过它就降一档，回落到它减 0.2 以下再升回，缺省 0.8
   --no-nice                  不降低测试进程的优先级；缺省 nice 10，Windows 不降
 
-退出 0 正常（预算用尽也是 0）；1 基线不通过或有文件还原失败；2 用法错误或未提供 typescript；130 被中断。`;
+还原保证：写入变异体前先把原文落到系统临时目录的还原日志（pqw-mutation/<仓库哈希>.json），还原后删；上次运行被杀留下日志，下次启动先还原并打印。写入前核文件仍是原文、还原前核文件仍是变异体，不是就不覆盖，打印「文件在变异期间被改动」退出 1。
+退出 0 正常（预算用尽也是 0）；1 基线不通过、有文件还原失败或文件在变异期间被改动；2 用法错误或未提供 typescript；129 收到 SIGHUP、130 被中断、143 被终止。`;
 const SPEC = { test: "value", repo: "value", base: "value", target: "value", lcov: "value", ts: "value", json: "value", format: "value", "plan-only": "flag", budget: "value", timeout: "value", workers: "value", "no-tests-pattern": "value", history: "value", scope: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "load-ceiling": "value", "no-nice": "flag" };
 const { opts, error } = parseArgs(process.argv.slice(2), SPEC);
 if (error) { console.error(error); console.error(USAGE); process.exit(2); }
@@ -80,27 +82,44 @@ function emit(result, opts) {
   else console.log(formatMutation(result));
 }
 
+/** 跑全部位点并把结果并进 result；文件在变异期间被改动就打印并退出 1。返回还原是否成功。 */
+async function execute(result, { sites, files, runner, patcher, inputs }) {
+  const adapter = createAdapter({ planned: inputs.resources.workers, ceiling: inputs.resources.loadCeiling });
+  let run;
+  try {
+    run = await runSites({ sites, files, runner, patcher, budgetMs: inputs.budgetMs, timeoutMs: inputs.timeoutMs, noTests: inputs.noTests, adapter });
+  } catch (e) {
+    if (e.code !== "tampered") throw e;
+    console.error(e.message);
+    process.exit(1);
+  }
+  result.baseline = run.baseline;
+  result.budget = run.budget;
+  result.resources.adaptation = run.adaptation;
+  result.resources.timing = run.timing;
+  return run.restored;
+}
+
+/** 上次运行留下的变异体先还原再开始。 */
+function restoreLeftover(root) {
+  const pending = restorePending(root);
+  if (pending) console.error(`上次运行留下的变异体已还原：${pending}`);
+}
+
 const inputs = loadInputs(opts);
+restoreLeftover(inputs.root);
 const { files, sites, unmutated } = collectSites({ root: inputs.root, base: inputs.base, ts: inputs.ts, scope: parseScope(opts.scope) });
 const history = selectSites(sites, inputs.report, inputs.history, inputs.fingerprint);
 const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, testCommand: opts.test, fingerprint: inputs.fingerprint, history, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, budget: { limitMs: inputs.budgetMs, exceeded: false }, resources: inputs.resources, sites, unmutated, summary: {}, survivors: [] };
 
 const runner = createTestRunner(opts.test, inputs.root, inputs.env, { nice: inputs.resources.nice });
 const patcher = createPatcher(inputs.root);
-const interrupted = (code) => { runner.kill(); patcher.restore(); process.exit(code); };
+const interrupted = (code) => { runner.kill(); try { patcher.restore(); } catch (e) { console.error(e.message); } process.exit(code); };
+process.on("SIGHUP", () => interrupted(129));
 process.on("SIGINT", () => interrupted(130));
 process.on("SIGTERM", () => interrupted(143));
 
-let restored = true;
-if (!result.planOnly) {
-  const adapter = createAdapter({ planned: inputs.resources.workers, ceiling: inputs.resources.loadCeiling });
-  const run = await runSites({ sites, files, runner, patcher, budgetMs: inputs.budgetMs, timeoutMs: inputs.timeoutMs, noTests: inputs.noTests, adapter });
-  result.baseline = run.baseline;
-  result.budget = run.budget;
-  result.resources.adaptation = run.adaptation;
-  result.resources.timing = run.timing;
-  restored = run.restored;
-}
+const restored = result.planOnly ? true : await execute(result, { sites, files, runner, patcher, inputs });
 Object.assign(result, summarize(sites, { planOnly: result.planOnly, baselinePassed: result.baseline.passed !== false }));
 emit(result, opts);
 process.exit(!restored || (!result.planOnly && !result.baseline.passed) ? 1 : 0);

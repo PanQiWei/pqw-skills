@@ -1,9 +1,10 @@
 // 差分变异的逻辑：收集位点、覆盖门控与历史沿用、逐位点裁定、汇总与格式化。模型见 ../../metrics-model.md。
 // 不读 argv，不 exit。进程生命周期（信号、退出码）归命令面；写入器与测试运行器在这里，命令面拿着它们做还原与中断。
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { createHash } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
-import { cpus, freemem, loadavg } from "node:os";
+import { cpus, freemem, loadavg, tmpdir } from "node:os";
 import { changedLines, inScope, lookupFile, nestedUnits, ownLines, unitDigests, score, baseLabel, TEST_FILE_RE, testFilesDigest } from "./core.mjs";
 import { TOOL_VERSION } from "./version.mjs";
 
@@ -177,16 +178,46 @@ export function selectSites(sites, report, history, fingerprint = null) {
 }
 
 /** 写入器：一次只写一个文件，记住原文；还原后逐字节核对，返回是否一致。没有待还原的也返回 true。 */
-export function createPatcher(root) {
+/** 还原日志的位置：系统临时目录下按仓库根哈希命名，同一仓库的两次运行共用一份。 */
+export const restoreLogPath = (root) => join(tmpdir(), "pqw-mutation", createHash("sha256").update(root).digest("hex").slice(0, 16) + ".json");
+
+/** 被改动：文件现在不是工具期望的内容。调用方据此退出 1，不覆盖。 */
+const tampered = (path) => Object.assign(new Error(`文件在变异期间被改动：${path}`), { code: "tampered", path });
+
+/** 启动时：上次运行留下日志（被 SIGKILL 或断电）就把原文写回去、删日志，返回还原的路径；没有日志或日志不是本仓库的返回 null。 */
+export function restorePending(root) {
+  const logPath = restoreLogPath(root);
+  if (!existsSync(logPath)) return null;
+  const log = JSON.parse(readFileSync(logPath, "utf8"));
+  if (log.root !== root) return null;
+  writeFileSync(join(root, log.path), log.original);
+  unlinkSync(logPath);
+  return log.path;
+}
+
+/**
+ * 打补丁：写入前核文件仍等于原文，并先把 { root, path, original } 落到还原日志再写；还原时核文件仍等于写入的变异体，
+ * 等就写回原文、逐字节核对、删日志；不等（测试期间被人改了）就不覆盖、保留日志并抛 tampered。
+ */
+export function createPatcher(root, logPath = restoreLogPath(root)) {
   let applied = null;
+  const current = (path) => readFileSync(join(root, path), "utf8");
   return {
-    apply(path, original, mutated) { applied = { path, original }; writeFileSync(join(root, path), mutated); },
+    apply(path, original, mutated) {
+      if (current(path) !== original) throw tampered(path);
+      mkdirSync(dirname(logPath), { recursive: true });
+      writeFileSync(logPath, JSON.stringify({ root, path, original }));
+      applied = { path, original, mutated };
+      writeFileSync(join(root, path), mutated);
+    },
     restore() {
       if (!applied) return true;
-      const target = join(root, applied.path);
-      writeFileSync(target, applied.original);
-      const ok = readFileSync(target, "utf8") === applied.original;
+      const { path, original, mutated } = applied;
       applied = null;
+      if (current(path) !== mutated) throw tampered(path);
+      writeFileSync(join(root, path), original);
+      const ok = current(path) === original;
+      if (ok) unlinkSync(logPath);
       return ok;
     },
   };

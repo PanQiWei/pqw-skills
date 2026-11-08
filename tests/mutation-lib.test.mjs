@@ -1,13 +1,13 @@
 // 直接打 lib/mutation.mjs 的函数：时长、可打的文件、改动行、覆盖门控与历史沿用、写入器、运行器、裁定与预算、汇总与表格。
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir, cpus } from "node:os";
 import { spawnSync } from "node:child_process";
 import { makeRepo, writeFiles, dispose, tsPath } from "./fixture.mjs";
 import { parseLcov, score } from "../skills/slice-closeout/scripts/lib/core.mjs";
-import { parseDuration, isMutable, changedOwnLines, collectSites, isCovered, selectSites, createPatcher, createTestRunner, judgeSite, runSites, summarize, formatMutation, verdictOf, moduleLevelSegments } from "../skills/slice-closeout/scripts/lib/mutation.mjs";
+import { parseDuration, isMutable, changedOwnLines, collectSites, isCovered, selectSites, createPatcher, restorePending, restoreLogPath, createTestRunner, judgeSite, runSites, summarize, formatMutation, verdictOf, moduleLevelSegments } from "../skills/slice-closeout/scripts/lib/mutation.mjs";
 
 const site = (over) => ({ id: "a.ts:1:0:logical", file: "a.ts", unit: "f", digest: "d1", line: 1, anchorLine: 1, start: 2, end: 4, original: "&&", mutant: "||", category: "logical", verdict: "planned", reason: null, runs: 0, seconds: null, ...over });
 
@@ -87,6 +87,40 @@ test("写入器：写入后能还原，还原逐字节核对，没有待还原�
     assert.equal(p.restore(), true);
     assert.equal(readFileSync(join(dir, "a.ts"), "utf8"), "a && b\n");
     assert.equal(p.restore(), true);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("还原日志：写入期间日志在、内容是原文，还原后删；写入前文件不是原文、还原前文件不是变异体都抛 tampered 且不覆盖；启动时有日志就还原并返回路径，别的仓库的日志不动", () => {
+  const dir = mkdtempSync(join(tmpdir(), "pqw-patch-"));
+  const logPath = join(dir, "log.json");
+  try {
+    writeFileSync(join(dir, "a.ts"), "a && b\n");
+    const p = createPatcher(dir, logPath);
+    p.apply("a.ts", "a && b\n", "a || b\n");
+    assert.deepEqual(JSON.parse(readFileSync(logPath, "utf8")), { root: dir, path: "a.ts", original: "a && b\n" });
+    assert.equal(p.restore(), true);
+    assert.equal(existsSync(logPath), false, "还原后日志删掉");
+    assert.throws(() => p.apply("a.ts", "x\n", "y\n"), { code: "tampered", path: "a.ts" }, "文件不是原文就不写");
+    assert.equal(readFileSync(join(dir, "a.ts"), "utf8"), "a && b\n");
+    p.apply("a.ts", "a && b\n", "a || b\n");
+    writeFileSync(join(dir, "a.ts"), "a || b\n// 测试期间有人改了\n");
+    assert.throws(() => p.restore(), { code: "tampered" }, "文件不是变异体就不覆盖");
+    assert.equal(readFileSync(join(dir, "a.ts"), "utf8"), "a || b\n// 测试期间有人改了\n");
+    assert.equal(existsSync(logPath), true, "没还原成功的日志保留");
+    assert.equal(p.restore(), true, "抛过之后没有待还原的");
+
+    const root = join(dir, "repo"); mkdirSync(root);
+    writeFileSync(join(root, "b.ts"), "mutant\n");
+    mkdirSync(join(tmpdir(), "pqw-mutation"), { recursive: true });
+    writeFileSync(restoreLogPath(root), JSON.stringify({ root, path: "b.ts", original: "orig\n" }));
+    assert.equal(restorePending(root), "b.ts");
+    assert.equal(readFileSync(join(root, "b.ts"), "utf8"), "orig\n");
+    assert.equal(existsSync(restoreLogPath(root)), false);
+    assert.equal(restorePending(root), null, "没有日志返回 null");
+    writeFileSync(restoreLogPath(root), JSON.stringify({ root: "/elsewhere", path: "b.ts", original: "other\n" }));
+    assert.equal(restorePending(root), null, "别的仓库的日志不动");
+    assert.equal(readFileSync(join(root, "b.ts"), "utf8"), "orig\n");
+    rmSync(restoreLogPath(root));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
