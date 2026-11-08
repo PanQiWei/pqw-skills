@@ -38,7 +38,7 @@ test("可打的文件：源码且在范围内且在工作树里；测试、声�
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test("改动行落在单元自己的行上才返回行集合；内层单元的行与纯删除不算", () => {
+test("改动行落在单元自己的行上才返回行集合；内层单元的行与第 0 行（不是真实行号）不算", () => {
   const outer = { name: "f", startLine: 1, endLine: 5 };
   const inner = { name: "f.g", startLine: 3, endLine: 3 };
   assert.deepEqual([...changedOwnLines(outer, [outer, inner], [[2, 2]])], [1, 2, 4, 5]);
@@ -181,7 +181,7 @@ test("收集：位点按文件名再按位置排序，id 稳定", { skip: TS ? f
   } finally { dispose(dir); }
 });
 
-test("工作线程数：缺省等于份额上限（没有同机任务时是 CPU 数），--workers 在上限内覆盖；都通过 PQW_TEST_WORKERS 交给测试命令", { skip: TS ? false : "没有 typescript，设 PQW_TS" }, () => {
+test("工作线程数：缺省等于份额上限（没有同机任务时是 CPU 数；第四程 C8 把第三程的 CPU 数减一改成了这样），--workers 在上限内覆盖；都通过 PQW_TEST_WORKERS 交给测试命令", { skip: TS ? false : "没有 typescript，设 PQW_TS" }, () => {
   const dir = makeRepo({ "README.md": "x\n" });
   try {
     const run = (extra) => JSON.parse(spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--test", "echo workers=$PQW_TEST_WORKERS", "--format", "json", "--low-memory-halve", "0", ...extra], { encoding: "utf8" }).stdout);

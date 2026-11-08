@@ -2,7 +2,7 @@
 // 不读 argv，不 exit。进程生命周期（信号、退出码）归命令面；写入器与测试运行器在这里，命令面拿着它们做还原与中断。
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { cpus, freemem, loadavg } from "node:os";
 import { changedLines, inScope, lookupFile, nestedUnits, ownLines, unitDigests, score, baseLabel } from "./core.mjs";
 
@@ -138,8 +138,8 @@ export function createPatcher(root) {
   };
 }
 
-/** 能不能降优先级：Linux 与 macOS 用 nice；Windows 不设。 */
-export const niceAvailable = () => process.platform !== "win32";
+/** 能不能降优先级：Windows 不设；其他平台探一次 `nice -n 0 true`，没有 nice 命令或设不了就不设，调用方据此写明。 */
+export const niceAvailable = () => process.platform !== "win32" && spawnSync("nice", ["-n", "0", "true"], { stdio: "ignore" }).status === 0;
 
 /** 测试运行器：shell 里跑命令，超时杀整个进程组；nice 给了就以低优先级启动；run 给了 workers 就临时换并行度。run 从不 reject。 */
 export function createTestRunner(command, cwd, env, { nice = null } = {}) {

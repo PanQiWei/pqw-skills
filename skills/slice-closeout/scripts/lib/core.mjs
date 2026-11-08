@@ -46,7 +46,7 @@ export function changedLines(cwd, base) {
     const m = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line);
     if (!m || !file) continue;
     const start = Number(m[1]); const count = m[2] === undefined ? 1 : Number(m[2]);
-    const range = count === 0 ? [Math.max(1, start), start + 1] : [start, start + count - 1];
+    const range = count === 0 ? [Math.max(1, start), Math.max(1, start) + 1] : [start, start + count - 1];
     result.set(file, [...(result.get(file) ?? []), range]);
   }
   // 未跟踪的新文件也是工作树的改动：整份算改动行。

@@ -114,7 +114,7 @@ for (const s of metaSkills) if (pluginSkills.includes(s)) fail("三处同步", `
 const readme = read(config.readme);
 for (const s of skills) if (!readme.includes(`./skills/${s}/SKILL.md`)) fail("三处同步", `README 技能表没有链接 skills/${s}`);
 
-// ---- 3. 外部引用可解析，DMI 技能不以 Skill 工具调用
+// ---- 3. 外部引用可解析，DMI 技能按「加载技能」措辞引用
 const pstackRoot = latestVersionDir(config.pstackCache);
 const mattRoot = latestVersionDir(config.mattCache);
 const mattIndex = new Map();
@@ -161,7 +161,7 @@ for (const file of [...walkMd(config.skillsDir), ...walkMd(config.metaSkillsDir)
 
 // ---- 6. 发行技能与元技能宿主无关：正文不写宿主的工具名，宿主差异只许写在 one-lesson-rule/hosts.md。
 for (const file of [...walkMd(config.skillsDir), ...walkMd(config.metaSkillsDir)]) {
-  if (file.endsWith("/one-lesson-rule/hosts.md") || file.includes("/meta/skills/clear-writing/")) continue;
+  if (file.endsWith("/one-lesson-rule/hosts.md")) continue;
   const text = read(file);
   for (const w of config.hostTools) if (text.includes(w)) fail("宿主无关", `${rel(file)} 含宿主工具名「${w}」`);
 }

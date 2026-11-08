@@ -33,6 +33,12 @@ test("纯删除也算改动：删掉函数里一行 if 后读数含该函数", {
     const out = JSON.parse(r.stdout);
     assert.deepEqual(out.functions.map((f) => f.name), ["f"]);
     assert.deepEqual(out.functions[0].changedLines, [[1, 2]]);
+    writeFiles(dir, { "src/a.ts": BASE, "src/d.ts": "const a = 1;\nexport function d() {\n  return a > 0 ? a : 0;\n}\n" });
+    git(dir, "add -A");
+    git(dir, "commit -q -m d");
+    writeFiles(dir, { "src/d.ts": "export function d() {\n  return a > 0 ? a : 0;\n}\n" });
+    const head = JSON.parse(run(dir, ["--base", "HEAD", "--format", "json"]).stdout);
+    assert.deepEqual(head.functions.map((f) => [f.name, f.changedLines]), [["d", [[1, 2]]]], "文件头删除记第 1、2 行");
   } finally { dispose(dir); }
 });
 

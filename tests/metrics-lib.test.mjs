@@ -44,7 +44,7 @@ test("汇总：CRAP 最高只看有覆盖的函数，全无覆盖时为 null，c
   assert.equal(summarize([], null).maxCrap, null);
 });
 
-test("改动行只算单元自己的行：内层单元的首尾行都不算，纯删除不算，第 1 行算", () => {
+test("改动行只算单元自己的行：内层单元的首尾行都不算，第 0 行（不是真实行号）不算，第 1 行算", () => {
   const unit = { startLine: 1, endLine: 10 };
   const nested = [{ startLine: 4, endLine: 6 }];
   assert.equal(touchesOwnLines(unit, nested, [[4, 4]]), false);
