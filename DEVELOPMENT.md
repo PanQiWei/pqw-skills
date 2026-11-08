@@ -39,7 +39,7 @@ node skills/slice-closeout/scripts/mutation.mjs --ts <目录> --test "PQW_TS=<�
 
 命令面的用例只从 CLI 进，摸不到排序、汇总、边界这些分支；变异分数低时补直打 lib 函数的用例（`tests/*-lib.test.mjs`），不改命令面用例。
 
-第一条核：`skills/` 扁平布局、frontmatter、无「待写」、三处同步、外部引用在钉定版本里存在、DMI 技能的措辞、发行技能、模板、脚本与网页里无项目概念禁词、全仓散文与脚本无破折号（`tests/` 与 `check-repo.mjs` 自身免检）、模板被 `SKILL.md` 链接。退出 0 通过，1 列出失败，2 用法错误。
+第一条核：`skills/` 扁平布局、frontmatter、无「待写」、三处同步、外部引用在钉定版本里存在、DMI 技能的措辞、发行技能、模板、脚本与网页里无项目概念禁词、全仓散文与脚本无破折号（`tests/` 与 `check-repo.mjs` 自身免检）、模板被 `SKILL.md` 链接、工具版本常量与 `plugin.json` 一致。退出 0 通过，1 列出失败，2 用法错误。
 
 第二条校插件清单。不用 `--strict`：它把根目录 `CLAUDE.md` 不随插件分发、没有图标这两条有意接受的警告算失败。
 
@@ -78,6 +78,6 @@ node skills/cleanup/scripts/cleanup.mjs --scope slice --prefix <前缀> --plan
 
 ## 发版
 
-1. `CHANGELOG.md` 加一条，`.claude-plugin/plugin.json` 改 `version`，两处一起改。版本号变了托管路线才会重装。
+1. `CHANGELOG.md` 加一条，`.claude-plugin/plugin.json` 改 `version`，`skills/slice-closeout/scripts/lib/version.mjs` 改 `TOOL_VERSION`，三处一起改；`check-repo` 核后两处一致。版本号变了托管路线才会重装，工具版本变了差分变异不再沿用旧历史。
 2. `README.md` 与 `README_EN.md` 的徽章与「状态」节同步版本。
 3. 两条检查通过后提交，打 tag `v<版本>`。

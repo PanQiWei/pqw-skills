@@ -26,7 +26,7 @@ pqw-skills/
 │   └── write-agents-md/
 ├── scripts/
 │   ├── link-skills.sh        本机开发：把每个技能与元技能软链进 ~/.claude/skills 与 ~/.agents/skills
-│   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接
+│   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、工具版本常量与 plugin.json 一致
 ├── tests/                    仓库测试，node:test，无依赖；需要 typescript 的用例从 PQW_TS 取
 └── skills/
     ├── single-session-dev-flow/   总入口；handoff-checklist.md
@@ -41,7 +41,7 @@ pqw-skills/
     ├── context-pack/                 run-pack-template.md、slice-kickoff-template.md
     ├── delegate-brief/               brief-template.md
     ├── one-lesson-rule/              review-record-template.md、hosts.md、scripts/sentinel.mjs
-    ├── slice-closeout/               closeout-checklist.md、metrics-model.md、scripts/{metrics,mutation}.mjs 命令面、scripts/lib/{core,adapter-typescript,metrics,mutation}.mjs 逻辑
+    ├── slice-closeout/               closeout-checklist.md、metrics-model.md、scripts/{metrics,mutation}.mjs 命令面、scripts/lib/{core,adapter-typescript,metrics,mutation,version}.mjs 逻辑
     ├── progress-artifacts/           report-skeleton.md、report-template.html、demo-skeleton.html、scripts/{artifacts-dir,build-report,demo-append}.mjs 命令面、scripts/lib/{args,report,demo}.mjs 逻辑
     └── cleanup/                      checklist-template.md、scripts/cleanup.mjs
 ```
@@ -82,7 +82,7 @@ pqw-skills/
 
 ## 现在的状态
 
-0.4.0：十五个发行技能正文齐全且宿主无关，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。哨兵是便宜档的只读子代理，脚本只是它取事实的工具。结构读数、差分变异、HTML 汇报件与 demo 追加四个工具随技能发行，逻辑在 `scripts/lib/`，命令面只剩参数与退出码；变异按机器容量分配资源并运行中自适应，读数带带位，`tests/` 76 个用例。`node scripts/check-repo.mjs` 退出 0，禁词与破折号也扫脚本与网页，宿主工具名扫技能正文。
+0.5.0：十五个发行技能正文齐全且宿主无关，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。哨兵是便宜档的只读子代理，脚本只是它取事实的工具。结构读数、差分变异、HTML 汇报件与 demo 追加四个工具随技能发行，逻辑在 `scripts/lib/`，命令面只剩参数与退出码；读数三态覆盖率、与基线比并标出变差；变异测量无效时不出计数、历史沿用带指纹、写入前落还原日志、`--files` 点名；`tests/` 91 个用例。`node scripts/check-repo.mjs` 退出 0，禁词与破折号也扫脚本与网页，宿主工具名扫技能正文，工具版本常量与 `plugin.json` 一致。
 
 ## 校验
 
