@@ -199,6 +199,8 @@ test("叙述：产品层按空行分段、技术层一段、意义只收写了�
   assert.deepEqual([...n.meanings], [["01", "对用户，能看到 **进度**；对系统，少一层。"]]);
   const none = parseNarrative(PLAN);
   assert.deepEqual([none.product, none.technical, none.meanings.size], [[], [], 0]);
+  const tight = parseNarrative("## 一程目标与前后差别\n### 产品层：x\n### 技术层：y\n\n一段。\n\n## 切片\n\n### 备注\n\n不是切片。\n\n### 01：a\n\n- **交付这片的意义：** 有。\n");
+  assert.deepEqual([tight.product, tight.technical, [...tight.meanings]], [[], ["一段。"], [["01", "有。"]]], "小标题紧挨着时产品层为空；切片节里没有编号的小标题跳过");
 });
 
 test("叙述渲染：两层各成小节并转行内标记；只有一层时另一层写没有写；都没有时说明 plan 没写；切片表在有意义的行下面多一行", () => {

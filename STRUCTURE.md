@@ -37,7 +37,7 @@ pqw-skills/
     ├── formal-guard/                 formal-trigger-template.md
     ├── detailed-domain-design/       design-template.md
     ├── formal-docs-landing/          landing-template.md
-    ├── spec-and-plan/                spec-template.md、plan-template.md
+    ├── spec-and-plan/                spec-template.md、plan-template.md、scripts/check-plan.mjs 命令面、scripts/lib/check-plan.mjs 逻辑
     ├── context-pack/                 run-pack-template.md、slice-kickoff-template.md
     ├── delegate-brief/               brief-template.md
     ├── one-lesson-rule/              review-record-template.md、hosts.md、scripts/sentinel.mjs
@@ -82,7 +82,7 @@ pqw-skills/
 
 ## 现在的状态
 
-0.5.0：十五个发行技能正文齐全且宿主无关，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。哨兵是便宜档的只读子代理，脚本只是它取事实的工具。结构读数、差分变异、HTML 汇报件与 demo 追加四个工具随技能发行，逻辑在 `scripts/lib/`，命令面只剩参数与退出码；读数三态覆盖率、与基线比并标出变差；变异测量无效时不出计数、历史沿用带指纹、写入前落还原日志、`--files` 点名；`tests/` 91 个用例。`node scripts/check-repo.mjs` 退出 0，禁词与破折号也扫脚本与网页，宿主工具名扫技能正文，工具版本常量与 `plugin.json` 一致。
+0.6.0：十五个发行技能正文齐全且宿主无关，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。plan 模板有给人读的两层叙述与文档维护表，`spec-and-plan/scripts/check-plan.mjs` 守结构，哨兵多算文档陈旧信号并问第五问，汇报件开头讲这程为什么做。结构读数、差分变异、HTML 汇报件与 demo 追加四个工具随技能发行，逻辑在 `scripts/lib/`；`tests/` 101 个用例。`node scripts/check-repo.mjs` 退出 0。
 
 ## 校验
 
