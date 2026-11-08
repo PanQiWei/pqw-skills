@@ -3,17 +3,17 @@
 // 用法与每个参数的含义见 --help。
 // 退出 0 正常（预算用尽也是 0）；1 基线不通过、有文件还原失败或文件在变异期间被改动；2 用法错误、未提供 typescript 或显式要的引擎不可用；129 收到 SIGHUP、130 被中断、143 被终止。
 // 写入变异体前先把原文落到系统临时目录的还原日志，进程被杀也能在下次启动时还原。
-import { readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { parseArgs, parseScope, resolveBase, parseLcov, sh } from "./lib/core.mjs";
+import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
+import { resolve, join } from "node:path";
+import { parseArgs, parseScope, resolveBase, parseLcov, sh, changedLines } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
-import { chooseEngine, ENGINES } from "./lib/stryker.mjs";
-import { parseDuration, collectSites, selectSites, createPatcher, restorePending, restoreLogPath, createTestRunner, runSites, summarize, formatMutation, capacity, plannedWorkers, runnerEnv, niceAvailable, createAdapter, fingerprintOf } from "./lib/mutation.mjs";
+import { chooseEngine, ENGINES, mutateEntries, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries } from "./lib/stryker.mjs";
+import { parseDuration, collectSites, selectSites, createPatcher, restorePending, restoreLogPath, createTestRunner, runSites, summarize, formatMutation, capacity, plannedWorkers, runnerEnv, niceAvailable, createAdapter, fingerprintOf, isMutable } from "./lib/mutation.mjs";
 
 const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
 只打基线到工作树改动单元的位点，每个位点跑一遍测试命令，裁定为杀死、存活、无覆盖、未跑四类。
 
-  --test "<命令>"            必填。测试命令，在仓库根以 shell 运行；并行度通过环境变量 PQW_TEST_WORKERS 与 VITEST_MAX_WORKERS 交给它，例如 "vitest run" 或 "jest --maxWorkers=$PQW_TEST_WORKERS"
+  --test "<命令>"            内建引擎必填，Stryker 引擎下不用（vitest 由引擎起）。测试命令，在仓库根以 shell 运行；并行度通过环境变量 PQW_TEST_WORKERS 与 VITEST_MAX_WORKERS 交给它，例如 "vitest run" 或 "jest --maxWorkers=$PQW_TEST_WORKERS"
   --repo <目录>              仓库里任一目录，缺省当前目录
   --base <ref>               基线提交；缺省取与 --target 的合并点。给的 ref 不是 HEAD 的祖先（基线分支前进过）时改用两者的合并点，抬头与 JSON 的 baseGiven 写明
   --target <分支>            缺省依次试 main、master
@@ -43,7 +43,8 @@ const SPEC = { test: "value", repo: "value", base: "value", target: "value", lco
 const { opts, error } = parseArgs(process.argv.slice(2), SPEC);
 if (error) { console.error(error); console.error(USAGE); process.exit(2); }
 if (opts.help) { console.log(USAGE); process.exit(0); }
-if (!opts.test) { console.error("未提供：测试命令（--test）"); console.error(USAGE); process.exit(2); }
+const noTestCommand = () => { console.error("未提供：测试命令（--test）"); console.error(USAGE); process.exit(2); };
+if (!opts.test && opts.engine === "builtin") noTestCommand();
 if (opts.engine && !ENGINES.includes(opts.engine)) { console.error(`--engine 只接受 ${ENGINES.join("、")}：${opts.engine}`); console.error(USAGE); process.exit(2); }
 
 /** 装载失败一律退出 2，打印给定的话，没给就打印异常的话。 */
@@ -119,21 +120,71 @@ function restoreLeftover(root) {
 }
 
 const inputs = loadInputs(opts);
-if (inputs.engine.name === "stryker") { console.error("Stryker 引擎的运行尚未接入，请先用 --engine builtin"); process.exit(2); }
-restoreLeftover(inputs.root);
+if (!opts.test && inputs.engine.name !== "stryker") noTestCommand();
 const pinned = parseScope(opts.files) ?? [];
-const { files, sites, unmutated } = collectSites({ root: inputs.root, base: inputs.base, ts: inputs.ts, scope: parseScope(opts.scope), pinned });
-const history = selectSites(sites, inputs.report, inputs.history, inputs.fingerprint);
-const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, engine: inputs.engine, testCommand: opts.test, fingerprint: inputs.fingerprint, history, pinned, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, budget: { limitMs: inputs.budgetMs, exceeded: false }, resources: inputs.resources, sites, unmutated, summary: {}, survivors: [] };
+const newResult = (sites, unmutated, history) => ({ kind: "pqw-mutation", generatedAt: new Date().toISOString(), base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, engine: inputs.engine, testCommand: opts.test ?? null, fingerprint: inputs.fingerprint, history, pinned, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, budget: { limitMs: inputs.budgetMs, exceeded: false }, resources: inputs.resources, sites, unmutated, summary: {}, survivors: [] });
 
-const runner = createTestRunner(opts.test, inputs.root, inputs.env, { nice: inputs.resources.nice });
-const patcher = createPatcher(inputs.root);
-const interrupted = (code) => { runner.kill(); try { patcher.restore(); } catch (e) { console.error(e.message); } process.exit(code); };
-process.on("SIGHUP", () => interrupted(129));
-process.on("SIGINT", () => interrupted(130));
-process.on("SIGTERM", () => interrupted(143));
+/** 内建引擎：收位点、写入变异体、每个位点跑一遍测试。 */
+async function runBuiltin() {
+  restoreLeftover(inputs.root);
+  const { files, sites, unmutated } = collectSites({ root: inputs.root, base: inputs.base, ts: inputs.ts, scope: parseScope(opts.scope), pinned });
+  const history = selectSites(sites, inputs.report, inputs.history, inputs.fingerprint);
+  const result = newResult(sites, unmutated, history);
+  const runner = createTestRunner(opts.test, inputs.root, inputs.env, { nice: inputs.resources.nice });
+  const patcher = createPatcher(inputs.root);
+  const interrupted = (code) => { runner.kill(); try { patcher.restore(); } catch (e) { console.error(e.message); } process.exit(code); };
+  process.on("SIGHUP", () => interrupted(129));
+  process.on("SIGINT", () => interrupted(130));
+  process.on("SIGTERM", () => interrupted(143));
+  const restored = result.planOnly ? true : await execute(result, { sites, files, runner, patcher, inputs });
+  Object.assign(result, summarize(sites, { planOnly: result.planOnly, baselinePassed: result.baseline.passed !== false }));
+  emit(result, opts);
+  return !restored || (!result.planOnly && !result.baseline.passed) ? 1 : 0;
+}
 
-const restored = result.planOnly ? true : await execute(result, { sites, files, runner, patcher, inputs });
-Object.assign(result, summarize(sites, { planOnly: result.planOnly, baselinePassed: result.baseline.passed !== false }));
-emit(result, opts);
-process.exit(!restored || (!result.planOnly && !result.baseline.passed) ? 1 : 0);
+/** Stryker 引擎：范围变 mutate 条目与配置，在项目根起 Stryker，读报告映射回位点。不碰项目文件，只写 .stryker-tmp 与系统临时目录。 */
+async function runStrykerEngine() {
+  const { root, ts, stryker } = inputs;
+  const changed = changedLines(root, inputs.base);
+  const scope = parseScope(opts.scope);
+  const files = [...new Set([...changed.keys(), ...pinned])].filter((p) => isMutable(root, p, scope)).sort();
+  const result = newResult([], [], { given: false, used: false, reason: null });
+  result.mutate = mutateEntries(changed, pinned, files);
+  result.budget = { limitMs: null, exceeded: false };
+  result.engine.notes = [];
+  if (opts.budget) result.engine.notes.push("--budget 对 Stryker 引擎不适用：引擎没有整轮预算");
+  if (!tempDirIgnored(root)) result.engine.notes.push("`.stryker-tmp` 没被项目忽略：跑完会删，被杀时会留下，建议加进 .gitignore");
+  let code = 0;
+  if (!result.planOnly && result.mutate.length > 0) code = await executeStryker(result, { root, ts, stryker, changed, files });
+  Object.assign(result, summarize(result.sites, { planOnly: result.planOnly, baselinePassed: result.baseline.passed !== false }));
+  if (result.baseline.passed === false) result.summary.invalidReason = "Stryker 初跑失败";
+  if (result.reused !== undefined) result.summary.carried = result.reused;
+  emit(result, opts);
+  return code;
+}
+
+/** 起一轮 Stryker 并把报告并进 result。初跑失败（退出非零且无报告）记基线不通过，返回 1。 */
+async function executeStryker(result, { root, ts, stryker, changed, files }) {
+  const dir = workDir(root);
+  mkdirSync(dir, { recursive: true });
+  const reportPath = join(dir, "mutation.json"), configPath = join(dir, "stryker.json"), logPath = join(dir, "stryker.log"), tempDir = join(root, ".stryker-tmp");
+  rmSync(reportPath, { force: true }); rmSync(logPath, { force: true });
+  const hadTempDir = existsSync(tempDir);
+  writeFileSync(configPath, JSON.stringify(strykerConfig({ entries: result.mutate, configFile: stryker.configFile, concurrency: inputs.resources.workers, reportPath, timeoutMs: inputs.timeoutMs }), null, 2) + "\n");
+  const run = runStryker({ root, coreBin: stryker.modules.coreBin, configPath, nice: inputs.resources.nice, logPath, onProgress: (line) => console.error(line) });
+  const interrupted = (code) => { run.kill(); run.done.then(() => { if (!hadTempDir) rmSync(tempDir, { recursive: true, force: true }); process.exit(code); }); };
+  process.on("SIGHUP", () => interrupted(129));
+  process.on("SIGINT", () => interrupted(130));
+  process.on("SIGTERM", () => interrupted(143));
+  const r = await run.done;
+  if (!hadTempDir) rmSync(tempDir, { recursive: true, force: true });
+  result.resources.timing = { testSeconds: null, totalSeconds: r.seconds, overheadRatio: null };
+  const report = readReport(reportPath);
+  if (!report) { result.baseline = { passed: false, seconds: r.seconds, tail: `${r.tail}\n（完整日志 ${logPath}）` }; return 1; }
+  result.baseline = { passed: true, seconds: r.seconds };
+  result.reused = r.reused ?? 0;
+  Object.assign(result, mapReport({ report, files: fileEntries(root, ts, files), ranges: changed, pinned }));
+  return r.status === 0 ? 0 : 1;
+}
+
+process.exit(await (inputs.engine.name === "stryker" ? runStrykerEngine() : runBuiltin()));

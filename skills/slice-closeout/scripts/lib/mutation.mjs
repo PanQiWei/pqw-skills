@@ -390,13 +390,20 @@ function baselineNotes(result) {
 function engineLine(result) {
   const e = result.engine;
   if (!e) return [];
-  return [e.name === "stryker" ? `引擎：Stryker ${e.version}（${e.runner}）` : `引擎：内建（${e.reason}）`];
+  return [e.name === "stryker" ? `引擎：Stryker ${e.version}（${e.runner}）` : `引擎：内建（${e.reason}）`, ...(e.notes ?? [])];
+}
+
+/** Stryker 引擎只列时没有位点，列 mutate 条目代替表格。 */
+function mutateList(result) {
+  if (!result.mutate || !result.planOnly) return [];
+  return ["mutate 条目：", ...result.mutate.map((m) => `- ${m}`)];
 }
 
 /** 抬头：基线、点名文件数、位点数与计数。 */
 function headLine(result) {
   const pinned = result.pinned?.length ? `（点名 ${result.pinned.length} 个文件）` : "";
-  return `差分变异：基线 ${baseLabel(result.base, result.baseGiven)} 到工作树${pinned}；位点 ${result.summary.total}${tallyText(result)}`;
+  const total = result.planOnly && result.mutate ? "由引擎生成" : result.summary.total;
+  return `差分变异：基线 ${baseLabel(result.base, result.baseGiven)} 到工作树${pinned}；位点 ${total}${tallyText(result)}`;
 }
 
 /** 表格后的两段清单：存活的位点、没有位点的改动段。 */
@@ -415,7 +422,8 @@ function trailingLists(result) {
 
 export function formatMutation(result) {
   const { sites } = result;
-  const lines = [headLine(result), ...baselineNotes(result), ...engineLine(result)];
+  const lines = [headLine(result), ...baselineNotes(result), ...engineLine(result), ...mutateList(result)];
+  if (result.planOnly && result.mutate) return lines.join("\n");
   lines.push("| 文件 | 单元 | 行 | 原文 | 替换 | 类别 | 裁定 |", "| --- | --- | --- | --- | --- | --- | --- |");
   for (const s of sites) lines.push(siteRow(s));
   if (sites.length === 0) lines.push("| | 没有位点 | | | | | |");
@@ -430,7 +438,8 @@ function runtimeNotes(r) {
   const a = r.adaptation;
   if (a && a.downshifts > 0) notes.push(`运行中按负载降档 ${a.downshifts} 次、升档 ${a.upshifts} 次，最低并行度 ${a.minWorkers}`);
   if (a && a.busy) notes.push(`机器繁忙：负载比持续高于上限 ${r.loadCeiling}，并行度已降到 1，耗时不代表工具本身`);
-  if (r.timing) notes.push(`测试命令共 ${r.timing.testSeconds}s，总耗时 ${r.timing.totalSeconds}s，工具自身开销 ${Math.round(r.timing.overheadRatio * 100)}%`);
+  if (r.timing && r.timing.testSeconds === null) notes.push(`Stryker 一轮 ${r.timing.totalSeconds}s，并行度启动时定下，运行中不调`);
+  else if (r.timing) notes.push(`测试命令共 ${r.timing.testSeconds}s，总耗时 ${r.timing.totalSeconds}s，工具自身开销 ${Math.round(r.timing.overheadRatio * 100)}%`);
   return notes;
 }
 

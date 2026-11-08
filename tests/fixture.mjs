@@ -1,5 +1,5 @@
 // 测试夹具：在系统临时目录建一个小 Git 仓库，提交一版基线，再改工作树。
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, symlinkSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { execSync } from "node:child_process";
@@ -30,4 +30,46 @@ export const dispose = (dir) => rmSync(dir, { recursive: true, force: true });
 export function tsPath() {
   if (process.env.PQW_TS && existsSync(process.env.PQW_TS)) return process.env.PQW_TS;
   try { return dirname(createRequire(process.cwd() + "/").resolve("typescript/package.json")); } catch { return null; }
+}
+
+export const VITEST_SRC = `export function clamp(n: number, lo: number, hi: number): number {
+  if (n < lo) return lo;
+  if (n > hi) return hi;
+  return n;
+}
+
+export function isPos(n: number): boolean {
+  return n > 0;
+}
+
+export function unused(a: number, b: number): number {
+  return a + b;
+}
+`;
+const VITEST_TEST = `import { test, expect } from "vitest";
+import { clamp, isPos } from "../src/calc";
+
+test("clamp keeps inside", () => {
+  expect(clamp(5, 0, 10)).toBe(5);
+  expect(clamp(-1, 0, 10)).toBe(0);
+  expect(clamp(11, 0, 10)).toBe(10);
+});
+
+test("isPos", () => {
+  expect(isPos(1)).toBe(true);
+  expect(isPos(-1)).toBe(false);
+});
+`;
+
+/** 一个用 vitest 的小项目：有配置、package.json、源码与用例，.stryker-tmp 已忽略；modulesDir 给了就把 node_modules 软链过去。 */
+export function makeVitestRepo(modulesDir = null) {
+  const dir = makeRepo({
+    "package.json": JSON.stringify({ name: "fixture", private: true, type: "module", devDependencies: { vitest: "4.1.11" } }) + "\n",
+    "vitest.config.ts": 'import { defineConfig } from "vitest/config";\nexport default defineConfig({ test: { include: ["test/**/*.test.ts"] } });\n',
+    ".gitignore": "node_modules\n.stryker-tmp\n",
+    "src/calc.ts": VITEST_SRC,
+    "test/calc.test.ts": VITEST_TEST,
+  });
+  if (modulesDir) symlinkSync(modulesDir, join(dir, "node_modules"), "dir");
+  return dir;
 }
