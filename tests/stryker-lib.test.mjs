@@ -254,6 +254,7 @@ test("timeoutEntries：只取 Timeout，整行、相邻合并、跨行展开、�
   const files = new Map([["a.ts", ENTRY]]);
   assert.deepEqual(timeoutEntries(report, files, new Map([["a.ts", [[1, 9]]]])), ["a.ts:2-3", "a.ts:5-7"], "报告里的顺序不影响，相邻合并");
   assert.deepEqual(timeoutEntries(report, files, new Map([["a.ts", [[2, 3]]]])), ["a.ts:2-3"], "范围外的超时不算：增量会把上一轮范围外的结果写进报告");
+  assert.deepEqual(timeoutEntries(report, files, new Map([["a.ts", [[3, 9]]]])), ["a.ts:3-3", "a.ts:5-7"], "范围起点之前的超时不算");
   assert.deepEqual(timeoutEntries(report, files, new Map(), ["a.ts"]), ["a.ts:2-3", "a.ts:5-7"], "点名的文件整份算");
   assert.deepEqual(timeoutEntries(report, files), [], "没给范围就没有本轮位点");
   assert.deepEqual(timeoutEntries(null, files, new Map([["a.ts", [[1, 9]]]])), []);
