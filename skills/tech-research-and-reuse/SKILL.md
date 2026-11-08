@@ -22,7 +22,7 @@ description: 定义期第 3 步，技术调研与复用：在需求、不变式�
 
 ## 调研的做法
 
-调用 Skill 工具加载 `mattpocock-skills:research`：对着高可信的一手来源查，把结论写成带引用的文件。查的对象：
+加载技能 `mattpocock-skills:research`：对着高可信的一手来源查，把结论写成带引用的文件。查的对象：
 
 - 候选库与框架：公开接口、行为边界、性能特征、许可证、最近一年的维护记录。
 - 相近系统：同类产品怎么划边界、它们故意不做什么。
@@ -40,4 +40,4 @@ description: 定义期第 3 步，技术调研与复用：在需求、不变式�
 
 ## 外部技能
 
-- 先删再加：引入新依赖前先看有没有能删掉的旧依赖或重复实现，调用 Skill 工具加载 `pstack:principle-subtract-before-you-add`。
+- 先删再加：引入新依赖前先看有没有能删掉的旧依赖或重复实现，加载技能 `pstack:principle-subtract-before-you-add`。

@@ -62,7 +62,7 @@ pqw-skills/
 ## 技能的两类
 
 - **自定义**：正文在本仓库，例如 `formal-guard`、`one-lesson-rule`。
-- **引用外部**：正文只写本仓库的补充，用「调用 Skill 工具加载 `<外部技能>`」指向 pstack、ub-mode、mattpocock 的技能，不复制它们的正文；Matt 的 `to-spec`、`to-tickets` 禁止模型调用，改为按已安装路径直接读正文。外部技能的名字和版本登记在 `README.md` 的依赖表。
+- **引用外部**：正文只写本仓库的补充，用「加载技能 `<外部技能>`」指向 pstack、ub-mode、mattpocock 的技能，不复制它们的正文；Matt 的 `to-spec`、`to-tickets` 禁止模型调用，改为按已安装路径直接读正文。外部技能的名字和版本登记在 `README.md` 的依赖表。
 
 ## 适用范围
 

@@ -30,6 +30,8 @@ const config = {
   // 工作日志式措辞。
   workLog: ["我们现在", "这次改成", "原来是", "本次改为"],
   dashes: ["—", "–", "―"],
+  // 宿主工具名：发行技能正文不写，宿主差异只在 one-lesson-rule/hosts.md。
+  hostTools: ["Skill 工具", "Agent 工具", "SendMessage", "TaskCreate", "TodoWrite", "CronCreate"],
 };
 
 const args = process.argv.slice(2);
@@ -141,8 +143,8 @@ for (const file of checkedFiles) {
     }
     const entry = mattIndex.get(m[1]);
     if (!entry) fail("外部引用", `${rel(file)} 引用的 mattpocock-skills:${m[1]} 在 ${basename(mattRoot)} 里不存在`);
-    else if (entry.dmi && new RegExp(`Skill 工具加载 \`mattpocock-skills:${m[1]}\``).test(text))
-      fail("DMI", `${rel(file)} 用 Skill 工具调用 mattpocock-skills:${m[1]}，它声明了 disable-model-invocation: true，应写成按已安装路径读正文`);
+    else if (entry.dmi && new RegExp(`加载技能 \`mattpocock-skills:${m[1]}\``).test(text))
+      fail("DMI", `${rel(file)} 写成加载技能 mattpocock-skills:${m[1]}，它声明了 disable-model-invocation: true，应写成按已安装路径读正文`);
   }
   if (/`ub-mode`/.test(text) && !existsSync(config.ubMode)) fail("无法核对", `${rel(file)} 引用 ub-mode，本机没有 ${config.ubMode}`);
 }
@@ -155,6 +157,13 @@ for (const file of [...walkMd(config.skillsDir), ...walkMd(config.metaSkillsDir)
   const text = read(file);
   for (const w of config.forbidden) if (text.includes(w)) fail("项目概念", `${rel(file)} 含「${w}」`);
   for (const w of config.workLog) if (text.includes(w)) fail("工作日志措辞", `${rel(file)} 含「${w}」`);
+}
+
+// ---- 6. 发行技能与元技能宿主无关：正文不写宿主的工具名，宿主差异只许写在 one-lesson-rule/hosts.md。
+for (const file of [...walkMd(config.skillsDir), ...walkMd(config.metaSkillsDir)]) {
+  if (file.endsWith("/one-lesson-rule/hosts.md") || file.includes("/meta/skills/clear-writing/")) continue;
+  const text = read(file);
+  for (const w of config.hostTools) if (text.includes(w)) fail("宿主无关", `${rel(file)} 含宿主工具名「${w}」`);
 }
 
 // ---- 5. 全仓散文、脚本与网页无破折号。meta/skills/clear-writing 是原样引入的上游英文正文，免检。

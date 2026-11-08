@@ -31,11 +31,11 @@ description: 交付期第 11 步，切片收口：主代理自跑类型检查与
 
 ### 5 去 AI slop
 
-调用 Skill 工具加载 `pstack:deslop`；写的散文调用 Skill 工具加载 `pstack:unslop`。
+加载技能 `pstack:deslop`；写的散文加载技能 `pstack:unslop`。
 
 ### 6 证明可用
 
-在真实产物上跑一次本切片的行为：起服务、跑命令、打开页面，读实际的值。调用 Skill 工具加载 `pstack:principle-prove-it-works`。
+在真实产物上跑一次本切片的行为：起服务、跑命令、打开页面，读实际的值。加载技能 `pstack:principle-prove-it-works`。
 
 ## 两轮不收敛
 
@@ -49,11 +49,11 @@ description: 交付期第 11 步，切片收口：主代理自跑类型检查与
 
 ## 常驻要求
 
-对自己和派出去的子代理同样要求代码品味、TypeScript 最佳实践、架构优雅与代码整洁。不过度设计，不过度优化。判设计与实践的依据是 ub-mode 的先做对再做好，调用 Skill 工具加载 `ub-mode`；TypeScript 的写法调用 Skill 工具加载 `pstack:typescript-best-practices`。
+对自己和派出去的子代理同样要求代码品味、TypeScript 最佳实践、架构优雅与代码整洁。不过度设计，不过度优化。判设计与实践的依据是 ub-mode 的先做对再做好，加载技能 `ub-mode`；TypeScript 的写法加载技能 `pstack:typescript-best-practices`。
 
 ## 外部技能
 
-- 对照标准的评审调用 Skill 工具加载 `mattpocock-skills:code-review`，只用它的标准面。
+- 对照标准的评审加载技能 `mattpocock-skills:code-review`，只用它的标准面。
 - 派只读评审者时按 `delegate-brief`「派评审者时」。
 
 ## 收口之后

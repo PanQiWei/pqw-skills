@@ -71,7 +71,7 @@
 | ub-mode | [unclebob/ub-mode](https://github.com/unclebob/ub-mode/tree/3da62bf3f)，只有一份 `SKILL.md`，放进宿主的用户技能目录 | 提交 3da62bf | `ub-mode` |
 | to-spec、to-tickets、research、domain-modeling、codebase-design、code-review、tdd、prototype、diagnosing-bugs、grilling、writing-for-agents | [mattpocock/skills](https://github.com/mattpocock/skills/tree/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d/skills) | 1.3.2，提交 4ae2317 | `mattpocock-skills:<name>` |
 
-引用外部技能的环节只写本仓库的补充，正文里用「调用 Skill 工具加载 `<技能名>`」指向它们。例外是 Matt 的 `to-spec` 与 `to-tickets`：它们声明了 `disable-model-invocation: true`，宿主不让模型用 Skill 工具调用，所以按已安装路径直接读正文，并在报告里写明读取方式。表里的版本是本仓库正文核对过的版本，升级时重新核对被引用的技能有没有改名或改行为。
+引用外部技能的环节只写本仓库的补充，正文里用「加载技能 `<技能名>`」指向它们，怎么加载由宿主定。例外是 Matt 的 `to-spec` 与 `to-tickets`：它们声明了 `disable-model-invocation: true`，宿主不让模型用 Skill 工具调用，所以按已安装路径直接读正文，并在报告里写明读取方式。表里的版本是本仓库正文核对过的版本，升级时重新核对被引用的技能有没有改名或改行为。
 
 维护本仓库时另用 Claude Code 的 `skill-creator` 插件（`claude-plugins-official`）审技能，用 `/skill-doctor` 报告量使用率。两者是宿主工具，不是本仓库引用的技能。
 

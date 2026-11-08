@@ -16,15 +16,15 @@ description: 定义期第 5 步，细化领域设计：对受影响的领域做 
 - 领域不认识调用方：领域只按外部需求的本质提供服务，不知道调用它的是哪种会话、运行或代理。外部的业务事实由外部凭身份关联。
 - 外域概念只建到履约必需：消费的是契约、投影还是引用，在 spec 的跨域五问里定。
 
-方法调用 Skill 工具加载 `mattpocock-skills:domain-modeling`。
+方法加载技能 `mattpocock-skills:domain-modeling`。
 
 ## 关系模型
 
-先写类型、签名与模块边界，再写实现。调用 Skill 工具加载 `pstack:architect`。设计时核的是：
+先写类型、签名与模块边界，再写实现。加载技能 `pstack:architect`。设计时核的是：
 
-- 深模块：接口小，功能深。调用 Skill 工具加载 `mattpocock-skills:codebase-design`。
-- 非法状态不可表示，语义基元有类型，外部数据在边界解析。调用 Skill 工具加载 `pstack:principle-type-system-discipline`。
-- 校验与错误处理集中在系统边界，内部不重复防御。调用 Skill 工具加载 `pstack:principle-boundary-discipline`。
+- 深模块：接口小，功能深。加载技能 `mattpocock-skills:codebase-design`。
+- 非法状态不可表示，语义基元有类型，外部数据在边界解析。加载技能 `pstack:principle-type-system-discipline`。
+- 校验与错误处理集中在系统边界，内部不重复防御。加载技能 `pstack:principle-boundary-discipline`。
 - SOLID 按真实的变化轴拆，不为拆而拆。一个类只有一个变化的理由，扩展靠新实现不靠改旧代码，依赖抽象且抽象由使用方拥有。
 
 ## 仓储设计

@@ -28,7 +28,7 @@ description: 交付期第 8 步，前置消熵：整程开工前派便宜子代�
 
 写不出的项写「未知」，不猜。整程包里引用的每个文件都在起点提交上存在。
 
-主代理在整程包交回后自己做两件事，不派：关键模块的细化架构设计（类型、签名、边界，调用 Skill 工具加载 `pstack:architect`），以及必要的技术验证。技术验证用抛弃式原型回答一个具体问题，调用 Skill 工具加载 `mattpocock-skills:prototype`；原型不进仓库。
+主代理在整程包交回后自己做两件事，不派：关键模块的细化架构设计（类型、签名、边界，加载技能 `pstack:architect`），以及必要的技术验证。技术验证用抛弃式原型回答一个具体问题，加载技能 `mattpocock-skills:prototype`；原型不进仓库。
 
 ## 切片开工包
 
@@ -45,7 +45,7 @@ description: 交付期第 8 步，前置消熵：整程开工前派便宜子代�
 
 ## 守住上下文窗口
 
-大输出、长文件、重复读取、扇出规划都往子代理送，主上下文只留结论。调用 Skill 工具加载 `pstack:principle-guard-the-context-window`。上下文被压缩之后，先从 plan 的进度总览、整程包和自己的提交历史重建现状，再继续，调用 Skill 工具加载 `pstack:recall`。
+大输出、长文件、重复读取、扇出规划都往子代理送，主上下文只留结论。加载技能 `pstack:principle-guard-the-context-window`。上下文被压缩之后，先从 plan 的进度总览、整程包和自己的提交历史重建现状，再继续，加载技能 `pstack:recall`。
 
 ## 判据
 

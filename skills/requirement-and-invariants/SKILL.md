@@ -9,8 +9,8 @@ description: 定义期第 1 步，需求与不变式：把需求说成用户得�
 
 ## 先复述，再追问
 
-1. 代理先用自己的话复述用户的目标和要解决的问题，让用户纠正。调用 Skill 工具加载 `pstack:in-your-own-words`。
-2. 复述对齐后，围绕三问追问到答案具体为止。调用 Skill 工具加载 `mattpocock-skills:grilling`，一次一问。
+1. 代理先用自己的话复述用户的目标和要解决的问题，让用户纠正。加载技能 `pstack:in-your-own-words`。
+2. 复述对齐后，围绕三问追问到答案具体为止。加载技能 `mattpocock-skills:grilling`，一次一问。
 
 ## 需求的三问
 

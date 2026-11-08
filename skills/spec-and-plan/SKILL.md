@@ -38,7 +38,7 @@ Matt 的 `to-tickets` 要求人批准切分。走这条流时人已经在交接�
 
 ## 读 Matt 正文的方式
 
-`to-spec` 与 `to-tickets` 声明了 `disable-model-invocation: true`，宿主不让模型用 Skill 工具调用它们。按已安装路径直接读它们的 `SKILL.md`，并在报告里写明读取方式。Claude Code 的路径在插件缓存目录下的 `mattpocock-skills/<版本>/skills/engineering/<名字>/SKILL.md`。找不到时报告缺口，用本技能的两份模板继续，不停。
+`to-spec` 与 `to-tickets` 声明了 `disable-model-invocation: true`，宿主不让模型自动加载它们。按已安装路径直接读它们的 `SKILL.md`，并在报告里写明读取方式；路径在宿主的技能安装目录下，例如插件缓存目录里的 `mattpocock-skills/<版本>/skills/engineering/<名字>/SKILL.md`。找不到时报告缺口，用本技能的两份模板继续，不停。
 
 ## 放哪
 
@@ -46,4 +46,4 @@ Matt 的 `to-tickets` 要求人批准切分。走这条流时人已经在交接�
 
 ## 外部技能
 
-- 把任务做深不做大，写 spec 前可调用 Skill 工具加载 `pstack:sharpen`。
+- 把任务做深不做大，写 spec 前可加载技能 `pstack:sharpen`。
