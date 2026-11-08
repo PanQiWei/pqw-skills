@@ -3,8 +3,8 @@ import { test } from "vitest";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { makeRepo, writeFiles, dispose, tsPath } from "./fixture.mjs";
-import { byHotness, summarize, touchesOwnLines, formatMetrics, bandOf, parseThresholds, DEFAULT_THRESHOLDS, DEFAULT_ASSERT_PATTERN, trendOf, byWorseThenHotness } from "../skills/slice-closeout/scripts/lib/metrics.mjs";
-import { touches, coverageOf, selectRecord } from "../skills/slice-closeout/scripts/lib/core.mjs";
+import { byHotness, summarize, touchesOwnLines, formatMetrics, bandOf, parseThresholds, DEFAULT_THRESHOLDS, DEFAULT_ASSERT_PATTERN, trendOf, byWorseThenHotness, collectMetrics } from "../skills/slice-closeout/scripts/lib/metrics.mjs";
+import { touches, coverageOf, selectRecord, sh } from "../skills/slice-closeout/scripts/lib/core.mjs";
 import { loadTypescript, testsWithoutAssertions } from "../skills/slice-closeout/scripts/lib/adapter-typescript.mjs";
 
 const SCRIPT = new URL("../skills/slice-closeout/scripts/metrics.mjs", import.meta.url).pathname;
@@ -201,4 +201,34 @@ test("表格尾段：警告行在抬头之后；未覆盖清单与没有断言�
   const full = formatMetrics({ ...base, warnings: ["w1"], uncovered: [{ path: "a.md", reason: "不是源码" }], testsWithoutAssertions: [{ file: "t/a.test.ts", name: "只调用", line: 5 }] });
   assert.match(full, /改动函数 0 个；没有 lcov，CRAP 写无覆盖\n警告：w1\n\| 函数 /);
   assert.match(full, /\n\n未覆盖的改动文件：\n- a\.md：不是源码\n\n没有断言的用例：\n- t\/a\.test\.ts:5 只调用$/);
+});
+
+test.skipIf(skip)("collectMetrics 直打：改动函数进表；只改顶层常量的源码文件、测试文件、非源码文件各自进未覆盖清单带原因；改动行所在没有断言的用例进 testsWithoutAssertions；--assert-pattern 作用到位", () => {
+  const ts = loadTypescript(TS);
+  const dir = makeRepo({
+    "src/f.ts": "export function f(x: number) {\n  return x;\n}\n",
+    "src/consts.ts": "export const LIMIT = 10;\n",
+    "test/f.test.ts": 'import { test } from "vitest";\nimport { f } from "../src/f";\n\ntest("老的只调用", () => {\n  f(1);\n});\n',
+    "README.md": "a\n",
+  });
+  try {
+    writeFiles(dir, {
+      "src/f.ts": "export function f(x: number) {\n  return x + 1;\n}\n",
+      "src/consts.ts": "export const LIMIT = 20;\n",
+      "test/f.test.ts": 'import { test } from "vitest";\nimport assert from "node:assert/strict";\nimport { f } from "../src/f";\n\ntest("老的只调用", () => {\n  f(1);\n});\n\ntest("新的只调用", () => {\n  f(2);\n});\n\ntest("新的有断言", () => {\n  assert.ok(f(3));\n});\n',
+      "README.md": "b\n",
+    });
+    const head = sh(dir, ["rev-parse", "HEAD"]);
+    const r = collectMetrics({ root: dir, base: head, head, ts, report: null, scope: null });
+    assert.deepEqual(r.functions.map((f) => [f.path, f.name, f.cyclomatic]), [["src/f.ts", "f", 1]]);
+    assert.deepEqual(r.uncovered, [
+      { path: "README.md", reason: "不是 TypeScript 或 JavaScript 源码" },
+      { path: "src/consts.ts", reason: "改动行不在任何函数里（只改了顶层声明）" },
+      { path: "test/f.test.ts", reason: "测试文件不度量" },
+    ]);
+    assert.deepEqual(r.testsWithoutAssertions, [{ file: "test/f.test.ts", name: "新的只调用", line: 9 }], "老的那条不在改动行里");
+    assert.deepEqual(collectMetrics({ root: dir, base: head, head, ts, report: null, scope: null, assertPattern: /^f$/ }).testsWithoutAssertions, [], "把 f 当断言时都有「断言」");
+    assert.deepEqual(collectMetrics({ root: dir, base: head, head, ts, report: null, scope: ["src/"] }).uncovered.map((u) => u.path), ["src/consts.ts"], "scope 只收前缀内");
+    assert.equal(r.summary.coverageProvided, false);
+  } finally { dispose(dir); }
 });
