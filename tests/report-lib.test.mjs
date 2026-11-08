@@ -106,7 +106,11 @@ test("读数：两份都没有写未测量；函数表最多 20 行；无覆盖�
   const fn = (i) => ({ name: `f${i}`, path: "a.ts", startLine: i, endLine: i + 1, cyclomatic: 2, cognitive: 1, coverage: 0.5, crap: 2.25 });
   const small = renderMetrics({ functions: [fn(1), { ...fn(2), coverage: null, crap: null }], uncovered: [{ path: "x.md", reason: "r<" }], summary: { maxCyclomatic: 2, maxCognitive: 1, maxCrap: 2.25 } }, null);
   assert.match(small, /^<p>改动函数 2 个；圈复杂度最高 2，认知复杂度最高 1，CRAP 最高 2\.3。<\/p><table>/);
-  assert.match(small, /<tr><td>f1<\/td><td>a\.ts<\/td><td>1-2<\/td><td>2<\/td><td>1<\/td><td>50%<\/td><td>2\.3<\/td><\/tr><tr><td>f2<\/td><td>a\.ts<\/td><td>2-3<\/td><td>2<\/td><td>1<\/td><td>无覆盖<\/td><td>无覆盖<\/td><\/tr><\/tbody><\/table><p class="muted">未覆盖的改动文件：x\.md（r&lt;）<\/p>/);
+  assert.match(small, /<tr><td>f1<\/td><td>a\.ts<\/td><td>1-2<\/td><td>2<\/td><td>1<\/td><td>50%<\/td><td>2\.3<\/td><td><\/td><td><\/td><td><\/td><\/tr><tr><td>f2<\/td><td>a\.ts<\/td><td>2-3<\/td><td>2<\/td><td>1<\/td><td>无覆盖<\/td><td>无覆盖<\/td><td><\/td><td><\/td><td><\/td><\/tr><\/tbody><\/table><p class="muted">未覆盖的改动文件：x\.md（r&lt;）<\/p>/, "第五程 C4 起函数表多带位、原 → 现、变差三列");
+  const banded = renderMetrics({ functions: [{ ...fn(3), band: "warn", baseline: { cyclomatic: 11 }, trend: "up", worse: true }, { ...fn(4), band: "ok", baseline: null, trend: "new", worse: false }], summary: { maxCyclomatic: 2, maxCognitive: 1, maxCrap: 2.25, explain: ["f3"], overLineNotWorse: 0 }, warnings: ["覆盖率报告早于改动文件 a.ts，行号可能错位"] }, null);
+  assert.match(banded, /CRAP 最高 2\.3；要交代 1 个变差，另有 0 个过线但没有变差。<\/p>/);
+  assert.match(banded, /<td>warn<\/td><td>11 → 2<\/td><td>!<\/td><\/tr><tr><td>f4<\/td>.*<td>ok<\/td><td>新 → 2<\/td><td><\/td><\/tr>/);
+  assert.match(banded, /<p class="muted">警告：覆盖率报告早于改动文件 a\.ts，行号可能错位<\/p>/);
   assert.doesNotMatch(small, /只列前 20 个/);
   assert.match(renderMetrics({ summary: { maxCrap: null } }, null), /改动函数 0 个；圈复杂度最高 未测量，认知复杂度最高 未测量，CRAP 最高 无覆盖。<\/p><p>差分变异/);
   assert.match(renderMetrics({}, null), /改动函数 0 个；圈复杂度最高 未测量，认知复杂度最高 未测量，CRAP 最高 无覆盖。<\/p>/, "没有 summary 与 functions 也能渲染");
@@ -123,6 +127,12 @@ test("读数：两份都没有写未测量；函数表最多 20 行；无覆盖�
   assert.match(muNone, /位点 0，杀死 0、存活 0、无覆盖 0、未跑 0；分数 无。<\/p><p class="muted">/);
   assert.match(renderMetrics(null, {}), /位点 0，杀死 0、存活 0、无覆盖 0、未跑 0；分数 无。<\/p><p class="muted">/, "没有 summary 与 survivors 也能渲染");
   assert.match(renderMetrics(null, { survivors: [{ file: "a.ts", line: 1, unit: "f", original: "<", mutant: "<=" }] }), /<code>&lt;<\/code> 换成 <code>&lt;=<\/code>。<\/li>/);
+  const invalid = renderMetrics(null, { summary: { total: 3, killed: 0, survived: 0, valid: false, invalidReason: "基线不通过", score: null }, survivors: [] });
+  assert.match(invalid, /<p>差分变异：测量无效（基线不通过）。<\/p><p class="muted">/);
+  assert.doesNotMatch(invalid, /杀死 0/);
+  const timed = renderMetrics(null, { summary: { total: 3, killed: 3, survived: 0, uncovered: 0, notRun: 0, timedOut: 2, valid: true, score: 1 }, survivors: [], unmutated: [{ file: "a.ts", unit: null, lines: [1, 1], reason: "改动行不在任何有名单元里" }, { file: "a.ts", unit: "g", lines: [5, 7], reason: "单元里没有可替换的位点" }] });
+  assert.match(timed, /杀死 3（其中超时 2）、存活 0/);
+  assert.match(timed, /<p class="muted">没有位点的改动段（不进分数）：a\.ts:1-1（改动行不在任何有名单元里）；a\.ts:5-7 g（单元里没有可替换的位点）<\/p>/);
 });
 
 test("待决事项与 demo 链接", () => {

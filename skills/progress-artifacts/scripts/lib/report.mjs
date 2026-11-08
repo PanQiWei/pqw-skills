@@ -44,22 +44,48 @@ export function renderArchitecture(before, after) {
 const num = (v, d = 1) => (v === null || v === undefined ? "无覆盖" : Number(v).toFixed(d));
 const pct = (c) => (c === null || c === undefined ? "无覆盖" : (c * 100).toFixed(0) + "%");
 
+/** 「原 → 现」：没有趋势字段（旧读数）写空；新函数写「新 → 现」。 */
+const trendText = (f) => (f.trend === undefined ? "" : f.trend === "new" ? `新 → ${f.cyclomatic}` : `${f.baseline?.cyclomatic} → ${f.cyclomatic}`);
+
+/** 读数段的导语：最高值，有基线比时加要交代几个。 */
+function metricsLead(fs, s) {
+  const worse = s.explain ? `；要交代 ${s.explain.length} 个变差，另有 ${s.overLineNotWorse ?? 0} 个过线但没有变差` : "";
+  return `<p>改动函数 ${fs.length} 个；圈复杂度最高 ${s.maxCyclomatic ?? "未测量"}，认知复杂度最高 ${s.maxCognitive ?? "未测量"}，CRAP 最高 ${num(s.maxCrap)}${worse}。</p>`;
+}
+
+const metricsRow = (f) => `<tr><td>${esc(f.name)}</td><td>${esc(f.path)}</td><td>${f.startLine}-${f.endLine}</td><td>${f.cyclomatic}</td><td>${f.cognitive}</td><td>${pct(f.coverage)}</td><td>${num(f.crap)}</td><td>${esc(f.band ?? "")}</td><td>${esc(trendText(f))}</td><td>${f.worse ? "!" : ""}</td></tr>`;
+
+/** 一段 muted 的清单，空清单不出。 */
+const mutedList = (label, items) => (items?.length ? `<p class="muted">${label}：${items.join("；")}</p>` : "");
+
 function renderMetricsJson(m) {
   const fs = m.functions ?? [];
-  let out = `<p>改动函数 ${fs.length} 个；圈复杂度最高 ${m.summary?.maxCyclomatic ?? "未测量"}，认知复杂度最高 ${m.summary?.maxCognitive ?? "未测量"}，CRAP 最高 ${num(m.summary?.maxCrap)}。</p>`;
+  let out = metricsLead(fs, m.summary ?? {});
   if (fs.length) {
-    const body = fs.slice(0, 20).map((f) => `<tr><td>${esc(f.name)}</td><td>${esc(f.path)}</td><td>${f.startLine}-${f.endLine}</td><td>${f.cyclomatic}</td><td>${f.cognitive}</td><td>${pct(f.coverage)}</td><td>${num(f.crap)}</td></tr>`).join("");
-    out += `<table><thead><tr><th>函数</th><th>文件</th><th>行</th><th>圈复杂度</th><th>认知复杂度</th><th>覆盖率</th><th>CRAP</th></tr></thead><tbody>${body}</tbody></table>`;
+    out += `<table><thead><tr><th>函数</th><th>文件</th><th>行</th><th>圈复杂度</th><th>认知复杂度</th><th>覆盖率</th><th>CRAP</th><th>带位</th><th>原 → 现</th><th>变差</th></tr></thead><tbody>${fs.slice(0, 20).map(metricsRow).join("")}</tbody></table>`;
     if (fs.length > 20) out += `<p class="muted">只列前 20 个，完整读数在 JSON。</p>`;
   }
-  if (m.uncovered?.length) out += `<p class="muted">未覆盖的改动文件：${m.uncovered.map((u) => `${esc(u.path)}（${esc(u.reason)}）`).join("；")}</p>`;
+  out += mutedList("警告", m.warnings?.map(esc));
+  out += mutedList("未覆盖的改动文件", m.uncovered?.map((u) => `${esc(u.path)}（${esc(u.reason)}）`));
   return out;
 }
 
+/** 变异段的导语：无效写原因；有效写四类计数、其中超时、分数、预算。 */
+function mutationLead(s, budget) {
+  if (s.valid === false) return `<p>差分变异：测量无效（${esc(s.invalidReason ?? "")}）。</p>`;
+  const n = (v) => v ?? 0;
+  const timedOut = s.timedOut ? `（其中超时 ${s.timedOut}）` : "";
+  const score = s.score === null || s.score === undefined ? "无" : (s.score * 100).toFixed(0) + "%";
+  return `<p>差分变异：位点 ${n(s.total)}，杀死 ${n(s.killed)}${timedOut}、存活 ${n(s.survived)}、无覆盖 ${n(s.uncovered)}、未跑 ${n(s.notRun)}；分数 ${score}${budget?.exceeded ? "；预算用尽" : ""}。</p>`;
+}
+
+const survivorItem = (v) => `<li><code>${esc(v.file)}:${v.line}</code> ${esc(v.unit)}：<code>${esc(v.original)}</code> 换成 <code>${esc(v.mutant === "" ? "（删去）" : v.mutant)}</code>。${esc(v.suggestion ?? "")}</li>`;
+const unmutatedItem = (u) => `${esc(u.file)}:${u.lines[0]}-${u.lines[1]}${u.unit ? " " + esc(u.unit) : ""}（${esc(u.reason)}）`;
+
 function renderMutationJson(mu) {
-  const s = mu.summary ?? {};
-  let out = `<p>差分变异：位点 ${s.total ?? 0}，杀死 ${s.killed ?? 0}、存活 ${s.survived ?? 0}、无覆盖 ${s.uncovered ?? 0}、未跑 ${s.notRun ?? 0}；分数 ${s.score === null || s.score === undefined ? "无" : (s.score * 100).toFixed(0) + "%"}${mu.budget?.exceeded ? "；预算用尽" : ""}。</p>`;
-  if (mu.survivors?.length) out += `<p>存活的位点：</p><ul>${mu.survivors.map((v) => `<li><code>${esc(v.file)}:${v.line}</code> ${esc(v.unit)}：<code>${esc(v.original)}</code> 换成 <code>${esc(v.mutant === "" ? "（删去）" : v.mutant)}</code>。${esc(v.suggestion ?? "")}</li>`).join("")}</ul>`;
+  let out = mutationLead(mu.summary ?? {}, mu.budget);
+  if (mu.survivors?.length) out += `<p>存活的位点：</p><ul>${mu.survivors.map(survivorItem).join("")}</ul>`;
+  out += mutedList("没有位点的改动段（不进分数）", mu.unmutated?.map(unmutatedItem));
   return out;
 }
 

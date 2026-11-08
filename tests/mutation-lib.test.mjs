@@ -7,7 +7,7 @@ import { tmpdir, cpus } from "node:os";
 import { spawnSync } from "node:child_process";
 import { makeRepo, writeFiles, dispose, tsPath } from "./fixture.mjs";
 import { parseLcov, score } from "../skills/slice-closeout/scripts/lib/core.mjs";
-import { parseDuration, isMutable, changedOwnLines, collectSites, isCovered, selectSites, createPatcher, createTestRunner, judgeSite, runSites, summarize, formatMutation, verdictOf } from "../skills/slice-closeout/scripts/lib/mutation.mjs";
+import { parseDuration, isMutable, changedOwnLines, collectSites, isCovered, selectSites, createPatcher, createTestRunner, judgeSite, runSites, summarize, formatMutation, verdictOf, moduleLevelSegments } from "../skills/slice-closeout/scripts/lib/mutation.mjs";
 
 const site = (over) => ({ id: "a.ts:1:0:logical", file: "a.ts", unit: "f", digest: "d1", line: 1, anchorLine: 1, start: 2, end: 4, original: "&&", mutant: "||", category: "logical", verdict: "planned", reason: null, runs: 0, seconds: null, ...over });
 
@@ -218,10 +218,44 @@ test("基线输出命中「没跑测试」模式：记 patternHit，裁定时不
   assert.equal(clean.baseline.patternHit, false);
 });
 
+test("测量有效性：基线不通过、没有位点、全部无覆盖、没有执行任何位点四种无效都让分数为 null；只列时为 null；正常为 true", () => {
+  const v = (sites, opts) => { const s = summarize(sites, opts).summary; return [s.valid, s.invalidReason, s.score]; };
+  assert.deepEqual(v([site({ verdict: "killed" })], { baselinePassed: false }), [false, "基线不通过", null]);
+  assert.deepEqual(v([], {}), [false, "没有位点", null]);
+  assert.deepEqual(v([site({ verdict: "uncovered" }), site({ verdict: "uncovered" })], {}), [false, "全部位点无覆盖", null]);
+  assert.deepEqual(v([site({ verdict: "uncovered" }), site({ verdict: "notRun", reason: "budget" })], {}), [false, "没有执行任何位点", null]);
+  assert.deepEqual(v([site()], { planOnly: true }), [null, null, null]);
+  assert.deepEqual(v([site({ verdict: "killed" }), site({ verdict: "uncovered" })], {}), [true, null, 1]);
+});
+
+test("模块级改动段：单元首尾行算在单元内，空行与注释行不算段，段按连续行合并", () => {
+  const units = [{ name: "<module>", startLine: 1, endLine: 9 }, { name: "f", startLine: 2, endLine: 4 }];
+  const text = "const a = 1;\nfunction f() {\n  return 1;\n}\n// 注释\n\nconst b = 2;\nconst c = 3;\n/* 块 */\n";
+  assert.deepEqual(moduleLevelSegments([[2, 2]], units, text), [], "单元首行");
+  assert.deepEqual(moduleLevelSegments([[4, 4]], units, text), [], "单元末行");
+  assert.deepEqual(moduleLevelSegments([[1, 1]], units, text), [[1, 1]], "单元前一行");
+  assert.deepEqual(moduleLevelSegments([[5, 6]], units, text), [], "注释与空行");
+  assert.deepEqual(moduleLevelSegments([[1, 9]], units, text), [[1, 1], [7, 8]], "跨单元与注释后按连续行拆段");
+});
+
+test("没有位点的改动段：模块级的改动行与没有可替换位点的单元都列出来，位点照常收集", { skip: TS ? false : "没有 typescript，设 PQW_TS" }, async () => {
+  const { loadTypescript } = await import("../skills/slice-closeout/scripts/lib/adapter-typescript.mjs");
+  const dir = makeRepo({ "src/a.ts": 'export const V = 1;\nexport function f(a: number) {\n  return a + 1;\n}\nexport function g() {\n  return "x";\n}\n' });
+  try {
+    writeFiles(dir, { "src/a.ts": 'export const V = 2;\nexport function f(a: number) {\n  return a + 2;\n}\nexport function g() {\n  return "y";\n}\n' });
+    const { sites, unmutated } = collectSites({ root: dir, base: "HEAD", ts: loadTypescript(TS), scope: null });
+    assert.deepEqual(sites.map((s) => [s.unit, s.original]), [["f", "+"]]);
+    assert.deepEqual(unmutated, [
+      { file: "src/a.ts", unit: null, lines: [1, 1], reason: "改动行不在任何有名单元里" },
+      { file: "src/a.ts", unit: "g", lines: [5, 7], reason: "单元里没有可替换的位点" },
+    ]);
+  } finally { dispose(dir); }
+});
+
 test("汇总：五类计数、超时单列、分数与存活清单的事实", () => {
   const sites = [site({ verdict: "killed" }), site({ verdict: "survived", original: "!", mutant: "" }), site({ verdict: "survived" }), site({ verdict: "uncovered" }), site({ verdict: "notRun" }), site()];
   const { summary, survivors } = summarize(sites);
-  assert.deepEqual(summary, { total: 6, killed: 1, survived: 2, uncovered: 1, notRun: 1, planned: 1, timedOut: 0, score: score(sites) });
+  assert.deepEqual(summary, { total: 6, killed: 1, survived: 2, uncovered: 1, notRun: 1, planned: 1, timedOut: 0, score: score(sites), valid: true, invalidReason: null });
   assert.equal(summarize([site({ verdict: "killed", reason: "timeout" }), site({ verdict: "killed" })]).summary.timedOut, 1);
   assert.equal(survivors[0].suggestion, "删去 ! 后测试仍过", "只陈述事实");
   assert.equal(survivors[1].suggestion, "&& 换成 || 后测试仍过");
@@ -243,9 +277,11 @@ test("表格：只列时不报计数；基线不过时贴尾巴；裁定带原�
   const planned = formatMutation({ base, planOnly: true, baseline: { passed: null }, budget: { exceeded: false }, sites: [site()], summary: summarize([site()]).summary, survivors: [] });
   assert.match(planned, /位点 1（只列）\n\| 文件/);
   assert.match(planned, /\| 待跑 \|/);
-  const failed = formatMutation({ base, planOnly: false, baseline: { passed: false, tail: "boom" }, budget: { exceeded: false }, sites: [], summary: summarize([]).summary, survivors: [] });
-  assert.match(failed, /分数 无\n基线不通过：\nboom\n\| 文件/);
+  const failed = formatMutation({ base, planOnly: false, baseline: { passed: false, tail: "boom" }, budget: { exceeded: false }, sites: [], summary: summarize([], { baselinePassed: false }).summary, survivors: [] });
+  assert.match(failed, /位点 0：测量无效（基线不通过）\n基线不通过：\nboom\n\| 文件/, "第五程 C4 起无效时不出计数与分数，原断言是「分数 无」");
   assert.match(failed, /\| \| 没有位点 \|/);
+  const segs = formatMutation({ base, planOnly: false, baseline: { passed: true, tail: "" }, budget: { exceeded: false }, sites, summary, survivors, unmutated: [{ file: "a.ts", unit: null, lines: [1, 2], reason: "改动行不在任何有名单元里" }, { file: "a.ts", unit: "g", lines: [5, 7], reason: "单元里没有可替换的位点" }] });
+  assert.match(segs, /\n\n没有位点的改动段（不进分数）：\n- a\.ts:1-2：改动行不在任何有名单元里\n- a\.ts:5-7 g：单元里没有可替换的位点/);
   const timed = [site({ verdict: "killed", reason: "timeout" }), site({ verdict: "killed" })];
   const hit = formatMutation({ base, planOnly: false, baseline: { passed: true, tail: "", patternHit: true }, budget: { exceeded: false }, sites: timed, ...summarize(timed) });
   assert.match(hit, /^差分变异：基线 0123456789ab 到工作树；位点 2：杀死 2（其中超时 1）、存活 0、无覆盖 0、未跑 0；分数 100%\n「没跑测试」模式在基线输出上也命中，判不出没跑测试，位点按通过处理\n\| 文件/);

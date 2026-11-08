@@ -82,25 +82,58 @@ export function changedOwnLines(unit, units, ranges) {
   return ranges.some(([a, b]) => [...own].some((l) => l >= a && l <= b)) ? own : null;
 }
 
-/** 收集基线到工作树改动单元的全部位点。返回 { files: path → { text, units, digests }, sites }。 */
+/** 空行或只有注释的行：改了也没有可执行的东西，不算未覆盖段。 */
+const TRIVIAL_LINE_RE = /^\s*(\/\/.*|\/\*.*|\*.*|)$/;
+
+/** 改动行里不落在任何有名单元内、又不是空行或注释的连续段（模块级的改动）。text 是文件内容，用来认注释。 */
+export function moduleLevelSegments(ranges, units, text = "") {
+  const named = units.filter((u) => u.name !== "<module>");
+  const lines = text.split("\n");
+  const inUnit = (l) => named.some((u) => l >= u.startLine && l <= u.endLine);
+  const trivial = (l) => TRIVIAL_LINE_RE.test(lines[l - 1] ?? "");
+  const segments = [];
+  for (const [a, b] of ranges) {
+    let start = null;
+    for (let l = a; l <= b + 1; l++) {
+      const outside = l <= b && !inUnit(l) && !trivial(l);
+      if (outside && start === null) start = l;
+      if (!outside && start !== null) { segments.push([start, l - 1]); start = null; }
+    }
+  }
+  return segments;
+}
+
+/** 一个单元在改动行上的位点；单元没被改到（或是 <module>）返回 null。 */
+function unitSites(ts, sourceFile, text, unit, units, ranges) {
+  const own = unit.name === "<module>" ? null : changedOwnLines(unit, units, ranges);
+  return own ? findSites(ts, sourceFile, text, unit, own) : null;
+}
+
+/**
+ * 收集基线到工作树改动单元的全部位点。返回 { files: path → { text, units, digests }, sites, unmutated }。
+ * unmutated 是改动了却没有位点的段：改动行不在任何有名单元里（模块级），或单元里没有可替换的位点；它们不进分数，要单独列出来。
+ */
 export function collectSites({ root, base, ts, scope }) {
   const files = new Map();
   const sites = [];
+  const unmutated = [];
   for (const [path, ranges] of changedLines(root, base)) {
     if (!isMutable(root, path, scope)) continue;
     const text = readFileSync(join(root, path), "utf8");
     const { sourceFile, units } = analyze(ts, path, text);
     const digests = unitDigests(text, units);
     files.set(path, { text, units, digests });
+    for (const lines of moduleLevelSegments(ranges, units, text)) unmutated.push({ file: path, unit: null, lines, reason: "改动行不在任何有名单元里" });
     for (const unit of units) {
-      const own = unit.name === "<module>" ? null : changedOwnLines(unit, units, ranges);
-      if (!own) continue;
-      for (const s of findSites(ts, sourceFile, text, unit, own)) sites.push({ file: path, unit: unit.name, digest: digests.get(unit.name), ...s, verdict: "planned", reason: null, runs: 0, seconds: null });
+      const found = unitSites(ts, sourceFile, text, unit, units, ranges);
+      if (found === null) continue;
+      if (found.length === 0) unmutated.push({ file: path, unit: unit.name, lines: [unit.startLine, unit.endLine], reason: "单元里没有可替换的位点" });
+      for (const s of found) sites.push({ file: path, unit: unit.name, digest: digests.get(unit.name), ...s, verdict: "planned", reason: null, runs: 0, seconds: null });
     }
   }
   sites.sort((a, b) => a.file.localeCompare(b.file) || a.start - b.start);
   for (const s of sites) s.id = `${s.file}:${s.line}:${s.start}:${s.category}`;
-  return { files, sites };
+  return { files, sites, unmutated };
 }
 
 /** 位点所在行或所在语句行有执行记录。没有 lcov 时一律算有覆盖。 */
@@ -234,10 +267,26 @@ const NO_ADAPTER = { next: () => null, state: null };
 /** 存活位点的事实一句：只说发生了什么，怎么处置归读的人。字段名沿用 suggestion（I-1）。 */
 const suggestion = (s) => (s.mutant === "" ? `删去 ${s.original} 后测试仍过` : `${s.original} 换成 ${s.mutant} 后测试仍过`);
 
-/** 汇总与存活清单。timedOut 是杀死里因超时的位点数，单列是因为超时可能是机器慢而不是测试强。 */
-export function summarize(sites) {
+/** 测量无效的原因：基线不通过；或一个位点都没有执行（杀死加存活为 0），按情形分没有位点、全部无覆盖、没有执行。有效返回 null。 */
+function invalidReasonOf(summary, baselinePassed) {
+  if (!baselinePassed) return "基线不通过";
+  if (summary.killed + summary.survived > 0) return null;
+  if (summary.total === 0) return "没有位点";
+  return summary.uncovered === summary.total ? "全部位点无覆盖" : "没有执行任何位点";
+}
+
+/**
+ * 汇总与存活清单。timedOut 是杀死里因超时的位点数，单列是因为超时可能是机器慢而不是测试强。
+ * valid 为 false 时 score 为 null，抬头不出计数：没有执行过的测量不能写成「杀死 0、存活 0」。只列时 valid 为 null。
+ */
+export function summarize(sites, { planOnly = false, baselinePassed = true } = {}) {
   const count = (v) => sites.filter((s) => s.verdict === v).length;
-  const summary = { total: sites.length, killed: count("killed"), survived: count("survived"), uncovered: count("uncovered"), notRun: count("notRun"), planned: count("planned"), timedOut: sites.filter((s) => s.reason === "timeout").length, score: score(sites) };
+  const summary = { total: sites.length, killed: count("killed"), survived: count("survived"), uncovered: count("uncovered"), notRun: count("notRun"), planned: count("planned"), timedOut: sites.filter((s) => s.reason === "timeout").length, score: score(sites), valid: null, invalidReason: null };
+  if (!planOnly) {
+    summary.invalidReason = invalidReasonOf(summary, baselinePassed);
+    summary.valid = summary.invalidReason === null;
+    if (!summary.valid) summary.score = null;
+  }
   const survivors = sites.filter((s) => s.verdict === "survived").map((s) => ({ file: s.file, unit: s.unit, line: s.line, original: s.original, mutant: s.mutant, category: s.category, suggestion: suggestion(s) }));
   return { summary, survivors };
 }
@@ -250,6 +299,7 @@ const siteRow = (s) => `| ${s.file} | ${s.unit} | ${s.line} | \`${s.original}\` 
 function tallyText(result) {
   const sm = result.summary;
   if (result.planOnly) return "（只列）";
+  if (sm.valid === false) return `：测量无效（${sm.invalidReason}）`;
   const score = sm.score === null ? "无" : (sm.score * 100).toFixed(0) + "%";
   const timedOut = sm.timedOut ? `（其中超时 ${sm.timedOut}）` : "";
   return `：杀死 ${sm.killed}${timedOut}、存活 ${sm.survived}、无覆盖 ${sm.uncovered}、未跑 ${sm.notRun}；分数 ${score}${result.budget.exceeded ? "；预算用尽" : ""}`;
@@ -274,6 +324,10 @@ export function formatMutation(result) {
   if (result.survivors.length) {
     lines.push("", "存活的位点：");
     for (const s of result.survivors) lines.push(`- ${s.file}:${s.line} ${s.unit}：${s.suggestion}`);
+  }
+  if (result.unmutated?.length) {
+    lines.push("", "没有位点的改动段（不进分数）：");
+    for (const u of result.unmutated) lines.push(`- ${u.file}:${u.lines[0]}-${u.lines[1]}${u.unit ? ` ${u.unit}` : ""}：${u.reason}`);
   }
   if (result.resources) lines.push("", formatResources(result.resources));
   return lines.join("\n");

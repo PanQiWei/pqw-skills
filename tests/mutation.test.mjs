@@ -150,6 +150,10 @@ test("基线不通过：整程 notRun(baselineFailed)，退出 1", { skip }, () 
     const out = JSON.parse(r.stdout);
     assert.equal(out.baseline.passed, false);
     assert.ok(out.sites.every((s) => s.verdict === "notRun" && s.reason === "baselineFailed"));
+    assert.deepEqual([out.summary.valid, out.summary.invalidReason, out.summary.score], [false, "基线不通过", null]);
+    const table = run(dir, ["--test", "node -e \"process.exit(3)\""]);
+    assert.match(table.stdout, /^差分变异：基线 \w+ 到工作树；位点 \d+：测量无效（基线不通过）\n基线不通过：/);
+    assert.doesNotMatch(table.stdout, /杀死 0/);
   } finally { dispose(dir); }
 });
 

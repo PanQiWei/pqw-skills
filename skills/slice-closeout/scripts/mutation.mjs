@@ -81,9 +81,9 @@ function emit(result, opts) {
 }
 
 const inputs = loadInputs(opts);
-const { files, sites } = collectSites({ root: inputs.root, base: inputs.base, ts: inputs.ts, scope: parseScope(opts.scope) });
+const { files, sites, unmutated } = collectSites({ root: inputs.root, base: inputs.base, ts: inputs.ts, scope: parseScope(opts.scope) });
 selectSites(sites, inputs.report, inputs.history);
-const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, testCommand: opts.test, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, budget: { limitMs: inputs.budgetMs, exceeded: false }, resources: inputs.resources, sites, summary: {}, survivors: [] };
+const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, testCommand: opts.test, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, budget: { limitMs: inputs.budgetMs, exceeded: false }, resources: inputs.resources, sites, unmutated, summary: {}, survivors: [] };
 
 const runner = createTestRunner(opts.test, inputs.root, inputs.env, { nice: inputs.resources.nice });
 const patcher = createPatcher(inputs.root);
@@ -101,6 +101,6 @@ if (!result.planOnly) {
   result.resources.timing = run.timing;
   restored = run.restored;
 }
-Object.assign(result, summarize(sites));
+Object.assign(result, summarize(sites, { planOnly: result.planOnly, baselinePassed: result.baseline.passed !== false }));
 emit(result, opts);
 process.exit(!restored || (!result.planOnly && !result.baseline.passed) ? 1 : 0);
