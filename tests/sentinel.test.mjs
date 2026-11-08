@@ -176,14 +176,15 @@ test("文档陈旧：进度行 head 不是 HEAD、处置断号、汇报件早于
     assert.equal(r.status, 0, r.stderr);
     const report = readFileSync(join(out, "latest.md"), "utf8");
     assert.match(report, new RegExp(`- 文档陈旧：plan 进度行写的 head ${head} 不是当前 HEAD ${newHead}`));
-    assert.match(report, /- 文档陈旧：处置编号断号，应为 2 却是 3/);
+    assert.doesNotMatch(report, /- 文档陈旧：处置编号断号/, "check-plan 已把断号列为结构缺陷，不再重复报（第七程 C5）");
     assert.match(report, /- 文档陈旧：汇报件 report\.html 生成于 20\d\d-.*，早于最近提交 20\d\d-/);
     assert.match(report, new RegExp(`- 文档陈旧：维护表里 docs/a\\.md 最近更新 2026-11-08T09:00Z 早于进度行更新 2026-11-08T10:00:00\\.000Z，而最近提交 ${newHead} 改了它`));
-    assert.match(report, /## 文档\n\n- check-plan：1 处缺陷\n  - .*plan\.md:\d+ 处置编号断号：应为 2，写的是 3\n- 维护表：5 行\n/, "处置断号也是结构缺陷，两处都报");
+    assert.match(report, /## 文档\n\n- check-plan：1 处缺陷\n  - .*plan\.md:\d+ 处置编号断号：应为 2，写的是 3\n- 维护表：5 行\n/, "处置断号作为结构缺陷只报一处");
     assert.equal((report.match(/文档陈旧：维护表里/g) ?? []).length, 1, "时刻没法解析、等于进度行时刻、没有路径的行都不报");
     assert.match(report, /里程碑：3\/5 已勾/);
     assert.match(report, /- 文档陈旧：plan 结构不合模板，1 处缺陷（处置编号断号：应为 2，写的是 3）/);
-    assert.match(r.stdout, /信号：文档陈旧：处置编号断号/);
+    assert.match(r.stdout, /信号：文档陈旧：plan 进度行写的 head/);
+    assert.doesNotMatch(r.stdout, /处置编号断号，应为/);
   } finally { dispose(dir); }
 });
 
@@ -209,11 +210,12 @@ test("文档陈旧：结构不合模板出一条信号并在「文档」节列�
     assert.match(plainReport, /（没有进度行）\n（没有当前行）/, "没有进度行与当前行时写明，不崩");
     assert.doesNotMatch(plainReport, /- 文档陈旧/);
 
-    writeFiles(dir, { "tmp/run-z/plan.md": TEMPLATE_PLAN(head, "2026-11-08T10:00Z") });
+    writeFiles(dir, { "tmp/run-z/plan.md": TEMPLATE_PLAN(head, "2026-11-08T10:00Z", "\n处置 1（2026-11-08T09:00Z）：继续；无\n处置 3（2026-11-08T09:45Z）：继续；无\n") });
     const missing = spawnSync("node", [SCRIPT, "--plan", join(dir, "tmp/run-z/plan.md"), "--out", out, "--once"], { encoding: "utf8", env: { ...process.env, PQW_CHECK_PLAN: join(dir, "nope.mjs") } });
     assert.equal(missing.status, 0, missing.stderr);
     const missingReport = readFileSync(join(out, "latest.md"), "utf8");
     assert.match(missingReport, /- 未核结构：找不到 check-plan（.*nope\.mjs）/);
-    assert.doesNotMatch(missingReport, /- 文档陈旧/);
+    assert.match(missingReport, /- 文档陈旧：处置编号断号，应为 2 却是 3/, "没核结构时断号由哨兵自己报");
+    assert.equal((missingReport.match(/- 文档陈旧/g) ?? []).length, 1);
   } finally { dispose(dir); }
 });

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 哨兵子代理取事实的工具：读 plan 的进度总览、处置记录、文档维护表与工作树事实，写一份增量汇报（提交、改动统计、新交回件、文档结构与陈旧、信号），然后睡或退出。不调用模型。
-// 文档陈旧信号：进度行 head 不是 HEAD、处置断号、汇报件早于最近提交、plan 结构不合模板（经 spec-and-plan 的 check-plan）、维护表「最近更新」落后而最近提交改了该文档。
+// 文档陈旧信号：进度行 head 不是 HEAD、汇报件早于最近提交、plan 结构不合模板（经 spec-and-plan 的 check-plan；它核不了时才由本脚本自己报处置断号）、维护表「最近更新」落后而最近提交改了该文档。
 // 退出 0 正常；1 读不到 plan 或写不了汇报；2 用法错误。
 //
 // 用法：
@@ -182,12 +182,13 @@ const docsTableSignals = (plan, facts, head, repo) => {
 };
 
 /**
- * 文档陈旧信号：进度行 head 不是 HEAD；处置断号；汇报件早于最近提交；plan 结构不合模板；
+ * 文档陈旧信号：进度行 head 不是 HEAD；汇报件早于最近提交；plan 结构不合模板；
  * 维护表某行「最近更新」早于进度行更新时刻而该文档在最近提交里被改过。每条带证据。
+ * 处置断号是结构缺陷之一，check-plan 给出结果时由它报，没核结构时才自己报，不重复。
  */
 const staleSignals = ({ planText, plan, head, repo, runDir, structure }) => {
   const facts = progressFacts(plan.progress);
-  const gap = disposalGap(planText);
+  const gap = structure.defects === null ? disposalGap(planText) : null;
   return [
     ...headSignal(facts, head),
     ...(gap ? [`文档陈旧：处置编号断号，${gap}`] : []),

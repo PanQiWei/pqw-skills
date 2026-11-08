@@ -164,6 +164,8 @@ const NARRATED = `# 示例 交付计划（revision 1）
 
 ## 一程目标与前后差别
 
+开头说明，解释 \`术语\`。
+
 ### 产品层：用的人会得到什么
 
 第一段，讲 \`现状\`。
@@ -194,19 +196,21 @@ const NARRATED = `# 示例 交付计划（revision 1）
 
 test("叙述：产品层按空行分段、技术层一段、意义只收写了的切片；没有节时两层都空", () => {
   const n = parseNarrative(NARRATED);
+  assert.deepEqual(n.intro, ["开头说明，解释 `术语`。"]);
   assert.deepEqual(n.product, ["第一段，讲 `现状`。", "第二段，讲做完之后。"]);
   assert.deepEqual(n.technical, ["只有一段。"]);
   assert.deepEqual([...n.meanings], [["01", "对用户，能看到 **进度**；对系统，少一层。"]]);
   const none = parseNarrative(PLAN);
-  assert.deepEqual([none.product, none.technical, none.meanings.size], [[], [], 0]);
+  assert.deepEqual([none.intro, none.product, none.technical, none.meanings.size], [[], [], [], 0]);
   const tight = parseNarrative("## 一程目标与前后差别\n### 产品层：x\n### 技术层：y\n\n一段。\n\n## 切片\n\n### 备注\n\n不是切片。\n\n### 01：a\n\n- **交付这片的意义：** 有。\n");
-  assert.deepEqual([tight.product, tight.technical, [...tight.meanings]], [[], ["一段。"], [["01", "有。"]]], "小标题紧挨着时产品层为空；切片节里没有编号的小标题跳过");
+  assert.deepEqual([tight.intro, tight.product, tight.technical, [...tight.meanings]], [[], [], ["一段。"], [["01", "有。"]]], "小标题紧挨着时开头与产品层为空；切片节里没有编号的小标题跳过");
 });
 
 test("叙述渲染：两层各成小节并转行内标记；只有一层时另一层写没有写；都没有时说明 plan 没写；切片表在有意义的行下面多一行", () => {
   const html = renderNarrative(parseNarrative(NARRATED));
+  assert.match(html, /^<p>开头说明，解释 <code>术语<\/code>。<\/p><h3>产品层/, "开头说明先于产品层");
   assert.match(html, /<h3>产品层：用的人会得到什么<\/h3><p>第一段，讲 <code>现状<\/code>。<\/p><p>第二段，讲做完之后。<\/p><h3>技术层：哪一块的工作方式变了<\/h3><p>只有一段。<\/p>/);
-  assert.match(renderNarrative({ product: ["x"], technical: [] }), /技术层[^<]*<\/h3><p class="muted">没有写。<\/p>/);
+  assert.match(renderNarrative({ product: ["x"], technical: [] }), /^<h3>产品层.*技术层[^<]*<\/h3><p class="muted">没有写。<\/p>/, "没有 intro 字段时照常");
   assert.equal(renderNarrative({ product: [], technical: [] }), `<p class="muted">plan 没有写目标与前后差别。</p>`);
   const rows = parseOverview(NARRATED).rows;
   const table = renderSlices(rows, parseNarrative(NARRATED).meanings);

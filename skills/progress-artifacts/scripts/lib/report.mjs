@@ -19,16 +19,22 @@ export function parseOverview(plan) {
 /** 二级节的正文：从「## 标题」到下一个「## 」之间，没有返回 ""。 */
 const sectionBody = (plan, title) => plan.split(new RegExp(`^## ${title}\\s*$`, "m"))[1]?.split(/^## /m)[0] ?? "";
 
-/** 小标题之后到下一个「### 」之前的段落（按空行分，去掉空段）。 */
+/** 一段文本按空行分段，去掉空段。 */
+const paragraphs = (text) => text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+
+/** 小标题之后到下一个「### 」之前的段落。 */
 const paragraphsAfter = (body, headPrefix) => {
   const at = body.split("\n").findIndex((l) => l.startsWith(headPrefix));
   if (at < 0) return [];
   const rest = body.split("\n").slice(at + 1);
   const end = rest.findIndex((l) => l.startsWith("### "));
-  return (end < 0 ? rest : rest.slice(0, end)).join("\n").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  return paragraphs((end < 0 ? rest : rest.slice(0, end)).join("\n"));
 };
 
-/** plan 给人读的两处：「一程目标与前后差别」的产品层与技术层段落，以及每个切片的「交付这片的意义」。 */
+/** 节标题之后、第一个小标题之前的段落（开头的说明）。 */
+const paragraphsBefore = (body) => { const lines = body.split("\n"); const end = lines.findIndex((l) => l.startsWith("### ")); return paragraphs((end < 0 ? lines : lines.slice(0, end)).join("\n")); };
+
+/** plan 给人读的几处：「一程目标与前后差别」开头的说明、产品层与技术层段落，以及每个切片的「交付这片的意义」。 */
 export function parseNarrative(plan) {
   const goal = sectionBody(plan, "一程目标与前后差别");
   const meanings = new Map();
@@ -37,14 +43,14 @@ export function parseNarrative(plan) {
     const meaning = /^- \*\*交付这片的意义：\*\*\s*(.+)$/m.exec(block)?.[1]?.trim();
     if (id && meaning) meanings.set(id, meaning);
   }
-  return { product: paragraphsAfter(goal, "### 产品层："), technical: paragraphsAfter(goal, "### 技术层："), meanings };
+  return { intro: paragraphsBefore(goal), product: paragraphsAfter(goal, "### 产品层："), technical: paragraphsAfter(goal, "### 技术层："), meanings };
 }
 
-/** 网页开头的两段叙述；plan 没写时说明，不留空白。 */
-export function renderNarrative({ product, technical }) {
+/** 网页开头的叙述：节开头的说明（有就先渲染）、产品层、技术层；plan 没写时说明，不留空白。 */
+export function renderNarrative({ intro = [], product, technical }) {
   if (!product.length && !technical.length) return `<p class="muted">plan 没有写目标与前后差别。</p>`;
   const part = (title, paras) => `<h3>${esc(title)}</h3>${paras.length ? paras.map((p) => `<p>${inline(p)}</p>`).join("") : `<p class="muted">没有写。</p>`}`;
-  return part("产品层：用的人会得到什么", product) + part("技术层：哪一块的工作方式变了", technical);
+  return intro.map((p) => `<p>${inline(p)}</p>`).join("") + part("产品层：用的人会得到什么", product) + part("技术层：哪一块的工作方式变了", technical);
 }
 
 export const statusClass = (s) => (s.startsWith("已完成") ? "st-done" : s.startsWith("进行中") ? "st-doing" : s.startsWith("受阻") ? "st-blocked" : "st-todo");
