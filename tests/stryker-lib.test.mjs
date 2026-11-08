@@ -211,3 +211,27 @@ test(".stryker-tmp 是否被忽略；工作目录在系统临时目录下且按�
     assert.notEqual(workDir(repo), workDir(repo + "x"));
   } finally { dispose(repo); }
 });
+
+import { incrementalFor, rememberFingerprint, strykerFingerprint } from "../skills/slice-closeout/scripts/lib/stryker.mjs";
+import { TOOL_VERSION } from "../skills/slice-closeout/scripts/lib/version.mjs";
+
+test("增量：没有记录 force；记过同样的指纹不 force；指纹变了 force；增量文件在工作目录；Stryker 指纹带工具版本、vitest 与配置、Stryker 版本", () => {
+  const dir = mkdtempSync(join(tmpdir(), "pqw-incr-"));
+  try {
+    const fp = { toolVersion: "0.7.0", testCommand: "vitest@4.1.11 + vitest.config.ts", testFilesDigest: "abc", strykerVersion: "10.1.1" };
+    const first = incrementalFor(dir, fp);
+    assert.deepEqual([first.file, first.force, first.previous], [join(dir, "incremental.json"), true, null]);
+    rememberFingerprint(dir, fp);
+    const second = incrementalFor(dir, { ...fp });
+    assert.deepEqual([second.force, second.previous], [false, fp]);
+    assert.equal(incrementalFor(dir, { ...fp, testFilesDigest: "changed" }).force, true);
+    assert.equal(incrementalFor(dir, { ...fp, strykerVersion: "10.2.0" }).force, true);
+    const repo = makeRepo({ "test/a.test.ts": "x\n" });
+    try {
+      const got = strykerFingerprint(repo, { version: "10.1.1", modules: { vitestVersion: "4.1.11" }, configFile: "vitest.config.ts" });
+      assert.deepEqual(Object.keys(got), ["toolVersion", "testCommand", "testFilesDigest", "strykerVersion"]);
+      assert.deepEqual([got.toolVersion, got.testCommand, got.strykerVersion], [TOOL_VERSION, "vitest@4.1.11 + vitest.config.ts", "10.1.1"]);
+      assert.equal(strykerFingerprint(repo, { version: "10.1.1", modules: { vitestVersion: null }, configFile: null }).testCommand, "vitest@? + 无配置");
+    } finally { dispose(repo); }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

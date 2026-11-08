@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node
 import { resolve, join } from "node:path";
 import { parseArgs, parseScope, resolveBase, parseLcov, sh, changedLines } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
-import { chooseEngine, ENGINES, mutateEntries, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries } from "./lib/stryker.mjs";
+import { chooseEngine, ENGINES, mutateEntries, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries, strykerFingerprint, incrementalFor, rememberFingerprint } from "./lib/stryker.mjs";
 import { parseDuration, collectSites, selectSites, createPatcher, restorePending, restoreLogPath, createTestRunner, runSites, summarize, formatMutation, capacity, plannedWorkers, runnerEnv, niceAvailable, createAdapter, fingerprintOf, isMutable } from "./lib/mutation.mjs";
 
 const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
@@ -27,7 +27,7 @@ const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
   --timeout <时长>           单次测试超时；缺省基线 10m，位点取基线用时的 5 倍且至少 10s
   --engine auto|stryker|builtin  执行引擎，缺省 auto：找得到 Stryker 与它的 vitest runner、且项目有 vitest 配置或声明了 vitest 时用 Stryker，否则用内建引擎；抬头之后一行写「引擎：…」，内建带原因。显式 stryker 而条件不满足退出 2 并说明装哪里
   --stryker-modules <目录>   装了 @stryker-mutator/core 与 vitest-runner 的 node_modules；解析顺序是项目根 node_modules、这里（也读环境变量 PQW_STRYKER_MODULES）、本脚本目录的 node_modules（npm ci --prefix 该目录）
-  --history <上次 JSON>      上次结果；指纹（工具版本、测试命令、测试文件摘要）相同、单元摘要未变且上次杀死的位点沿用，抬头写「沿用 N」；指纹不同整份不沿用并写明
+  --history <上次 JSON>      上次结果；指纹（工具版本、测试命令、测试文件摘要）相同、单元摘要未变且上次杀死的位点沿用，抬头写「沿用 N」；指纹不同整份不沿用并写明。Stryker 引擎下不适用：增量由引擎的 incremental 文件负责（在系统临时目录），指纹变了整轮重跑，抬头同样写「沿用 N」
   --no-tests-pattern <正则>  判「没跑测试」的输出模式，命中就复跑一次；缺省带词界，「Tests 10 passed」不算。基线输出也命中时该模式判不出东西，抬头写明并按通过处理
 
 资源。算式：份额 = 1 / (--other-heavy-tasks + 1)；上限 = max(1, floor(CPU 数 × 份额))，可用内存低于阈值时减半；并行度 = 缺省等于上限，显式 --workers 超过上限按上限。
@@ -73,7 +73,8 @@ function loadInputs(opts) {
   const { base, baseGiven } = load(() => resolveBase(root, opts.base, opts.target));
   const resources = planResources(opts);
   return {
-    root, ts, engine, stryker: { modules, configFile }, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources, env: runnerEnv(process.env, resources.workers), fingerprint: fingerprintOf(root, opts.test),
+    root, ts, engine, stryker: { modules, configFile }, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources, env: runnerEnv(process.env, resources.workers),
+    fingerprint: engine.name === "stryker" ? strykerFingerprint(root, { ...engine, modules, configFile }) : fingerprintOf(root, opts.test),
     report: opts.lcov ? parseLcov(readFileSync(resolve(root, opts.lcov), "utf8")) : null,
     history: opts.history ? JSON.parse(readFileSync(resolve(opts.history), "utf8")) : null,
     budgetMs: duration(opts.budget, 20 * 60000),
@@ -148,7 +149,7 @@ async function runStrykerEngine() {
   const changed = changedLines(root, inputs.base);
   const scope = parseScope(opts.scope);
   const files = [...new Set([...changed.keys(), ...pinned])].filter((p) => isMutable(root, p, scope)).sort();
-  const result = newResult([], [], { given: false, used: false, reason: null });
+  const result = newResult([], [], { given: Boolean(opts.history), used: false, reason: opts.history ? "--history 在 Stryker 引擎下不适用，增量由引擎负责" : null });
   result.mutate = mutateEntries(changed, pinned, files);
   result.budget = { limitMs: null, exceeded: false };
   result.engine.notes = [];
@@ -170,7 +171,9 @@ async function executeStryker(result, { root, ts, stryker, changed, files }) {
   const reportPath = join(dir, "mutation.json"), configPath = join(dir, "stryker.json"), logPath = join(dir, "stryker.log"), tempDir = join(root, ".stryker-tmp");
   rmSync(reportPath, { force: true }); rmSync(logPath, { force: true });
   const hadTempDir = existsSync(tempDir);
-  writeFileSync(configPath, JSON.stringify(strykerConfig({ entries: result.mutate, configFile: stryker.configFile, concurrency: inputs.resources.workers, reportPath, timeoutMs: inputs.timeoutMs }), null, 2) + "\n");
+  const incremental = incrementalFor(dir, inputs.fingerprint);
+  result.incremental = { file: incremental.file, force: incremental.force };
+  writeFileSync(configPath, JSON.stringify(strykerConfig({ entries: result.mutate, configFile: stryker.configFile, concurrency: inputs.resources.workers, reportPath, timeoutMs: inputs.timeoutMs, incremental }), null, 2) + "\n");
   const run = runStryker({ root, coreBin: stryker.modules.coreBin, configPath, nice: inputs.resources.nice, logPath, onProgress: (line) => console.error(line) });
   const interrupted = (code) => { run.kill(); run.done.then(() => { if (!hadTempDir) rmSync(tempDir, { recursive: true, force: true }); process.exit(code); }); };
   process.on("SIGHUP", () => interrupted(129));
@@ -182,7 +185,10 @@ async function executeStryker(result, { root, ts, stryker, changed, files }) {
   const report = readReport(reportPath);
   if (!report) { result.baseline = { passed: false, seconds: r.seconds, tail: `${r.tail}\n（完整日志 ${logPath}）` }; return 1; }
   result.baseline = { passed: true, seconds: r.seconds };
+  rememberFingerprint(dir, inputs.fingerprint);
   result.reused = r.reused ?? 0;
+  if (incremental.force && incremental.previous !== null) result.engine.notes.push("增量：指纹变了，整轮重跑");
+  else if (result.reused === 0) result.engine.notes.push("增量：已开，本轮没有沿用");
   Object.assign(result, mapReport({ report, files: fileEntries(root, ts, files), ranges: changed, pinned }));
   return r.status === 0 ? 0 : 1;
 }

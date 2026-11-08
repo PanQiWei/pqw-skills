@@ -1,12 +1,13 @@
 // Stryker 引擎的适配层：找依赖、认运行器、选引擎；范围变 mutate 条目与配置、起进程；读报告、映射回位点模型。
 // 核心层 core.mjs 与适配器 adapter-typescript.mjs 不知道引擎；mutation.mjs 只在这里拿引擎的决定。
-import { existsSync, readFileSync, readdirSync, createWriteStream } from "node:fs";
+import { existsSync, readFileSync, readdirSync, createWriteStream, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
-import { unitDigests } from "./core.mjs";
+import { unitDigests, testFilesDigest } from "./core.mjs";
+import { TOOL_VERSION } from "./version.mjs";
 import { analyze } from "./adapter-typescript.mjs";
 
 /** 脚本目录自带的 node_modules：`scripts/package.json` 钉版本，`npm ci --prefix <脚本目录>` 装到这里。 */
@@ -198,6 +199,22 @@ export function mapReport({ report, files, ranges, pinned = [] }) {
   sites.sort((a, b) => a.file.localeCompare(b.file) || a.start - b.start);
   return { sites, unmutated };
 }
+
+/** Stryker 引擎下的指纹：工具版本、「vitest@<版本> + <配置文件>」当测试命令、测试文件摘要，再加 Stryker 版本。任一项变了上次的结果就不能再信。 */
+export const strykerFingerprint = (root, engine) => ({ toolVersion: TOOL_VERSION, testCommand: `vitest@${engine.modules.vitestVersion ?? "?"} + ${engine.configFile ?? "无配置"}`, testFilesDigest: testFilesDigest(root), strykerVersion: engine.version });
+
+const sameFingerprint = (a, b) => a !== null && JSON.stringify(a) === JSON.stringify(b);
+
+/** 增量参数：增量文件在工作目录；上次记的指纹与这次不同（或没有记录）就 force 整轮重跑。 */
+export function incrementalFor(dir, fingerprint) {
+  const recordPath = join(dir, "fingerprint.json");
+  let previous = null;
+  try { previous = JSON.parse(readFileSync(recordPath, "utf8")); } catch { previous = null; }
+  return { file: join(dir, "incremental.json"), force: !sameFingerprint(previous, fingerprint), previous };
+}
+
+/** 跑完记下这次的指纹，下次据此判要不要 force。 */
+export const rememberFingerprint = (dir, fingerprint) => writeFileSync(join(dir, "fingerprint.json"), JSON.stringify(fingerprint, null, 2) + "\n");
 
 /** 映射要用的文件表：path → { text, units, digests }；单元由现有适配器按行找。 */
 export function fileEntries(root, ts, files) {

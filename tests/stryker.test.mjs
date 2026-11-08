@@ -89,7 +89,7 @@ test("Stryker 引擎真跑一轮：四类计数与表格同内建格式，存活
     writeFiles(dir, { "src/calc.ts": mutated });
     const r = strykerRun(dir, ["--json", join(dir, "out.json")]);
     assert.equal(r.status, 0, r.stderr + r.stdout);
-    assert.match(r.stdout, /^差分变异：基线 [0-9a-f]{12} 到工作树；位点 5：杀死 4、存活 1、无覆盖 0、未跑 0；分数 80%\n引擎：Stryker 10\.1\.1（vitest）\n\| 文件 \| 单元 \| 行 \| 原文 \| 替换 \| 类别 \| 裁定 \|\n/);
+    assert.match(r.stdout, /^差分变异：基线 [0-9a-f]{12} 到工作树；位点 5：杀死 4、存活 1、无覆盖 0、未跑 0；分数 80%\n引擎：Stryker 10\.1\.1（vitest）\n增量：已开，本轮没有沿用\n\| 文件 \| 单元 \| 行 \| 原文 \| 替换 \| 类别 \| 裁定 \|\n/);
     assert.match(r.stdout, /\| src\/calc\.ts \| clamp \| 2 \| `n < lo` \| `n <= lo` \| equality \| 存活 \|/);
     assert.match(r.stdout, /\n存活的位点：\n- src\/calc\.ts:2 clamp：n < lo 换成 n <= lo 后测试仍过\n/);
     assert.match(r.stdout, /Stryker 一轮 [\d.]+s，并行度启动时定下/);
@@ -105,6 +105,19 @@ test("Stryker 引擎真跑一轮：四类计数与表格同内建格式，存活
     assert.equal(existsSync(join(dir, ".stryker-tmp")), false);
     assert.ok(existsSync(join(workDir(dir), "mutation.json")));
     assert.ok(existsSync(join(workDir(dir), "stryker.log")));
+    assert.deepEqual(json.incremental, { file: join(workDir(dir), "incremental.json"), force: true });
+    assert.equal(json.fingerprint.testCommand, "vitest@4.1.11 + vitest.config.ts");
+    assert.equal(json.fingerprint.strykerVersion, "10.1.1");
+    assert.ok(existsSync(join(workDir(dir), "incremental.json")), "引擎写了增量文件");
+    const again = strykerRun(dir, ["--json", join(dir, "out2.json"), "--history", join(dir, "out.json")]);
+    assert.equal(again.status, 0, again.stderr + again.stdout);
+    assert.match(again.stdout, /^差分变异：[^\n]*；分数 80%；沿用 5\n历史未沿用：--history 在 Stryker 引擎下不适用，增量由引擎负责\n引擎：Stryker/, "第二轮全部沿用，--history 写说明");
+    const json2 = JSON.parse(readFileSync(join(dir, "out2.json"), "utf8"));
+    assert.deepEqual([json2.incremental.force, json2.summary.carried, json2.history], [false, 5, { given: true, used: false, reason: "--history 在 Stryker 引擎下不适用，增量由引擎负责" }]);
+    writeFiles(dir, { "test/calc.test.ts": readFileSync(join(dir, "test/calc.test.ts"), "utf8") + "\n// touched\n" });
+    const forced = JSON.parse(strykerRun(dir, ["--format", "json"]).stdout);
+    assert.equal(forced.incremental.force, true, "测试文件变了指纹就变，整轮重跑");
+    assert.ok(forced.engine.notes.includes("增量：指纹变了，整轮重跑"), JSON.stringify(forced.engine.notes));
   } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); }
 });
 
