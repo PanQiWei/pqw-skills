@@ -19,20 +19,21 @@ bash scripts/link-skills.sh
 ## 一致性检查与测试
 
 ```bash
+npm ci
 node scripts/check-repo.mjs
 claude plugin validate .
-PQW_TS=<typescript 包目录> node --test tests/
+npx vitest run
 ```
 
-`tests/` 用 `node:test`，夹具在系统临时目录建小 Git 仓库。需要 typescript 的用例从 `PQW_TS` 取包目录（要 JS 实现的 typescript，6.x 可用），取不到就跳过并打印原因。真起 Stryker 的用例从 `PQW_STRYKER_MODULES` 取装好的 `node_modules`（例如 `npm ci --prefix skills/slice-closeout/scripts` 之后指向 `skills/slice-closeout/scripts/node_modules`），没设就跳过并打印原因。差分变异的用例要跑真实的测试命令，整套约一分钟。
+`tests/` 用 vitest 跑、`node:assert/strict` 断言，夹具在系统临时目录建小 Git 仓库。根 `package.json` 钉着测试链的依赖（vitest、覆盖率插件、Stryker 两个包、typescript），`npm ci` 之后用例从仓库根的 `node_modules` 解析 typescript 与 Stryker；`PQW_TS`、`PQW_STRYKER_MODULES` 两个环境变量仍可覆盖，取不到时相关用例跳过并打印原因。命令面用例真起子进程，整套约一分钟。
 
 结构读数、差分变异、汇报件、demo 追加四个工具的逻辑在各自 `scripts/lib/` 下的函数里，`scripts/*.mjs` 只是命令面；哨兵、汇报件目录、清理三个脚本仍是单文件。改工具时用它自己量自己：
 
 ```bash
-# 覆盖率：Node 自带，lcov 含用例 spawn 出来的命令面子进程；destination 不要写 /dev/null，会 fsync 报错
-PQW_TS=<目录> node --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=tmp/lcov.info --test-reporter=spec --test-reporter-destination=stdout tests/
+# 覆盖率：vitest 的 v8 插件，lcov 落在 coverage/lcov.info（已忽略）；子进程里跑的命令面行不计入
+npx vitest run --coverage
 # 只摘改动函数的读数
-node skills/slice-closeout/scripts/metrics.mjs --ts <目录> --base <起点提交> --lcov tmp/lcov.info --scope skills/slice-closeout/scripts
+node skills/slice-closeout/scripts/metrics.mjs --base <起点提交> --lcov coverage/lcov.info --scope skills/slice-closeout/scripts
 # 只打改动单元的位点；第二轮带 --history 沿用上一轮杀死的
 node skills/slice-closeout/scripts/mutation.mjs --ts <目录> --test "PQW_TS=<目录> node --test tests/" --base <起点提交> --lcov tmp/lcov.info --scope skills/slice-closeout/scripts --budget 25m --json tmp/mutation.json
 ```

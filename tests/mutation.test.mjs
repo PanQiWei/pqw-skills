@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { spawnSync, spawn } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
@@ -35,11 +35,12 @@ const TESTCMD = "node --test test/";
 
 test("--help 退出 0；缺 --test 退出 2", () => {
   assert.equal(spawnSync("node", [SCRIPT, "--help"], { encoding: "utf8" }).status, 0);
-  const r = spawnSync("node", [SCRIPT], { encoding: "utf8" });
+  // 本仓库从第八程起自己就是 vitest 项目，不带 --engine builtin 时 auto 会选 Stryker 并真跑；这条只核内建引擎缺 --test 的退出码。
+  const r = spawnSync("node", [SCRIPT, "--engine", "builtin"], { encoding: "utf8" });
   assert.equal(r.status, 2);
 });
 
-test("纯删除也出位点：删掉 clamp 里一行 if 后 --plan-only 列出它剩下的位点", { skip }, () => {
+test.skipIf(skip)("纯删除也出位点：删掉 clamp 里一行 if 后 --plan-only 列出它剩下的位点", () => {
   const dir = makeRepo({ "src/calc.ts": SRC });
   try {
     writeFiles(dir, { "src/calc.ts": SRC.replace("  if (x < lo) return lo;\n", "") });
@@ -51,7 +52,7 @@ test("纯删除也出位点：删掉 clamp 里一行 if 后 --plan-only 列出�
   } finally { dispose(dir); }
 });
 
-test("--plan-only 只列位点，不改文件，不跑测试", { skip }, () => {
+test.skipIf(skip)("--plan-only 只列位点，不改文件，不跑测试", () => {
   const dir = setup();
   try {
     const before = readFileSync(join(dir, "src/calc.ts"));
@@ -66,7 +67,7 @@ test("--plan-only 只列位点，不改文件，不跑测试", { skip }, () => {
   } finally { dispose(dir); }
 });
 
-test("四类裁定各至少一例；存活带位置与替换；跑后逐字节还原", { skip }, () => {
+test.skipIf(skip)("四类裁定各至少一例；存活带位置与替换；跑后逐字节还原", () => {
   const dir = setup();
   try {
     const before = readFileSync(join(dir, "src/calc.ts"));
@@ -87,7 +88,7 @@ test("四类裁定各至少一例；存活带位置与替换；跑后逐字节�
   } finally { dispose(dir); }
 });
 
-test("「没跑测试」自动复跑一次后记 notRun(noTests)（第四程 C12 起基线须正常，所以用标记文件让基线之后的运行才打印）", { skip }, () => {
+test.skipIf(skip)("「没跑测试」自动复跑一次后记 notRun(noTests)（第四程 C12 起基线须正常，所以用标记文件让基线之后的运行才打印）", () => {
   const dir = setup();
   try {
     const r = run(dir, ["--test", "if [ -f flag ]; then echo 'No test files found'; fi; touch flag", "--format", "json"]);
@@ -99,7 +100,7 @@ test("「没跑测试」自动复跑一次后记 notRun(noTests)（第四程 C12
   } finally { dispose(dir); }
 });
 
-test("判定可信：「Tests 10 passed」不算没跑测试；基线也命中模式时抬头写明且位点存活", { skip }, () => {
+test.skipIf(skip)("判定可信：「Tests 10 passed」不算没跑测试；基线也命中模式时抬头写明且位点存活", () => {
   const dir = setup();
   try {
     const a = run(dir, ["--test", "echo 'Tests 10 passed'", "--format", "json"]);
@@ -117,7 +118,7 @@ test("判定可信：「Tests 10 passed」不算没跑测试；基线也命中�
   } finally { dispose(dir); }
 });
 
-test("判定可信：测试命令被信号结束记 notRun(crashed)；超时仍 killed(timeout) 并单列「其中超时」", { skip }, () => {
+test.skipIf(skip)("判定可信：测试命令被信号结束记 notRun(crashed)；超时仍 killed(timeout) 并单列「其中超时」", () => {
   const dir = setup();
   try {
     const crash = run(dir, ["--test", "if [ -f flag ]; then kill -SEGV $$; fi; touch flag", "--format", "json"]);
@@ -132,7 +133,7 @@ test("判定可信：测试命令被信号结束记 notRun(crashed)；超时仍 
   } finally { dispose(dir); }
 });
 
-test("预算用尽：剩余位点 notRun(budget)，退出 0，标 budgetExceeded", { skip }, () => {
+test.skipIf(skip)("预算用尽：剩余位点 notRun(budget)，退出 0，标 budgetExceeded", () => {
   const dir = setup();
   try {
     const r = run(dir, ["--test", TESTCMD, "--budget", "0s", "--format", "json"]);
@@ -143,7 +144,7 @@ test("预算用尽：剩余位点 notRun(budget)，退出 0，标 budgetExceeded
   } finally { dispose(dir); }
 });
 
-test("基线不通过：整程 notRun(baselineFailed)，退出 1", { skip }, () => {
+test.skipIf(skip)("基线不通过：整程 notRun(baselineFailed)，退出 1", () => {
   const dir = setup();
   try {
     const r = run(dir, ["--test", "node -e \"process.exit(3)\"", "--format", "json"]);
@@ -158,7 +159,7 @@ test("基线不通过：整程 notRun(baselineFailed)，退出 1", { skip }, () 
   } finally { dispose(dir); }
 });
 
-test("SIGINT 时先还原再退出 130", { skip }, async () => {
+test.skipIf(skip)("SIGINT 时先还原再退出 130", async () => {
   const dir = setup();
   try {
     const before = readFileSync(join(dir, "src/calc.ts"));
@@ -171,7 +172,7 @@ test("SIGINT 时先还原再退出 130", { skip }, async () => {
   } finally { dispose(dir); }
 });
 
-test("SIGHUP 时先还原再退出 129：信号到时变异体已写入，还原后逐字节相等且日志删掉", { skip }, async () => {
+test.skipIf(skip)("SIGHUP 时先还原再退出 129：信号到时变异体已写入，还原后逐字节相等且日志删掉", async () => {
   const dir = setup();
   try {
     const root = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd: dir, encoding: "utf8" }).stdout.trim();
@@ -190,7 +191,7 @@ test("SIGHUP 时先还原再退出 129：信号到时变异体已写入，还原
   } finally { dispose(dir); }
 });
 
-test("还原日志：上次运行留下日志，启动先还原并打印；测试期间目标文件被改动则退出 1、打印「被改动」且不覆盖", { skip }, () => {
+test.skipIf(skip)("还原日志：上次运行留下日志，启动先还原并打印；测试期间目标文件被改动则退出 1、打印「被改动」且不覆盖", () => {
   const dir = setup();
   try {
     const root = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd: dir, encoding: "utf8" }).stdout.trim();
@@ -225,7 +226,7 @@ test("还原日志：上次运行留下日志，启动先还原并打印；测�
   } finally { dispose(dir); }
 });
 
-test("点名文件：--files 让没改动的文件也出全部有名单元的位点，抬头写「点名 N 个文件」，位点带 pinned", { skip }, () => {
+test.skipIf(skip)("点名文件：--files 让没改动的文件也出全部有名单元的位点，抬头写「点名 N 个文件」，位点带 pinned", () => {
   const dir = setup();
   try {
     spawnSync("git", ["add", "-A"], { cwd: dir }); spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "all"], { cwd: dir });
@@ -239,7 +240,7 @@ test("点名文件：--files 让没改动的文件也出全部有名单元的位
   } finally { dispose(dir); }
 });
 
-test("历史：单元摘要未变且上次 killed 的位点沿用，不再跑", { skip }, () => {
+test.skipIf(skip)("历史：单元摘要未变且上次 killed 的位点沿用，不再跑", () => {
   const dir = setup();
   try {
     const first = run(dir, ["--test", TESTCMD, "--json", join(dir, "h.json"), "--format", "json"]);
@@ -251,7 +252,7 @@ test("历史：单元摘要未变且上次 killed 的位点沿用，不再跑", 
   } finally { dispose(dir); }
 });
 
-test("历史指纹：文件顶部加一行照样沿用并写「沿用 N」；改了测试文件或换了测试命令整份不沿用并写明", { skip }, () => {
+test.skipIf(skip)("历史指纹：文件顶部加一行照样沿用并写「沿用 N」；改了测试文件或换了测试命令整份不沿用并写明", () => {
   const dir = setup();
   try {
     const first = JSON.parse(run(dir, ["--test", TESTCMD, "--json", join(dir, "h.json"), "--format", "json"]).stdout);

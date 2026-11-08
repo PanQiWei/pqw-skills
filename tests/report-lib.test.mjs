@@ -1,5 +1,5 @@
 // 直接打 lib/report.mjs、lib/demo.mjs、lib/args.mjs 的函数。
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { parseOptions } from "../skills/progress-artifacts/scripts/lib/args.mjs";
 import { esc as escDemo, requiredGiven, fromSkeleton, sliceId, sliceSection, appendSection, SECTIONS_END } from "../skills/progress-artifacts/scripts/lib/demo.mjs";

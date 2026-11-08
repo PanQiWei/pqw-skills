@@ -1,5 +1,5 @@
 // 直接打 lib/stryker.mjs：查找目录的顺序、依赖解析、运行器识别、引擎选择。不需要真的 Stryker，用假的 node_modules 目录。
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";

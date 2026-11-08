@@ -1,5 +1,5 @@
 // 直接打 lib/metrics.mjs 的函数：排序、汇总、改动行归属、表格，再加两条从 CLI 进的边界。
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { makeRepo, writeFiles, dispose, tsPath } from "./fixture.mjs";
@@ -149,7 +149,7 @@ export function g(b: number) {
 `;
 const run = (dir, args) => spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--format", "json", ...args], { encoding: "utf8" });
 
-test("--scope 只收前缀内的文件；node_modules 不收；只删了行的函数也算改动（第四程 C11 改掉了第三程的「不算」）", { skip }, () => {
+test.skipIf(skip)("--scope 只收前缀内的文件；node_modules 不收；只删了行的函数也算改动（第四程 C11 改掉了第三程的「不算」）", () => {
   const dir = makeRepo({ "src/a.ts": SRC, "lib/b.ts": SRC });
   try {
     const changedF = SRC.replace("return 0;\n}\nexport function g", "return 2;\n}\nexport function g");

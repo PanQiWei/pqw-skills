@@ -1,0 +1,18 @@
+{
+  "name": "pqw-skills",
+  "private": true,
+  "type": "module",
+  "description": "仓库自己的测试与收口工具链的依赖；技能本身随目录分发，运行时只有 slice-closeout 的 Stryker 引擎有依赖（见 skills/slice-closeout/scripts/package.json）。",
+  "scripts": {
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "check": "node scripts/check-repo.mjs"
+  },
+  "devDependencies": {
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/vitest-runner": "10.1.1",
+    "@vitest/coverage-v8": "4.1.11",
+    "typescript": "6.0.3",
+    "vitest": "4.1.11"
+  }
+}

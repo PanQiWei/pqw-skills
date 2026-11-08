@@ -1,5 +1,5 @@
 // check-plan：按模板核 plan 与 spec 的骨架。
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";

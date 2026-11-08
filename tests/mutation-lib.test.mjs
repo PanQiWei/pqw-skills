@@ -1,5 +1,5 @@
 // 直接打 lib/mutation.mjs 的函数：时长、可打的文件、改动行、覆盖门控与历史沿用、写入器、运行器、裁定与预算、汇总与表格。
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";

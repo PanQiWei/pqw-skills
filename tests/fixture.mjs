@@ -26,10 +26,19 @@ export function writeFiles(dir, files) {
 
 export const dispose = (dir) => rmSync(dir, { recursive: true, force: true });
 
-/** typescript 模块路径：PQW_TS 环境变量，或从当前目录解析；都没有返回 null。 */
+/** 仓库根：本文件在 tests/ 下。 */
+export const REPO_ROOT = new URL("../", import.meta.url).pathname;
+
+/** typescript 模块路径：PQW_TS 环境变量，否则从仓库根的 node_modules 解析；都没有返回 null。 */
 export function tsPath() {
   if (process.env.PQW_TS && existsSync(process.env.PQW_TS)) return process.env.PQW_TS;
-  try { return dirname(createRequire(process.cwd() + "/").resolve("typescript/package.json")); } catch { return null; }
+  try { return dirname(createRequire(REPO_ROOT).resolve("typescript/package.json")); } catch { return null; }
+}
+
+/** Stryker 模块目录：PQW_STRYKER_MODULES 环境变量，否则仓库根的 node_modules；都没有返回 null。 */
+export function strykerModules() {
+  const candidates = [process.env.PQW_STRYKER_MODULES, join(REPO_ROOT, "node_modules")].filter(Boolean);
+  return candidates.find((d) => existsSync(join(d, "@stryker-mutator/core"))) ?? null;
 }
 
 export const VITEST_SRC = `export function clamp(n: number, lo: number, hi: number): number {

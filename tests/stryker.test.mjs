@@ -1,10 +1,10 @@
 // 命令面上的引擎选择：抬头与 JSON 的 engine 字段、显式 stryker 不可用退出 2、非法 --engine 退出 2。
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { spawnSync, spawn } from "node:child_process";
 import { join } from "node:path";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { makeRepo, writeFiles, dispose, tsPath } from "./fixture.mjs";
+import { makeRepo, writeFiles, dispose, tsPath, strykerModules } from "./fixture.mjs";
 
 const SCRIPT = new URL("../skills/slice-closeout/scripts/mutation.mjs", import.meta.url).pathname;
 const TS = tsPath();
@@ -19,7 +19,7 @@ test("非法 --engine 退出 2，不需要别的输入", () => {
   assert.match(r.stderr, /^--engine 只接受 auto、stryker、builtin：jest/);
 });
 
-test("auto 在没有 vitest 的项目选内建：抬头第二行写原因，JSON 顶层有 engine", { skip }, () => {
+test.skipIf(skip)("auto 在没有 vitest 的项目选内建：抬头第二行写原因，JSON 顶层有 engine", () => {
   const dir = makeRepo({ "src/calc.ts": SRC });
   try {
     writeFiles(dir, { "src/calc.ts": SRC.replace("> 0", ">= 0") });
@@ -33,7 +33,7 @@ test("auto 在没有 vitest 的项目选内建：抬头第二行写原因，JSON
   } finally { dispose(dir); }
 });
 
-test("有 vitest 配置但找不到依赖：auto 选内建并写装法；显式 stryker 退出 2 写装法与三处目录", { skip }, () => {
+test.skipIf(skip)("有 vitest 配置但找不到依赖：auto 选内建并写装法；显式 stryker 退出 2 写装法与三处目录", () => {
   const dir = makeRepo({ "src/calc.ts": SRC, "vitest.config.ts": "export default {};\n" });
   try {
     const auto = run(dir, ["--format", "json"]);
@@ -54,12 +54,12 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { makeVitestRepo, VITEST_SRC } from "./fixture.mjs";
 import { workDir } from "../skills/slice-closeout/scripts/lib/stryker.mjs";
 
-const MODULES = process.env.PQW_STRYKER_MODULES && existsSync(join(process.env.PQW_STRYKER_MODULES, "@stryker-mutator/core")) ? process.env.PQW_STRYKER_MODULES : null;
+const MODULES = strykerModules();
 const skipReal = skip || (MODULES ? false : "没有 Stryker 模块，设 PQW_STRYKER_MODULES");
 const fakeModules = (dir) => { const fake = join(dir, "fake-modules"); for (const name of ["@stryker-mutator/core", "@stryker-mutator/vitest-runner", "vitest"]) { mkdirSync(join(fake, name), { recursive: true }); writeFileSync(join(fake, name, "package.json"), JSON.stringify({ name, version: "10.1.1" })); } return fake; };
 const strykerRun = (dir, args) => spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", ...args], { encoding: "utf8", env: cleanEnv });
 
-test("Stryker 引擎只列：写引擎行与 mutate 条目，不起 Stryker，--test 可省略", { skip }, () => {
+test.skipIf(skip)("Stryker 引擎只列：写引擎行与 mutate 条目，不起 Stryker，--test 可省略", () => {
   const dir = makeVitestRepo();
   try {
     const fake = fakeModules(dir);
@@ -82,7 +82,7 @@ test("Stryker 引擎只列：写引擎行与 mutate 条目，不起 Stryker，--
   } finally { dispose(dir); }
 });
 
-test("Stryker 引擎真跑一轮：四类计数与表格同内建格式，存活清单，项目文件不变，.stryker-tmp 已删，报告在系统临时目录", { skip: skipReal }, () => {
+test.skipIf(skipReal)("Stryker 引擎真跑一轮：四类计数与表格同内建格式，存活清单，项目文件不变，.stryker-tmp 已删，报告在系统临时目录", () => {
   const dir = makeVitestRepo(MODULES);
   try {
     const mutated = VITEST_SRC.replace("  if (n < lo) return lo;", "  if (n < lo) { return lo; }");
@@ -123,7 +123,7 @@ test("Stryker 引擎真跑一轮：四类计数与表格同内建格式，存活
   } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); }
 });
 
-test("Stryker 初跑失败：退出 1，抬头写测量无效（Stryker 初跑失败），基线不通过带日志尾，.stryker-tmp 已删", { skip: skipReal }, () => {
+test.skipIf(skipReal)("Stryker 初跑失败：退出 1，抬头写测量无效（Stryker 初跑失败），基线不通过带日志尾，.stryker-tmp 已删", () => {
   const dir = makeVitestRepo(MODULES);
   try {
     writeFiles(dir, { "src/calc.ts": VITEST_SRC.replace("  return n > 0;", "  return n < 0;") });
@@ -134,7 +134,7 @@ test("Stryker 初跑失败：退出 1，抬头写测量无效（Stryker 初跑�
   } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); }
 });
 
-test("Stryker 引擎被 SIGTERM 结束：退出 143，自己留下的 .stryker-tmp 已删，项目文件不变", { skip: skipReal }, async () => {
+test.skipIf(skipReal)("Stryker 引擎被 SIGTERM 结束：退出 143，自己留下的 .stryker-tmp 已删，项目文件不变", async () => {
   const dir = makeVitestRepo(MODULES);
   try {
     const mutated = VITEST_SRC.replace("  if (n < lo) return lo;", "  if (n < lo) { return lo; }");

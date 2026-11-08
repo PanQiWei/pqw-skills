@@ -1,5 +1,5 @@
 // 资源模型：份额与并行度的算式、交给测试命令的环境、低优先级、JSON 的 resources 节、--help 教程。
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { cpus, freemem, getPriority, loadavg } from "node:os";
@@ -64,7 +64,7 @@ test("--help 是教程：三个资源参数各一行，写了缺省与算式", (
   assert.match(r.stdout, /PQW_TEST_WORKERS/);
 });
 
-test("命令面：--other-heavy-tasks 1 时份额 0.5，--workers 99 被降到上限，测试命令拿到并行度并以 nice 10 运行；--no-nice 不降；数值错退出 2", { skip }, () => {
+test.skipIf(skip)("命令面：--other-heavy-tasks 1 时份额 0.5，--workers 99 被降到上限，测试命令拿到并行度并以 nice 10 运行；--no-nice 不降；数值错退出 2", () => {
   const dir = makeRepo({ "README.md": "x\n" });
   try {
     const run = (extra) => spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--test", 'echo w=$PQW_TEST_WORKERS v=$VITEST_MAX_WORKERS n=$(ps -o ni= -p $$ | tr -d " ")', "--format", "json", ...extra], { encoding: "utf8" });
@@ -137,7 +137,7 @@ test("运行器按次换并行度：run 给了 workers 就临时覆盖环境变�
   assert.match((await runner.run(5000)).output, /^w=8$/m);
 });
 
-test("自身开销：每个改动文件只解析一次，裁定位点不再解析", { skip }, async () => {
+test.skipIf(skip)("自身开销：每个改动文件只解析一次，裁定位点不再解析", async () => {
   const dir = makeRepo({ "src/a.ts": "export const f = (a: boolean, b: boolean) => a && b;\n", "src/b.ts": "export const g = (a: boolean, b: boolean) => a || b;\n" });
   try {
     writeFiles(dir, { "src/a.ts": "export const f = (a: boolean, b: boolean) => a && !b;\n", "src/b.ts": "export const g = (a: boolean, b: boolean) => !a || b;\n" });
