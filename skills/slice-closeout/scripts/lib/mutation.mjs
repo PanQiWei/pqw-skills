@@ -156,13 +156,24 @@ export function createTestRunner(command, cwd, env, { nice = null } = {}) {
       child.stdout.on("data", (d) => { output += d; });
       child.stderr.on("data", (d) => { output += d; });
       const timer = setTimeout(() => { timedOut = true; killGroup(child); }, timeoutMs);
-      child.on("close", (code) => { clearTimeout(timer); child = null; done({ code, timedOut, output, seconds: (Date.now() - t0) / 1000 }); });
+      child.on("close", (code, signal) => { clearTimeout(timer); child = null; done({ code, signal, timedOut, output, seconds: (Date.now() - t0) / 1000 }); });
     }),
     kill: () => { if (child) killGroup(child); },
   };
 }
 
 const killGroup = (child) => { try { process.kill(-child.pid, "SIGKILL"); } catch {} };
+
+/**
+ * 一次测试运行的裁定：超时记 killed(timeout)；被信号结束或退出码 128 以上（shell 报告的信号）记 notRun(crashed)，
+ * 不能当杀死；非零退出记 killed；输出命中「没跑测试」记 notRun(noTests)；否则 survived。
+ */
+export function verdictOf(r, noTests) {
+  if (r.timedOut) return ["killed", "timeout"];
+  if (r.signal || (r.code !== null && r.code >= 128)) return ["notRun", "crashed"];
+  if (r.code !== 0) return ["killed", null];
+  return noTests.test(r.output) ? ["notRun", "noTests"] : ["survived", null];
+}
 
 /** 裁定一个位点：写入、跑测试、还原；「没跑测试」复跑一次。返回还原是否成功。 */
 export async function judgeSite(s, original, { runner, patcher, timeoutMs, noTests, workers = null }) {
@@ -175,13 +186,16 @@ export async function judgeSite(s, original, { runner, patcher, timeoutMs, noTes
     let r;
     try { r = await runner.run(timeoutMs, workers); } finally { if (!patcher.restore()) restored = false; }
     seconds += r.seconds;
-    if (r.timedOut || r.code !== 0) { s.verdict = "killed"; s.reason = r.timedOut ? "timeout" : null; break; }
-    if (noTests.test(r.output)) { s.verdict = "notRun"; s.reason = "noTests"; continue; }
-    s.verdict = "survived"; s.reason = null; break;
+    [s.verdict, s.reason] = verdictOf(r, noTests);
+    if (s.reason !== "noTests") break;
   }
   s.seconds = Math.round(seconds * 100) / 100;
   return restored;
 }
+
+/** 永不命中：基线输出本身就命中「没跑测试」模式时，模式判不出任何东西，裁定时不再用它。 */
+const NEVER = /(?!)/;
+const effectivePattern = (noTests, baselineOutput) => (noTests.test(baselineOutput) ? NEVER : noTests);
 
 /** 自身开销：总耗时里不在测试命令上的部分。now 可注入，便于核算式。 */
 export function selfTiming(t0, testSeconds, now = Date.now()) {
@@ -198,7 +212,8 @@ const round2 = (n) => Math.round(n * 100) / 100;
 export async function runSites({ sites, files, runner, patcher, budgetMs, timeoutMs, noTests, adapter = NO_ADAPTER }) {
   const t0 = Date.now();
   const b = await runner.run(timeoutMs ?? 10 * 60000);
-  const baseline = { passed: b.code === 0 && !b.timedOut, seconds: b.seconds, tail: b.output.split("\n").slice(-5).join("\n") };
+  const siteNoTests = effectivePattern(noTests, b.output);
+  const baseline = { passed: b.code === 0 && !b.timedOut, seconds: b.seconds, tail: b.output.split("\n").slice(-5).join("\n"), patternHit: siteNoTests === NEVER };
   const budget = { limitMs: budgetMs, exceeded: false };
   const siteTimeout = timeoutMs ?? Math.max(10000, b.seconds * 5000);
   let restored = true;
@@ -207,7 +222,7 @@ export async function runSites({ sites, files, runner, patcher, budgetMs, timeou
     if (s.verdict !== "planned") continue;
     if (!baseline.passed) { s.verdict = "notRun"; s.reason = "baselineFailed"; continue; }
     if (Date.now() - t0 > budgetMs) { budget.exceeded = true; s.verdict = "notRun"; s.reason = "budget"; continue; }
-    if (!(await judgeSite(s, files.get(s.file).text, { runner, patcher, timeoutMs: siteTimeout, noTests, workers: adapter.next() }))) restored = false;
+    if (!(await judgeSite(s, files.get(s.file).text, { runner, patcher, timeoutMs: siteTimeout, noTests: siteNoTests, workers: adapter.next() }))) restored = false;
     testSeconds += s.seconds;
   }
   return { baseline, budget, restored, timing: selfTiming(t0, testSeconds), adaptation: adapter.state };
@@ -216,12 +231,13 @@ export async function runSites({ sites, files, runner, patcher, budgetMs, timeou
 /** 不自适应：并行度沿用运行器创建时的，状态记 null。 */
 const NO_ADAPTER = { next: () => null, state: null };
 
-const suggestion = (s) => (s.mutant === "" ? `删去 ${s.original} 后测试仍过：补一条能区分有无 ${s.original} 的断言，或说明它为什么等价` : `${s.original} 换成 ${s.mutant} 后测试仍过：补一条在边界上能区分两者的断言，或说明它为什么等价`);
+/** 存活位点的事实一句：只说发生了什么，怎么处置归读的人。字段名沿用 suggestion（I-1）。 */
+const suggestion = (s) => (s.mutant === "" ? `删去 ${s.original} 后测试仍过` : `${s.original} 换成 ${s.mutant} 后测试仍过`);
 
-/** 汇总与存活清单。 */
+/** 汇总与存活清单。timedOut 是杀死里因超时的位点数，单列是因为超时可能是机器慢而不是测试强。 */
 export function summarize(sites) {
   const count = (v) => sites.filter((s) => s.verdict === v).length;
-  const summary = { total: sites.length, killed: count("killed"), survived: count("survived"), uncovered: count("uncovered"), notRun: count("notRun"), planned: count("planned"), score: score(sites) };
+  const summary = { total: sites.length, killed: count("killed"), survived: count("survived"), uncovered: count("uncovered"), notRun: count("notRun"), planned: count("planned"), timedOut: sites.filter((s) => s.reason === "timeout").length, score: score(sites) };
   const survivors = sites.filter((s) => s.verdict === "survived").map((s) => ({ file: s.file, unit: s.unit, line: s.line, original: s.original, mutant: s.mutant, category: s.category, suggestion: suggestion(s) }));
   return { summary, survivors };
 }
@@ -230,12 +246,28 @@ const VERDICT_TEXT = { planned: "待跑", killed: "杀死", survived: "存活", 
 
 const siteRow = (s) => `| ${s.file} | ${s.unit} | ${s.line} | \`${s.original}\` | \`${s.mutant === "" ? "（删去）" : s.mutant}\` | ${s.category} | ${VERDICT_TEXT[s.verdict]}${s.reason ? `（${s.reason}）` : ""} |`;
 
+/** 抬头的计数部分：只列、四类计数与分数、其中超时、预算用尽。 */
+function tallyText(result) {
+  const sm = result.summary;
+  if (result.planOnly) return "（只列）";
+  const score = sm.score === null ? "无" : (sm.score * 100).toFixed(0) + "%";
+  const timedOut = sm.timedOut ? `（其中超时 ${sm.timedOut}）` : "";
+  return `：杀死 ${sm.killed}${timedOut}、存活 ${sm.survived}、无覆盖 ${sm.uncovered}、未跑 ${sm.notRun}；分数 ${score}${result.budget.exceeded ? "；预算用尽" : ""}`;
+}
+
+/** 抬头之后关于基线的说明：不通过的尾巴；「没跑测试」模式在基线上也命中。 */
+function baselineNotes(result) {
+  if (result.planOnly) return [];
+  const notes = [];
+  if (!result.baseline.passed) notes.push(`基线不通过：\n${result.baseline.tail}`);
+  if (result.baseline.patternHit) notes.push("「没跑测试」模式在基线输出上也命中，判不出没跑测试，位点按通过处理");
+  return notes;
+}
+
 /** 人读的表格。 */
 export function formatMutation(result) {
   const { sites, summary: sm, base } = result;
-  const tally = result.planOnly ? "（只列）" : `：杀死 ${sm.killed}、存活 ${sm.survived}、无覆盖 ${sm.uncovered}、未跑 ${sm.notRun}；分数 ${sm.score === null ? "无" : (sm.score * 100).toFixed(0) + "%"}`;
-  const lines = [`差分变异：基线 ${baseLabel(base, result.baseGiven)} 到工作树；位点 ${sm.total}${tally}${result.budget.exceeded ? "；预算用尽" : ""}`];
-  if (!result.planOnly && !result.baseline.passed) lines.push(`基线不通过：\n${result.baseline.tail}`);
+  const lines = [`差分变异：基线 ${baseLabel(base, result.baseGiven)} 到工作树；位点 ${sm.total}${tallyText(result)}`, ...baselineNotes(result)];
   lines.push("| 文件 | 单元 | 行 | 原文 | 替换 | 类别 | 裁定 |", "| --- | --- | --- | --- | --- | --- | --- |");
   for (const s of sites) lines.push(siteRow(s));
   if (sites.length === 0) lines.push("| | 没有位点 | | | | | |");

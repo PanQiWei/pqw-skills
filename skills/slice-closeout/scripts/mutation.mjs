@@ -23,7 +23,7 @@ const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
   --budget <时长>            时间预算，缺省 20m；用尽后剩余位点记 notRun(budget)
   --timeout <时长>           单次测试超时；缺省基线 10m，位点取基线用时的 5 倍且至少 10s
   --history <上次 JSON>      上次结果；单元摘要未变且上次杀死的位点沿用
-  --no-tests-pattern <正则>  判「没跑测试」的输出模式，命中就复跑一次
+  --no-tests-pattern <正则>  判「没跑测试」的输出模式，命中就复跑一次；缺省带词界，「Tests 10 passed」不算。基线输出也命中时该模式判不出东西，抬头写明并按通过处理
 
 资源。算式：份额 = 1 / (--other-heavy-tasks + 1)；上限 = max(1, floor(CPU 数 × 份额))，可用内存低于阈值时减半；并行度 = 缺省等于上限，显式 --workers 超过上限按上限。
   --other-heavy-tasks N      这台机器上除本工具外同时在跑的重型任务数，缺省 0；N=1 时本工具只拿一半 CPU
@@ -69,7 +69,7 @@ function loadInputs(opts) {
     history: opts.history ? JSON.parse(readFileSync(resolve(opts.history), "utf8")) : null,
     budgetMs: duration(opts.budget, 20 * 60000),
     timeoutMs: duration(opts.timeout, null),
-    noTests: new RegExp(opts["no-tests-pattern"] ?? "No test files found|no tests? (ran|found)|0 (tests?|passed)|ran 0 tests", "i"),
+    noTests: new RegExp(opts["no-tests-pattern"] ?? "No test files found|\\bno tests? (ran|found)\\b|(^|\\D)0 (tests?|passed)\\b|\\bran 0 tests\\b", "i"),
   };
 }
 

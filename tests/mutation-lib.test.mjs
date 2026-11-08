@@ -7,7 +7,7 @@ import { tmpdir, cpus } from "node:os";
 import { spawnSync } from "node:child_process";
 import { makeRepo, writeFiles, dispose, tsPath } from "./fixture.mjs";
 import { parseLcov, score } from "../skills/slice-closeout/scripts/lib/core.mjs";
-import { parseDuration, isMutable, changedOwnLines, collectSites, isCovered, selectSites, createPatcher, createTestRunner, judgeSite, runSites, summarize, formatMutation } from "../skills/slice-closeout/scripts/lib/mutation.mjs";
+import { parseDuration, isMutable, changedOwnLines, collectSites, isCovered, selectSites, createPatcher, createTestRunner, judgeSite, runSites, summarize, formatMutation, verdictOf } from "../skills/slice-closeout/scripts/lib/mutation.mjs";
 
 const site = (over) => ({ id: "a.ts:1:0:logical", file: "a.ts", unit: "f", digest: "d1", line: 1, anchorLine: 1, start: 2, end: 4, original: "&&", mutant: "||", category: "logical", verdict: "planned", reason: null, runs: 0, seconds: null, ...over });
 
@@ -190,10 +190,41 @@ test("工作线程数：缺省等于份额上限（没有同机任务时是 CPU 
   } finally { dispose(dir); }
 });
 
-test("汇总：五类计数、分数与存活清单的建议", () => {
+test("单次运行的裁定顺序：超时先于信号，信号或 128 以上退出码记 crashed，非零退出杀死，模式命中记 noTests，否则存活", () => {
+  const re = /no tests/;
+  assert.deepEqual(verdictOf({ code: null, signal: "SIGKILL", timedOut: true, output: "" }, re), ["killed", "timeout"]);
+  assert.deepEqual(verdictOf({ code: null, signal: "SIGSEGV", timedOut: false, output: "" }, re), ["notRun", "crashed"]);
+  assert.deepEqual(verdictOf({ code: 139, signal: null, timedOut: false, output: "" }, re), ["notRun", "crashed"]);
+  assert.deepEqual(verdictOf({ code: 128, signal: null, timedOut: false, output: "" }, re), ["notRun", "crashed"], "128 起算信号");
+  assert.deepEqual(verdictOf({ code: 127, signal: null, timedOut: false, output: "" }, re), ["killed", null]);
+  assert.deepEqual(verdictOf({ code: 1, signal: null, timedOut: false, output: "no tests" }, re), ["killed", null]);
+  assert.deepEqual(verdictOf({ code: 0, signal: null, timedOut: false, output: "no tests ran" }, re), ["notRun", "noTests"]);
+  assert.deepEqual(verdictOf({ code: 0, signal: null, timedOut: false, output: "ok" }, re), ["survived", null]);
+  const crashed = site();
+  const runner = fakeRunner([{ code: null, signal: "SIGSEGV", timedOut: false, output: "", seconds: 1 }, pass]);
+  return judgeSite(crashed, "a && b", { runner, patcher: fakePatcher(), timeoutMs: 100, noTests: NO_TESTS }).then(() => {
+    assert.deepEqual([crashed.verdict, crashed.reason, crashed.runs], ["notRun", "crashed", 1], "crashed 不复跑");
+  });
+});
+
+test("基线输出命中「没跑测试」模式：记 patternHit，裁定时不再用模式，位点存活", async () => {
+  const files = new Map([["a.ts", { text: "a && b" }]]);
+  const sites = [site(), site()];
+  const runner = fakeRunner([noTests, noTests, noTests]);
+  const r = await runSites({ sites, files, runner, patcher: fakePatcher(), budgetMs: 60000, timeoutMs: null, noTests: NO_TESTS });
+  assert.equal(r.baseline.patternHit, true);
+  assert.deepEqual(sites.map((s) => [s.verdict, s.runs]), [["survived", 1], ["survived", 1]]);
+  const clean = await runSites({ sites: [site()], files, runner: fakeRunner([pass, noTests, noTests]), patcher: fakePatcher(), budgetMs: 60000, timeoutMs: null, noTests: NO_TESTS });
+  assert.equal(clean.baseline.patternHit, false);
+});
+
+test("汇总：五类计数、超时单列、分数与存活清单的事实", () => {
   const sites = [site({ verdict: "killed" }), site({ verdict: "survived", original: "!", mutant: "" }), site({ verdict: "survived" }), site({ verdict: "uncovered" }), site({ verdict: "notRun" }), site()];
   const { summary, survivors } = summarize(sites);
-  assert.deepEqual(summary, { total: 6, killed: 1, survived: 2, uncovered: 1, notRun: 1, planned: 1, score: score(sites) });
+  assert.deepEqual(summary, { total: 6, killed: 1, survived: 2, uncovered: 1, notRun: 1, planned: 1, timedOut: 0, score: score(sites) });
+  assert.equal(summarize([site({ verdict: "killed", reason: "timeout" }), site({ verdict: "killed" })]).summary.timedOut, 1);
+  assert.equal(survivors[0].suggestion, "删去 ! 后测试仍过", "只陈述事实");
+  assert.equal(survivors[1].suggestion, "&& 换成 || 后测试仍过");
   assert.equal(survivors.length, 2);
   assert.match(survivors[0].suggestion, /^删去 ! 后测试仍过/);
   assert.match(survivors[1].suggestion, /^&& 换成 \|\| 后测试仍过/);
@@ -215,4 +246,7 @@ test("表格：只列时不报计数；基线不过时贴尾巴；裁定带原�
   const failed = formatMutation({ base, planOnly: false, baseline: { passed: false, tail: "boom" }, budget: { exceeded: false }, sites: [], summary: summarize([]).summary, survivors: [] });
   assert.match(failed, /分数 无\n基线不通过：\nboom\n\| 文件/);
   assert.match(failed, /\| \| 没有位点 \|/);
+  const timed = [site({ verdict: "killed", reason: "timeout" }), site({ verdict: "killed" })];
+  const hit = formatMutation({ base, planOnly: false, baseline: { passed: true, tail: "", patternHit: true }, budget: { exceeded: false }, sites: timed, ...summarize(timed) });
+  assert.match(hit, /^差分变异：基线 0123456789ab 到工作树；位点 2：杀死 2（其中超时 1）、存活 0、无覆盖 0、未跑 0；分数 100%\n「没跑测试」模式在基线输出上也命中，判不出没跑测试，位点按通过处理\n\| 文件/);
 });

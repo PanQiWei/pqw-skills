@@ -123,6 +123,11 @@ export function analyze(ts, path, text) {
 
 const BINARY_SITES = { "<": ["<=", "relational"], "<=": ["<", "relational"], ">": [">=", "relational"], ">=": [">", "relational"], "==": ["!=", "equality"], "!=": ["==", "equality"], "===": ["!==", "equality"], "!==": ["===", "equality"], "&&": ["||", "logical"], "||": ["&&", "logical"], "??": ["||", "logical"], "+": ["-", "arithmetic"], "-": ["+", "arithmetic"], "*": ["/", "arithmetic"], "/": ["*", "arithmetic"] };
 
+/** 类型位置不执行，改了也不会被测试发现：类型节点整棵跳过。类型别名与接口的成员都是类型节点，不用单独列。 */
+const isTypePosition = (ts, node) => ts.isTypeNode(node);
+/** 带 `?.` 的属性、下标或调用。 */
+const optionalChain = (ts, node) => (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node) || ts.isCallExpression(node)) && Boolean(node.questionDotToken);
+
 /** 位点：只在给定单元自己的行上生成。lines 是允许的行集合（null 表示单元全部自己的行）。 */
 export function sites(ts, sf, text, unit, ownLineSet) {
   const found = [];
@@ -131,6 +136,7 @@ export function sites(ts, sf, text, unit, ownLineSet) {
   const anchor = (node) => { let n = node; while (n.parent && !ts.isStatement(n) && !ts.isSourceFile(n.parent)) n = n.parent; return lineOf(n.getStart(sf)); };
   const push = (node, start, end, original, mutant, category) => { if (inUnit(start)) found.push({ line: lineOf(start), anchorLine: anchor(node), start, end, original, mutant, category }); };
   const walk = (node) => {
+    if (isTypePosition(ts, node)) return;
     if (ts.isBinaryExpression(node)) {
       const op = node.operatorToken.getText(sf);
       const m = BINARY_SITES[op];
@@ -139,7 +145,7 @@ export function sites(ts, sf, text, unit, ownLineSet) {
       const t = node.getText(sf); push(node, node.getStart(sf), node.getEnd(), t, t === "true" ? "false" : "true", "boolean");
     } else if (ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.ExclamationToken) {
       push(node, node.getStart(sf), node.operand.getStart(sf), "!", "", "negation");
-    } else if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node) || ts.isCallExpression(node)) && node.questionDotToken) {
+    } else if (optionalChain(ts, node)) {
       const q = node.questionDotToken; const replacement = ts.isPropertyAccessExpression(node) ? "." : "";
       push(node, q.getStart(sf), q.getEnd(), "?.", replacement, "optional");
     }

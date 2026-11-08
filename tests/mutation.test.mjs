@@ -86,15 +86,48 @@ test("四类裁定各至少一例；存活带位置与替换；跑后逐字节�
   } finally { dispose(dir); }
 });
 
-test("「没跑测试」自动复跑一次后记 notRun(noTests)", { skip }, () => {
+test("「没跑测试」自动复跑一次后记 notRun(noTests)（第四程 C12 起基线须正常，所以用标记文件让基线之后的运行才打印）", { skip }, () => {
   const dir = setup();
   try {
-    const r = run(dir, ["--test", `node -e "console.log('No test files found')"`, "--format", "json"]);
+    const r = run(dir, ["--test", "if [ -f flag ]; then echo 'No test files found'; fi; touch flag", "--format", "json"]);
     assert.equal(r.status, 0, r.stderr);
     const out = JSON.parse(r.stdout);
     assert.ok(out.sites.length > 0);
     assert.ok(out.sites.every((s) => s.verdict === "notRun" && s.reason === "noTests"), JSON.stringify(out.sites[0]));
     assert.ok(out.sites.every((s) => s.runs === 2));
+  } finally { dispose(dir); }
+});
+
+test("判定可信：「Tests 10 passed」不算没跑测试；基线也命中模式时抬头写明且位点存活", { skip }, () => {
+  const dir = setup();
+  try {
+    const a = run(dir, ["--test", "echo 'Tests 10 passed'", "--format", "json"]);
+    assert.equal(a.status, 0, a.stderr);
+    const outA = JSON.parse(a.stdout);
+    assert.ok(outA.sites.length > 0);
+    assert.ok(outA.sites.every((s) => s.verdict === "survived" && s.runs === 1), JSON.stringify(outA.sites[0]));
+    assert.equal(outA.baseline.patternHit, false);
+    const b = run(dir, ["--test", "echo 'no tests ran'", "--format", "json"]);
+    const outB = JSON.parse(b.stdout);
+    assert.equal(outB.baseline.patternHit, true);
+    assert.ok(outB.sites.every((s) => s.verdict === "survived"), JSON.stringify(outB.sites[0]));
+    const table = run(dir, ["--test", "echo 'no tests ran'"]);
+    assert.match(table.stdout, /\n「没跑测试」模式在基线输出上也命中，判不出没跑测试，位点按通过处理\n/);
+  } finally { dispose(dir); }
+});
+
+test("判定可信：测试命令被信号结束记 notRun(crashed)；超时仍 killed(timeout) 并单列「其中超时」", { skip }, () => {
+  const dir = setup();
+  try {
+    const crash = run(dir, ["--test", "if [ -f flag ]; then kill -SEGV $$; fi; touch flag", "--format", "json"]);
+    assert.equal(crash.status, 0, crash.stderr);
+    const outC = JSON.parse(crash.stdout);
+    assert.equal(outC.baseline.passed, true);
+    assert.ok(outC.sites.every((s) => s.verdict === "notRun" && s.reason === "crashed" && s.runs === 1), JSON.stringify(outC.sites[0]));
+    assert.equal(outC.summary.timedOut, 0);
+    writeFileSync(join(dir, "flag2"), "");
+    const slow = run(dir, ["--test", "if [ -f slow ]; then sleep 5; fi; touch slow", "--timeout", "500ms"]);
+    assert.match(slow.stdout, /位点 \d+：杀死 (\d+)（其中超时 \1）、存活 0/);
   } finally { dispose(dir); }
 });
 

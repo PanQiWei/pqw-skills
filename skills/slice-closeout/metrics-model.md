@@ -10,7 +10,7 @@
 | 判定 Decision | kind | 语法树上使控制流分叉的节点。集合 D 由语言适配器声明 |
 | 行命中 LineHits | file → line → (covered, total) | 覆盖率报告里每行的命中。lcov 的 DA 记录是 (hit > 0 ? 1 : 0, 1)，BRDA 记录按行聚合成分支的 (covered, total) |
 | 位点 Site | file、unit、line、anchorLine、start、end、original、mutant、category | 一处可替换的文本。anchorLine 是所在语句的起始行，多行语句只有这一行有覆盖记录 |
-| 裁定 Verdict | killed、survived、uncovered、notRun(reason) | 一个位点跑完的结果。reason 取 noTests、budget、baselineFailed |
+| 裁定 Verdict | killed(reason?)、survived、uncovered、notRun(reason) | 一个位点跑完的结果。killed 的 reason 可为 timeout；notRun 的 reason 取 noTests、crashed、budget、baselineFailed |
 
 ## 定义
 
@@ -26,9 +26,12 @@
 ## 变异
 
 - **位点集合** 由适配器按类别生成：relational（`<`↔`<=`、`>`↔`>=`）、equality（`==`↔`!=`、`===`↔`!==`）、logical（`&&`↔`||`、`??`→`||`）、arithmetic（`+`↔`-`、`*`↔`/`）、boolean（`true`↔`false`）、negation（删去一元 `!`）、optional（属性上的 `?.`→`.`，调用与下标上的 `?.` 删去）。只生成改动单元自己的行上的位点。
+- **类型位置** 类型节点、类型别名与接口里的字面量与运算符不执行，改了测试也发现不了，不出位点；`type R = { ok: true }` 没有位点，`return { ok: true }` 有。
 - **选择** 有覆盖报告时只跑 line 或 anchorLine 被命中的位点，其余裁定 uncovered。有历史时，单元摘要未变且上次 killed 的位点不再跑，沿用上次裁定。
-- **运行** 先在未变异的工作树上跑一次测试命令，不通过则整程 notRun(baselineFailed)。每个位点：读原文进内存，写入变异，跑测试命令，还原并逐字节核对。超时按 killed。进程中断时先还原全部已改文件再退出。
-- **没跑测试** 测试命令输出匹配「没跑测试」模式时，同一位点按位置复跑一次，仍匹配记 notRun(noTests)。
+- **运行** 先在未变异的工作树上跑一次测试命令，不通过则整程 notRun(baselineFailed)。每个位点：读原文进内存，写入变异，跑测试命令，还原并逐字节核对。进程中断时先还原全部已改文件再退出。
+- **裁定顺序** 超时记 killed(timeout)，摘要单列「其中超时 N」，因为超时可能是机器慢；测试命令被信号结束（或 shell 报告的退出码 128 以上）记 notRun(crashed)，不当杀死；非零退出记 killed；否则看「没跑测试」；都不是记 survived。
+- **没跑测试** 测试命令输出匹配「没跑测试」模式时，同一位点按位置复跑一次，仍匹配记 notRun(noTests)。缺省模式带词界，「Tests 10 passed」不算。基线输出本身就命中模式时该模式判不出东西：抬头写明，裁定时不再用它，位点按通过处理。
+- **存活清单** 只陈述事实：哪个位点、原文换成什么、测试仍过。怎么处置归读的人。
 - **预算** 到时间预算后剩余位点记 notRun(budget)，退出码仍为 0，JSON 的 `budget.exceeded` 为 true。
 - **分数** `killed / (killed + survived)`，没有已执行的位点时为 null。
 

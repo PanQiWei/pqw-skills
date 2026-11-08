@@ -15,6 +15,19 @@ async function sitesOf(src, unitName) {
   return sites(ts, sourceFile, src, unit, own).map((s) => [s.line, s.anchorLine, s.original, s.mutant, s.category]);
 }
 
+test("类型位置不出位点：字面量类型、类型断言、类型别名与接口里的 true 与运算符不算，表达式里的照出", { skip }, async () => {
+  const src = `type R = { ok: true } | { ok: false };\ninterface I { flag: false; n: 1 | 2 }\nexport function f(a: number): R {\n  const x = { ok: true } as { ok: true };\n  const y: Array<true> = [true];\n  return x.ok === y[0] && a > 0 ? x : { ok: false };\n}\n`;
+  const got = await sitesOf(src, "f");
+  assert.deepEqual(got, [
+    [4, 4, "true", "false", "boolean"],
+    [5, 5, "true", "false", "boolean"],
+    [6, 6, "===", "!==", "equality"],
+    [6, 6, "&&", "||", "logical"],
+    [6, 6, ">", ">=", "relational"],
+    [6, 6, "false", "true", "boolean"],
+  ]);
+});
+
 test("七类位点各一例，anchorLine 是语句起始行", { skip }, async () => {
   const src = `export function f(a: number, b?: { c(): number }, d?: boolean) {\n  const ok =\n    a <= 3 && d === true;\n  const n = b?.c() ?? a;\n  return !ok ? n * 2 : n;\n}\n`;
   const got = await sitesOf(src, "f");
