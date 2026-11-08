@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseOptions } from "../skills/progress-artifacts/scripts/lib/args.mjs";
 import { esc as escDemo, requiredGiven, fromSkeleton, sliceId, sliceSection, appendSection, SECTIONS_END } from "../skills/progress-artifacts/scripts/lib/demo.mjs";
-import { esc, inline, parseOverview, statusClass, renderSlices, renderRemaining, renderArchitecture, renderMetrics, renderDecisions, renderDemo, renderReport } from "../skills/progress-artifacts/scripts/lib/report.mjs";
+import { esc, inline, parseOverview, parseNarrative, renderNarrative, statusClass, renderSlices, renderRemaining, renderArchitecture, renderMetrics, renderDecisions, renderDemo, renderReport } from "../skills/progress-artifacts/scripts/lib/report.mjs";
 
 test("参数：每个 --名 带一个值；--help 与 -h 返回 help；缺值或不以 -- 开头是参数错误", () => {
   assert.deepEqual(parseOptions(["--plan", "p.md", "--out", "o.html"]), { opts: { plan: "p.md", out: "o.html" } });
@@ -148,4 +148,67 @@ test("套模板：五个纯文本变量转义，其余原样，没有的占位�
   const t = "{{title}}|{{generatedAt}}|{{lead}}|{{progress}}|{{current}}|{{sliceTable}}|{{none}}";
   const out = renderReport(t, { title: "<t>", generatedAt: "<g>", lead: "<l>", progress: "<p>", current: "<c>", sliceTable: "<table></table>" });
   assert.equal(out, "&lt;t&gt;|&lt;g&gt;|&lt;l&gt;|&lt;p&gt;|&lt;c&gt;|<table></table>|");
+});
+
+const NARRATED = `# 示例 交付计划（revision 1）
+
+## 进度总览
+
+进度：[■□□] 1/3 切片已完成 · 更新 T · head abc
+当前：切片 02 实施
+
+| 切片 | 交付的行为 | 对应验收 | 状态 |
+| --- | --- | --- | --- |
+| 01 | a | C1 | 已完成 abc |
+| 02 | b | C2 | 待做 |
+
+## 一程目标与前后差别
+
+### 产品层：用的人会得到什么
+
+第一段，讲 \`现状\`。
+
+第二段，讲做完之后。
+
+### 技术层：哪一块变了
+
+只有一段。
+
+## 预算与回看
+
+- 预算。
+
+## 切片
+
+### 01：a
+
+- **交付：** a。
+- **交付这片的意义：** 对用户，能看到 **进度**；对系统，少一层。
+
+### 02：b
+
+- **交付：** b。
+
+## 顺序与并行
+`;
+
+test("叙述：产品层按空行分段、技术层一段、意义只收写了的切片；没有节时两层都空", () => {
+  const n = parseNarrative(NARRATED);
+  assert.deepEqual(n.product, ["第一段，讲 `现状`。", "第二段，讲做完之后。"]);
+  assert.deepEqual(n.technical, ["只有一段。"]);
+  assert.deepEqual([...n.meanings], [["01", "对用户，能看到 **进度**；对系统，少一层。"]]);
+  const none = parseNarrative(PLAN);
+  assert.deepEqual([none.product, none.technical, none.meanings.size], [[], [], 0]);
+});
+
+test("叙述渲染：两层各成小节并转行内标记；只有一层时另一层写没有写；都没有时说明 plan 没写；切片表在有意义的行下面多一行", () => {
+  const html = renderNarrative(parseNarrative(NARRATED));
+  assert.match(html, /<h3>产品层：用的人会得到什么<\/h3><p>第一段，讲 <code>现状<\/code>。<\/p><p>第二段，讲做完之后。<\/p><h3>技术层：哪一块的工作方式变了<\/h3><p>只有一段。<\/p>/);
+  assert.match(renderNarrative({ product: ["x"], technical: [] }), /技术层[^<]*<\/h3><p class="muted">没有写。<\/p>/);
+  assert.equal(renderNarrative({ product: [], technical: [] }), `<p class="muted">plan 没有写目标与前后差别。</p>`);
+  const rows = parseOverview(NARRATED).rows;
+  const table = renderSlices(rows, parseNarrative(NARRATED).meanings);
+  assert.match(table, /<td>01<\/td>.*<\/tr><tr class="meaning"><td colspan="4">对用户，能看到 <strong>进度<\/strong>；对系统，少一层。<\/td><\/tr><tr><td>02<\/td>/);
+  assert.doesNotMatch(table, /<td>02<\/td>.*<tr class="meaning">/);
+  assert.equal(renderSlices(rows), renderSlices(rows, new Map()), "不给意义时与原来一样");
 });

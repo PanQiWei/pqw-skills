@@ -16,11 +16,43 @@ export function parseOverview(plan) {
   return { progress, current, rows };
 }
 
+/** 二级节的正文：从「## 标题」到下一个「## 」之间，没有返回 ""。 */
+const sectionBody = (plan, title) => plan.split(new RegExp(`^## ${title}\\s*$`, "m"))[1]?.split(/^## /m)[0] ?? "";
+
+/** 小标题之后到下一个「### 」之前的段落（按空行分，去掉空段）。 */
+const paragraphsAfter = (body, headPrefix) => {
+  const at = body.split("\n").findIndex((l) => l.startsWith(headPrefix));
+  if (at < 0) return [];
+  const rest = body.split("\n").slice(at + 1);
+  const end = rest.findIndex((l) => l.startsWith("### "));
+  return (end < 0 ? rest : rest.slice(0, end)).join("\n").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+};
+
+/** plan 给人读的两处：「一程目标与前后差别」的产品层与技术层段落，以及每个切片的「交付这片的意义」。 */
+export function parseNarrative(plan) {
+  const goal = sectionBody(plan, "一程目标与前后差别");
+  const meanings = new Map();
+  for (const block of sectionBody(plan, "切片").split(/^### /m).slice(1)) {
+    const id = /^(\d+)：/.exec(block)?.[1];
+    const meaning = /^- \*\*交付这片的意义：\*\*\s*(.+)$/m.exec(block)?.[1]?.trim();
+    if (id && meaning) meanings.set(id, meaning);
+  }
+  return { product: paragraphsAfter(goal, "### 产品层："), technical: paragraphsAfter(goal, "### 技术层："), meanings };
+}
+
+/** 网页开头的两段叙述；plan 没写时说明，不留空白。 */
+export function renderNarrative({ product, technical }) {
+  if (!product.length && !technical.length) return `<p class="muted">plan 没有写目标与前后差别。</p>`;
+  const part = (title, paras) => `<h3>${esc(title)}</h3>${paras.length ? paras.map((p) => `<p>${inline(p)}</p>`).join("") : `<p class="muted">没有写。</p>`}`;
+  return part("产品层：用的人会得到什么", product) + part("技术层：哪一块的工作方式变了", technical);
+}
+
 export const statusClass = (s) => (s.startsWith("已完成") ? "st-done" : s.startsWith("进行中") ? "st-doing" : s.startsWith("受阻") ? "st-blocked" : "st-todo");
 
-export function renderSlices(rows) {
+export function renderSlices(rows, meanings = new Map()) {
   if (!rows.length) return `<p class="muted">plan 里没有切片表。</p>`;
-  const body = rows.map((r) => `<tr><td>${esc(r.id)}</td><td>${inline(r.behavior)}</td><td>${esc(r.criteria)}</td><td class="${statusClass(r.status)}">${esc(r.status)}</td></tr>`).join("");
+  const meaningRow = (r) => (meanings.has(r.id) ? `<tr class="meaning"><td colspan="4">${inline(meanings.get(r.id))}</td></tr>` : "");
+  const body = rows.map((r) => `<tr><td>${esc(r.id)}</td><td>${inline(r.behavior)}</td><td>${esc(r.criteria)}</td><td class="${statusClass(r.status)}">${esc(r.status)}</td></tr>${meaningRow(r)}`).join("");
   return `<table><thead><tr><th>切片</th><th>交付的行为</th><th>验收</th><th>状态</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 
@@ -106,7 +138,7 @@ export function renderDecisions(text) {
 
 export const renderDemo = (demoPath) => (demoPath ? `<p>demo：<a href="${esc(demoPath)}">${esc(demoPath)}</a>，直接在浏览器打开。</p>` : `<p>本次没有可上手的变化。</p>`);
 
-const ESCAPED_VARS = new Set(["title", "generatedAt", "lead", "progress", "current"]);
+const ESCAPED_VARS = new Set(["title", "generatedAt", "lead", "progress", "current", "structure"]);
 
 /** 套模板：五个纯文本变量转义，其余变量是已生成的 HTML 原样放入；模板里没对应值的占位写空。 */
 export function renderReport(template, vars) {
