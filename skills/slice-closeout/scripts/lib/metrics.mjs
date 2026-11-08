@@ -2,7 +2,7 @@
 // 不读 argv，不 exit；调用方传已装载的 typescript、lcov 报告与基线。
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { changedLines, inScope, touches, coverageOf, crap, nestedUnits, round } from "./core.mjs";
+import { changedLines, inScope, touches, coverageOf, crap, nestedUnits, round, baseLabel } from "./core.mjs";
 import { analyze, SOURCE_RE, DECLARATION_RE } from "./adapter-typescript.mjs";
 
 const NODE_MODULES_RE = /(^|\/)node_modules\//;
@@ -11,7 +11,6 @@ const NODE_MODULES_RE = /(^|\/)node_modules\//;
 export function touchesOwnLines(unit, nested, ranges) {
   const own = (l) => !nested.some((n) => l >= n.startLine && l <= n.endLine);
   return ranges.some(([a, b]) => {
-    if (a < 1) return false;
     for (let l = Math.max(a, unit.startLine); l <= Math.min(b, unit.endLine); l++) if (own(l)) return true;
     return false;
   });
@@ -45,7 +44,7 @@ export function summarize(functions, report) {
 }
 
 /** 基线到工作树的改动函数读数。scope 是路径前缀数组或 null；report 是 parseLcov 的结果或 null。 */
-export function collectMetrics({ root, base, head, ts, report, scope }) {
+export function collectMetrics({ root, base, baseGiven = null, head, ts, report, scope }) {
   const functions = [];
   const uncovered = [];
   for (const [path, ranges] of changedLines(root, base)) {
@@ -58,7 +57,7 @@ export function collectMetrics({ root, base, head, ts, report, scope }) {
     }
   }
   functions.sort(byHotness);
-  return { kind: "pqw-metrics", generatedAt: new Date().toISOString(), base, head, functions, uncovered, summary: summarize(functions, report) };
+  return { kind: "pqw-metrics", generatedAt: new Date().toISOString(), base, baseGiven, head, functions, uncovered, summary: summarize(functions, report) };
 }
 
 /** 人读的表格。 */
@@ -66,7 +65,7 @@ export function formatMetrics(result) {
   const { functions, uncovered, base, summary } = result;
   const pct = (c) => (c === null ? "无覆盖" : (c * 100).toFixed(0) + "%");
   const lines = [
-    `结构读数：基线 ${base.slice(0, 12)} 到工作树；改动函数 ${functions.length} 个${summary.coverageProvided ? "" : "；没有 lcov，CRAP 写无覆盖"}`,
+    `结构读数：基线 ${baseLabel(base, result.baseGiven)} 到工作树；改动函数 ${functions.length} 个${summary.coverageProvided ? "" : "；没有 lcov，CRAP 写无覆盖"}`,
     "| 函数 | 文件 | 行 | 圈复杂度 | 认知复杂度 | 覆盖率 | CRAP |",
     "| --- | --- | --- | --- | --- | --- | --- |",
   ];

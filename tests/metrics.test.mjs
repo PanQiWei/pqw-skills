@@ -24,6 +24,58 @@ export function outer(xs: number[]) {
 }
 `;
 
+test("纯删除也算改动：删掉函数里一行 if 后读数含该函数", { skip: TS ? false : "没有 typescript" }, () => {
+  const dir = makeRepo({ "src/a.ts": BASE });
+  try {
+    writeFiles(dir, { "src/a.ts": BASE.replace("  if (a > 0 && b > 0) return a + b;\n", "") });
+    const r = run(dir, ["--base", "HEAD", "--format", "json"]);
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    assert.deepEqual(out.functions.map((f) => f.name), ["f"]);
+    assert.deepEqual(out.functions[0].changedLines, [[1, 2]]);
+  } finally { dispose(dir); }
+});
+
+test("显式基线不是 HEAD 的祖先时改用合并点：抬头写明，JSON 记 baseGiven，不含基线分支后来改的文件", { skip: TS ? false : "没有 typescript" }, () => {
+  const dir = makeRepo({ "src/a.ts": BASE });
+  try {
+    const root = git(dir, "rev-parse HEAD");
+    git(dir, "checkout -q -b work");
+    writeFiles(dir, { "src/a.ts": BASE.replace("return 0;", "return -1;") });
+    git(dir, "commit -q -am change");
+    git(dir, "checkout -q main");
+    writeFiles(dir, { "src/m.ts": "export function m(x: number) {\n  return x > 1 ? x : 0;\n}\n" });
+    git(dir, "add -A");
+    git(dir, "commit -q -m advance");
+    git(dir, "checkout -q work");
+    const r = run(dir, ["--base", "main", "--format", "json"]);
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.base, root);
+    assert.equal(out.baseGiven, git(dir, "rev-parse main"));
+    assert.deepEqual(out.functions.map((f) => f.name), ["f"]);
+    const table = run(dir, ["--base", "main"]);
+    assert.match(table.stdout, new RegExp(`^结构读数：基线 ${root.slice(0, 12)}（给的 ${out.baseGiven.slice(0, 12)} 不是 HEAD 的祖先，改用合并点） 到工作树`));
+    const plain = JSON.parse(run(dir, ["--base", "HEAD", "--format", "json"]).stdout);
+    assert.equal(plain.baseGiven, git(dir, "rev-parse HEAD"), "祖先时 baseGiven 等于 base");
+    assert.equal(plain.base, plain.baseGiven);
+  } finally { dispose(dir); }
+});
+
+test("读数只认 --repo：GIT_DIR 指向别的仓库也不受影响", { skip: TS ? false : "没有 typescript" }, () => {
+  const dir = makeRepo({ "src/a.ts": BASE });
+  const other = makeRepo({ "README.md": "other\n" });
+  try {
+    writeFiles(dir, { "src/a.ts": BASE.replace("return 0;", "return -1;") });
+    const env = { ...process.env, GIT_DIR: join(other, ".git"), GIT_WORK_TREE: other };
+    const r = spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--format", "json"], { encoding: "utf8", env });
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.head, git(dir, "rev-parse HEAD"));
+    assert.deepEqual(out.functions.map((f) => f.name), ["f"]);
+  } finally { dispose(dir); dispose(other); }
+});
+
 test("--help 退出 0", () => {
   const r = spawnSync("node", [SCRIPT, "--help"], { encoding: "utf8" });
   assert.equal(r.status, 0);

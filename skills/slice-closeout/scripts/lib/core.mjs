@@ -5,20 +5,38 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export const sh = (cwd, args) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, GIT_PAGER: "cat", NO_COLOR: "1" } }).trimEnd();
+/** 会把 git 指到别的仓库或索引的环境变量；读数只认 cwd 所在的仓库，所以剥掉。 */
+const GIT_REDIRECTS = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_COMMON_DIR", "GIT_NAMESPACE"];
+export function gitEnv(base = process.env) {
+  const env = { ...base, GIT_PAGER: "cat", NO_COLOR: "1" };
+  for (const k of GIT_REDIRECTS) delete env[k];
+  return env;
+}
 
-/** 基线：显式 ref，否则与目标分支的合并点；目标分支缺省依次试 main、master。 */
-export function resolveBase(cwd, base, target) {
-  if (base) return sh(cwd, ["rev-parse", base]);
+export const sh = (cwd, args) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env: gitEnv() }).trimEnd();
+
+/**
+ * 基线：显式 ref 取它与 HEAD 的合并点，ref 是 HEAD 的祖先时合并点就是它自己，不是（基线分支前进过）就退到共同祖先；
+ * 没给 ref 取与目标分支的合并点，目标分支缺省依次试 main、master。
+ * 返回 { base, baseGiven }：baseGiven 是显式 ref 解析出的提交，没给为 null；它与 base 不同就是改用了合并点。
+ */
+export function resolveBase(cwd, given, target) {
+  if (given) {
+    const baseGiven = sh(cwd, ["rev-parse", given]);
+    return { base: sh(cwd, ["merge-base", "HEAD", baseGiven]), baseGiven };
+  }
   const candidates = target ? [target] : ["main", "master"];
   for (const t of candidates) {
     try { sh(cwd, ["rev-parse", "--verify", "--quiet", t]); } catch { continue; }
-    return sh(cwd, ["merge-base", "HEAD", t]);
+    return { base: sh(cwd, ["merge-base", "HEAD", t]), baseGiven: null };
   }
   throw new Error(`找不到目标分支（试过 ${candidates.join("、")}），用 --base 或 --target 指定`);
 }
 
-/** 基线到工作树的改动行：path → 新一侧的闭区间列表。纯删除记 [0,0]，没有可执行行。 */
+/** 抬头里的基线：改用了合并点就写明给的是哪个。 */
+export const baseLabel = (base, baseGiven) => base.slice(0, 12) + (baseGiven && baseGiven !== base ? `（给的 ${baseGiven.slice(0, 12)} 不是 HEAD 的祖先，改用合并点）` : "");
+
+/** 基线到工作树的改动行：path → 新一侧的闭区间列表。纯删除记删除点前后两行 [max(1,c), c+1]，c 是新一侧删除点前一行。 */
 export function changedLines(cwd, base) {
   const out = sh(cwd, ["diff", "-U0", "--no-color", "--no-ext-diff", base, "--"]);
   const result = new Map();
@@ -28,7 +46,7 @@ export function changedLines(cwd, base) {
     const m = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line);
     if (!m || !file) continue;
     const start = Number(m[1]); const count = m[2] === undefined ? 1 : Number(m[2]);
-    const range = count === 0 ? [0, 0] : [start, start + count - 1];
+    const range = count === 0 ? [Math.max(1, start), start + 1] : [start, start + count - 1];
     result.set(file, [...(result.get(file) ?? []), range]);
   }
   // 未跟踪的新文件也是工作树的改动：整份算改动行。
@@ -42,7 +60,7 @@ export function changedLines(cwd, base) {
   return result;
 }
 
-export const touches = (ranges, start, end) => ranges.some(([a, b]) => a >= 1 && a <= end && b >= start);
+export const touches = (ranges, start, end) => ranges.some(([a, b]) => a <= end && b >= start);
 
 /** lcov：file → { lines: Map<line,[covered,total]>, branches: Map<line,[covered,total]> }。 */
 export function parseLcov(text) {

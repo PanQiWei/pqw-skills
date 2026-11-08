@@ -13,7 +13,7 @@ const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
 
   --test "<命令>"            必填。测试命令，在仓库根以 shell 运行；并行度通过环境变量 PQW_TEST_WORKERS 与 VITEST_MAX_WORKERS 交给它，例如 "vitest run" 或 "jest --maxWorkers=$PQW_TEST_WORKERS"
   --repo <目录>              仓库里任一目录，缺省当前目录
-  --base <ref>               基线提交；缺省取与 --target 的合并点
+  --base <ref>               基线提交；缺省取与 --target 的合并点。给的 ref 不是 HEAD 的祖先（基线分支前进过）时改用两者的合并点，抬头与 JSON 的 baseGiven 写明
   --target <分支>            缺省依次试 main、master
   --lcov <路径>              覆盖率文件；给了就只打有执行记录的位点
   --ts <目录>                typescript 包目录（要 JS 实现，6.x 可用）；缺省从仓库 node_modules 找
@@ -61,10 +61,10 @@ function loadInputs(opts) {
   const repo = resolve(opts.repo ?? process.cwd());
   const root = load(() => sh(repo, ["rev-parse", "--show-toplevel"]), `不是 Git 仓库：${repo}`);
   const ts = load(() => loadTypescript(opts.ts, root));
-  const base = load(() => resolveBase(root, opts.base, opts.target));
+  const { base, baseGiven } = load(() => resolveBase(root, opts.base, opts.target));
   const resources = planResources(opts);
   return {
-    root, ts, base, head: sh(root, ["rev-parse", "HEAD"]), resources, env: runnerEnv(process.env, resources.workers),
+    root, ts, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources, env: runnerEnv(process.env, resources.workers),
     report: opts.lcov ? parseLcov(readFileSync(resolve(root, opts.lcov), "utf8")) : null,
     history: opts.history ? JSON.parse(readFileSync(resolve(opts.history), "utf8")) : null,
     budgetMs: duration(opts.budget, 20 * 60000),
@@ -83,7 +83,7 @@ function emit(result, opts) {
 const inputs = loadInputs(opts);
 const { files, sites } = collectSites({ root: inputs.root, base: inputs.base, ts: inputs.ts, scope: parseScope(opts.scope) });
 selectSites(sites, inputs.report, inputs.history);
-const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), base: inputs.base, head: inputs.head, testCommand: opts.test, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, budget: { limitMs: inputs.budgetMs, exceeded: false }, resources: inputs.resources, sites, summary: {}, survivors: [] };
+const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, testCommand: opts.test, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, budget: { limitMs: inputs.budgetMs, exceeded: false }, resources: inputs.resources, sites, summary: {}, survivors: [] };
 
 const runner = createTestRunner(opts.test, inputs.root, inputs.env, { nice: inputs.resources.nice });
 const patcher = createPatcher(inputs.root);

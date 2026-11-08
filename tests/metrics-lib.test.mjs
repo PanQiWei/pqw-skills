@@ -4,10 +4,19 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { makeRepo, writeFiles, dispose, tsPath } from "./fixture.mjs";
 import { byHotness, summarize, touchesOwnLines, formatMetrics } from "../skills/slice-closeout/scripts/lib/metrics.mjs";
+import { touches } from "../skills/slice-closeout/scripts/lib/core.mjs";
 
 const SCRIPT = new URL("../skills/slice-closeout/scripts/metrics.mjs", import.meta.url).pathname;
 const TS = tsPath();
 const skip = TS ? false : "没有 typescript，设 PQW_TS";
+
+test("区间相碰：两端都是闭区间，相离不算", () => {
+  assert.equal(touches([[3, 5]], 5, 9), true, "改动末行等于单元首行");
+  assert.equal(touches([[3, 5]], 1, 3), true, "改动首行等于单元末行");
+  assert.equal(touches([[3, 5]], 6, 9), false, "改动在单元之前");
+  assert.equal(touches([[3, 5]], 1, 2), false, "改动在单元之后");
+  assert.equal(touches([[1, 2], [8, 8]], 7, 9), true, "多段取任一");
+});
 
 test("排序：CRAP 高在前，CRAP 0 仍在无覆盖之前，同 CRAP 看圈复杂度，再文件与行", () => {
   const rows = [
@@ -76,7 +85,7 @@ export function g(b: number) {
 `;
 const run = (dir, args) => spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--format", "json", ...args], { encoding: "utf8" });
 
-test("--scope 只收前缀内的文件；node_modules 不收；只删了行的函数不算改动", { skip }, () => {
+test("--scope 只收前缀内的文件；node_modules 不收；只删了行的函数也算改动（第四程 C11 改掉了第三程的「不算」）", { skip }, () => {
   const dir = makeRepo({ "src/a.ts": SRC, "lib/b.ts": SRC });
   try {
     const changedF = SRC.replace("return 0;\n}\nexport function g", "return 2;\n}\nexport function g");
@@ -87,6 +96,6 @@ test("--scope 只收前缀内的文件；node_modules 不收；只删了行的�
     writeFiles(dir, { "src/a.ts": SRC.replace("  if (b > 0) return 1;\n", ""), "lib/b.ts": SRC });
     const deleted = run(dir, []);
     assert.equal(deleted.status, 0, deleted.stderr);
-    assert.deepEqual(JSON.parse(deleted.stdout).functions, []);
+    assert.deepEqual(JSON.parse(deleted.stdout).functions.map((x) => [x.path, x.name, x.changedLines]), [["src/a.ts", "g", [[5, 6]]]]);
   } finally { dispose(dir); }
 });

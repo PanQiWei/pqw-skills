@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { cpus, freemem, loadavg } from "node:os";
-import { changedLines, inScope, lookupFile, nestedUnits, ownLines, unitDigests, score } from "./core.mjs";
+import { changedLines, inScope, lookupFile, nestedUnits, ownLines, unitDigests, score, baseLabel } from "./core.mjs";
 
 // ---- 资源：容量自测、份额、并行度。模型见 ../../metrics-model.md「资源」。
 
@@ -79,7 +79,7 @@ export const isMutable = (root, path, scope) => inScope(path, scope) && SOURCE_R
 /** 单元自己的行里有改动时返回这些行的集合，否则 null。 */
 export function changedOwnLines(unit, units, ranges) {
   const own = new Set(ownLines(unit, nestedUnits(unit, units)));
-  return ranges.some(([a, b]) => a >= 1 && [...own].some((l) => l >= a && l <= b)) ? own : null;
+  return ranges.some(([a, b]) => [...own].some((l) => l >= a && l <= b)) ? own : null;
 }
 
 /** 收集基线到工作树改动单元的全部位点。返回 { files: path → { text, units, digests }, sites }。 */
@@ -234,7 +234,7 @@ const siteRow = (s) => `| ${s.file} | ${s.unit} | ${s.line} | \`${s.original}\` 
 export function formatMutation(result) {
   const { sites, summary: sm, base } = result;
   const tally = result.planOnly ? "（只列）" : `：杀死 ${sm.killed}、存活 ${sm.survived}、无覆盖 ${sm.uncovered}、未跑 ${sm.notRun}；分数 ${sm.score === null ? "无" : (sm.score * 100).toFixed(0) + "%"}`;
-  const lines = [`差分变异：基线 ${base.slice(0, 12)} 到工作树；位点 ${sm.total}${tally}${result.budget.exceeded ? "；预算用尽" : ""}`];
+  const lines = [`差分变异：基线 ${baseLabel(base, result.baseGiven)} 到工作树；位点 ${sm.total}${tally}${result.budget.exceeded ? "；预算用尽" : ""}`];
   if (!result.planOnly && !result.baseline.passed) lines.push(`基线不通过：\n${result.baseline.tail}`);
   lines.push("| 文件 | 单元 | 行 | 原文 | 替换 | 类别 | 裁定 |", "| --- | --- | --- | --- | --- | --- | --- |");
   for (const s of sites) lines.push(siteRow(s));

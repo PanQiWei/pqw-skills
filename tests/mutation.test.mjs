@@ -38,6 +38,18 @@ test("--help 退出 0；缺 --test 退出 2", () => {
   assert.equal(r.status, 2);
 });
 
+test("纯删除也出位点：删掉 clamp 里一行 if 后 --plan-only 列出它剩下的位点", { skip }, () => {
+  const dir = makeRepo({ "src/calc.ts": SRC });
+  try {
+    writeFiles(dir, { "src/calc.ts": SRC.replace("  if (x < lo) return lo;\n", "") });
+    const r = run(dir, ["--test", "true", "--plan-only", "--format", "json"]);
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    assert.ok(out.sites.some((s) => s.unit === "clamp" && s.original === ">"), JSON.stringify(out.sites));
+    assert.equal(out.baseGiven, out.base);
+  } finally { dispose(dir); }
+});
+
 test("--plan-only 只列位点，不改文件，不跑测试", { skip }, () => {
   const dir = setup();
   try {

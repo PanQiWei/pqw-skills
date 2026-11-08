@@ -18,11 +18,11 @@ const load = (fn, message) => { try { return fn(); } catch (e) { console.error(m
 const repo = resolve(opts.repo ?? process.cwd());
 const root = load(() => sh(repo, ["rev-parse", "--show-toplevel"]), `不是 Git 仓库：${repo}`);
 const ts = load(() => loadTypescript(opts.ts, root));
-const base = load(() => resolveBase(root, opts.base, opts.target));
+const { base, baseGiven } = load(() => resolveBase(root, opts.base, opts.target));
 const head = sh(root, ["rev-parse", "HEAD"]);
 const report = opts.lcov ? parseLcov(readFileSync(resolve(root, opts.lcov), "utf8")) : null;
 
-const result = collectMetrics({ root, base, head, ts, report, scope: parseScope(opts.scope) });
+const result = collectMetrics({ root, base, baseGiven, head, ts, report, scope: parseScope(opts.scope) });
 if (opts.json) writeFileSync(resolve(opts.json), JSON.stringify(result, null, 2) + "\n");
 if (opts.format === "json") console.log(JSON.stringify(result, null, 2));
 else console.log(formatMetrics(result));
