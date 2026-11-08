@@ -135,8 +135,8 @@ async function execute(result, { root, stryker, entries, ranges }) {
 }
 
 /** 第二轮：第一轮超时的变异体所在的整行，一个进程、时限放宽、不进增量；结果并入位点。第二轮没有报告时全部记未复核，第一轮裁定不动，退出码不变。 */
-async function recheckTimeouts(result, report, { root, stryker, entries }) {
-  const mutate = timeoutEntries(report, entries);
+async function recheckTimeouts(result, report, { root, stryker, entries, ranges }) {
+  const mutate = timeoutEntries(report, entries, ranges, pinned);
   if (mutate.length === 0) return;
   const timeoutMs = inputs.recheckTimeoutMs ?? Math.max(4 * (inputs.timeoutMs ?? 5000), 60000);
   const { r, report: second, logPath } = await runOnce({ root, stryker, name: "recheck", config: { entries: mutate, concurrency: 1, timeoutMs, incremental: null } });
@@ -158,7 +158,7 @@ let code = 0;
 if (!result.planOnly && result.mutate.length > 0) {
   const first = await execute(result, { root, stryker, entries, ranges });
   code = first.code;
-  if (first.report && !opts["no-recheck"]) await recheckTimeouts(result, first.report, { root, stryker, entries });
+  if (first.report && !opts["no-recheck"]) await recheckTimeouts(result, first.report, { root, stryker, entries, ranges });
 }
 finish(result);
 emit(result);

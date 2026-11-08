@@ -240,12 +240,16 @@ export function fileEntries(root, ts, files) {
 
 // ---- 超时复核：第一轮超时的变异体所在的整行再跑一轮，结果按位点 id 并入。
 
-/** 第一轮报告里超时变异体所在的整行范围，作第二轮的 mutate 条目 `路径:起行-止行`，相邻行合并；只看 files 里的文件。用整行而不是行列，避开列号基数的歧义；同行别的变异体顺带再跑，并入时只认超时的那些。 */
-export function timeoutEntries(report, files) {
+/**
+ * 第一轮报告里超时变异体所在的整行范围，作第二轮的 mutate 条目 `路径:起行-止行`，相邻行合并；只看 files 里的文件、本轮范围内（或点名文件）的变异体：
+ * 开着增量时 Stryker 会把上一轮范围外的结果也写进报告，它们不是本轮的位点。用整行而不是行列，避开列号基数的歧义；同行别的变异体顺带再跑，并入时只认超时的那些。
+ */
+export function timeoutEntries(report, files, ranges = new Map(), pinned = []) {
   const entries = [];
   for (const path of files.keys()) {
+    const inRange = (line) => pinned.includes(path) || (ranges.get(path) ?? []).some(([a, b]) => a <= line && line <= b);
     const lines = new Set();
-    for (const m of report?.files?.[path]?.mutants ?? []) if (m.status === "Timeout") for (let l = m.location.start.line; l <= m.location.end.line; l++) lines.add(l);
+    for (const m of report?.files?.[path]?.mutants ?? []) if (m.status === "Timeout" && inRange(m.location.start.line)) for (let l = m.location.start.line; l <= m.location.end.line; l++) lines.add(l);
     for (const [a, b] of segments([...lines].sort((x, y) => x - y))) entries.push(`${path}:${a}-${b}`);
   }
   return entries;

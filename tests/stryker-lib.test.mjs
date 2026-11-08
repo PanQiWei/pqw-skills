@@ -251,9 +251,13 @@ const m = (id, status, line, replacement = "x", endLine = line) => ({ id, mutato
 
 test("timeoutEntries：只取 Timeout，整行、相邻合并、跨行展开、只看给的文件", () => {
   const report = { files: { "a.ts": { mutants: [m("4", "Timeout", 5, "y", 7), m("2", "Timeout", 3), m("3", "Killed", 4), m("1", "Timeout", 2)] }, "b.ts": { mutants: [m("5", "Timeout", 1)] } } };
-  assert.deepEqual(timeoutEntries(report, new Map([["a.ts", ENTRY]])), ["a.ts:2-3", "a.ts:5-7"], "报告里的顺序不影响，相邻合并");
-  assert.deepEqual(timeoutEntries(null, new Map([["a.ts", ENTRY]])), []);
-  assert.deepEqual(timeoutEntries({ files: {} }, new Map([["a.ts", ENTRY]])), [], "报告里没有这个文件");
+  const files = new Map([["a.ts", ENTRY]]);
+  assert.deepEqual(timeoutEntries(report, files, new Map([["a.ts", [[1, 9]]]])), ["a.ts:2-3", "a.ts:5-7"], "报告里的顺序不影响，相邻合并");
+  assert.deepEqual(timeoutEntries(report, files, new Map([["a.ts", [[2, 3]]]])), ["a.ts:2-3"], "范围外的超时不算：增量会把上一轮范围外的结果写进报告");
+  assert.deepEqual(timeoutEntries(report, files, new Map(), ["a.ts"]), ["a.ts:2-3", "a.ts:5-7"], "点名的文件整份算");
+  assert.deepEqual(timeoutEntries(report, files), [], "没给范围就没有本轮位点");
+  assert.deepEqual(timeoutEntries(null, files, new Map([["a.ts", [[1, 9]]]])), []);
+  assert.deepEqual(timeoutEntries({ files: {} }, files, new Map([["a.ts", [[1, 9]]]])), [], "报告里没有这个文件");
 });
 
 test("mergeRecheck：按位点 id 并入，Killed 与 Survived 改裁定记 recheck，仍 Timeout 保持，没对上或别的状态记未复核且不动", () => {
