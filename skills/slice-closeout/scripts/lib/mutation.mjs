@@ -3,7 +3,34 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
+import { cpus, freemem, loadavg } from "node:os";
 import { changedLines, inScope, lookupFile, nestedUnits, ownLines, unitDigests, score } from "./core.mjs";
+
+// ---- 资源：容量自测、份额、并行度。模型见 ../../metrics-model.md「资源」。
+
+/** 机器容量：逻辑 CPU 数、可用内存（MB）、1 分钟负载。 */
+export const capacity = () => ({ cpus: Math.max(1, cpus().length), freeMemMb: Math.round(freemem() / 1048576), load1: Math.round(loadavg()[0] * 100) / 100 });
+
+/**
+ * 并行度：份额 = 1 / (同机另有的重型任务数 + 1)；上限 = max(1, floor(cpus × 份额))；
+ * 可用内存低于阈值时上限减半；显式给的 workers 不能超过上限。
+ */
+export function plannedWorkers(cap, { otherHeavyTasks = 0, lowMemoryHalveMb = 2048, workers = null } = {}) {
+  const share = 1 / (otherHeavyTasks + 1);
+  let ceiling = Math.max(1, Math.floor(cap.cpus * share));
+  const halved = cap.freeMemMb < lowMemoryHalveMb;
+  if (halved) ceiling = Math.max(1, Math.floor(ceiling / 2));
+  const capped = workers !== null && workers > ceiling;
+  const effective = workers === null ? ceiling : Math.max(1, Math.min(workers, ceiling));
+  return { share, ceiling, workers: effective, requested: workers, capped, halved };
+}
+
+/** 交给测试命令的环境：并行度写进 PQW_TEST_WORKERS 与 VITEST_MAX_WORKERS；剥掉 NODE_TEST_CONTEXT，免得嵌套的 node --test 退出码失真。 */
+export function runnerEnv(base, workers) {
+  const env = { ...base, PQW_TEST_WORKERS: String(workers), VITEST_MAX_WORKERS: String(workers) };
+  delete env.NODE_TEST_CONTEXT;
+  return env;
+}
 import { analyze, sites as findSites, SOURCE_RE, DECLARATION_RE } from "./adapter-typescript.mjs";
 
 export const TEST_FILE_RE = /(^|\/)(tests?|__tests__|spec)\/|\.(test|spec)\.[cm]?[jt]sx?$/;
@@ -82,15 +109,21 @@ export function createPatcher(root) {
   };
 }
 
-/** 测试运行器：shell 里跑命令，超时杀整个进程组。run 从不 reject。 */
-export function createTestRunner(command, cwd, env) {
+/** 能不能降优先级：Linux 与 macOS 用 nice；Windows 不设。 */
+export const niceAvailable = () => process.platform !== "win32";
+
+/** 测试运行器：shell 里跑命令，超时杀整个进程组；nice 给了就以低优先级启动。run 从不 reject。 */
+export function createTestRunner(command, cwd, env, { nice = null } = {}) {
   let child = null;
+  const launch = () => (nice === null
+    ? spawn(command, { cwd, shell: true, env, stdio: ["ignore", "pipe", "pipe"], detached: true })
+    : spawn("nice", ["-n", String(nice), "sh", "-c", command], { cwd, env, stdio: ["ignore", "pipe", "pipe"], detached: true }));
   return {
     run: (timeoutMs) => new Promise((done) => {
       const t0 = Date.now();
       let output = "";
       let timedOut = false;
-      child = spawn(command, { cwd, shell: true, env, stdio: ["ignore", "pipe", "pipe"], detached: true });
+      child = launch();
       child.stdout.on("data", (d) => { output += d; });
       child.stderr.on("data", (d) => { output += d; });
       const timer = setTimeout(() => { timedOut = true; killGroup(child); }, timeoutMs);
@@ -150,6 +183,8 @@ export function summarize(sites) {
 
 const VERDICT_TEXT = { planned: "待跑", killed: "杀死", survived: "存活", uncovered: "无覆盖", notRun: "未跑" };
 
+const siteRow = (s) => `| ${s.file} | ${s.unit} | ${s.line} | \`${s.original}\` | \`${s.mutant === "" ? "（删去）" : s.mutant}\` | ${s.category} | ${VERDICT_TEXT[s.verdict]}${s.reason ? `（${s.reason}）` : ""} |`;
+
 /** 人读的表格。 */
 export function formatMutation(result) {
   const { sites, summary: sm, base } = result;
@@ -157,11 +192,21 @@ export function formatMutation(result) {
   const lines = [`差分变异：基线 ${base.slice(0, 12)} 到工作树；位点 ${sm.total}${tally}${result.budget.exceeded ? "；预算用尽" : ""}`];
   if (!result.planOnly && !result.baseline.passed) lines.push(`基线不通过：\n${result.baseline.tail}`);
   lines.push("| 文件 | 单元 | 行 | 原文 | 替换 | 类别 | 裁定 |", "| --- | --- | --- | --- | --- | --- | --- |");
-  for (const s of sites) lines.push(`| ${s.file} | ${s.unit} | ${s.line} | \`${s.original}\` | \`${s.mutant === "" ? "（删去）" : s.mutant}\` | ${s.category} | ${VERDICT_TEXT[s.verdict]}${s.reason ? `（${s.reason}）` : ""} |`);
+  for (const s of sites) lines.push(siteRow(s));
   if (sites.length === 0) lines.push("| | 没有位点 | | | | | |");
   if (result.survivors.length) {
     lines.push("", "存活的位点：");
     for (const s of result.survivors) lines.push(`- ${s.file}:${s.line} ${s.unit}：${s.suggestion}`);
   }
+  if (result.resources) lines.push("", formatResources(result.resources));
   return lines.join("\n");
+}
+
+/** 一行资源摘要。 */
+export function formatResources(r) {
+  const notes = [];
+  if (r.capped) notes.push(`显式 --workers ${r.requested} 超过份额上限，按份额降到 ${r.workers}`);
+  if (r.halved) notes.push(`可用内存 ${r.capacity.freeMemMb} MB 低于 ${r.lowMemoryHalveMb} MB，上限减半`);
+  if (r.nice === null) notes.push("本平台不降优先级");
+  return `资源：${r.capacity.cpus} 核，负载 ${r.capacity.load1}，同机另有 ${r.otherHeavyTasks} 个重型任务，份额 ${Math.round(r.share * 100)}%，并行度 ${r.workers}${r.nice === null ? "" : `，nice ${r.nice}`}${notes.length ? "；" + notes.join("；") : ""}`;
 }

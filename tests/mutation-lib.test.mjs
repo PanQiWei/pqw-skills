@@ -181,11 +181,11 @@ test("收集：位点按文件名再按位置排序，id 稳定", { skip: TS ? f
   } finally { dispose(dir); }
 });
 
-test("工作线程数：缺省是 CPU 数减一且至少 1，--workers 覆盖；都通过 PQW_TEST_WORKERS 交给测试命令", { skip: TS ? false : "没有 typescript，设 PQW_TS" }, () => {
+test("工作线程数：缺省等于份额上限（没有同机任务时是 CPU 数），--workers 在上限内覆盖；都通过 PQW_TEST_WORKERS 交给测试命令", { skip: TS ? false : "没有 typescript，设 PQW_TS" }, () => {
   const dir = makeRepo({ "README.md": "x\n" });
   try {
-    const run = (extra) => JSON.parse(spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--test", "echo workers=$PQW_TEST_WORKERS", "--format", "json", ...extra], { encoding: "utf8" }).stdout);
-    assert.match(run([]).baseline.tail, new RegExp(`workers=${Math.max(1, cpus().length - 1)}\\b`));
+    const run = (extra) => JSON.parse(spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--test", "echo workers=$PQW_TEST_WORKERS", "--format", "json", "--low-memory-halve", "0", ...extra], { encoding: "utf8" }).stdout);
+    assert.match(run([]).baseline.tail, new RegExp(`workers=${Math.max(1, cpus().length)}\\b`));
     assert.match(run(["--workers", "3"]).baseline.tail, /workers=3\b/);
   } finally { dispose(dir); }
 });
