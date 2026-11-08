@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs, parseScope, resolveBase, parseLcov, sh } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
-import { parseDuration, collectSites, selectSites, createPatcher, createTestRunner, runSites, summarize, formatMutation, capacity, plannedWorkers, runnerEnv, niceAvailable } from "./lib/mutation.mjs";
+import { parseDuration, collectSites, selectSites, createPatcher, createTestRunner, runSites, summarize, formatMutation, capacity, plannedWorkers, runnerEnv, niceAvailable, createAdapter } from "./lib/mutation.mjs";
 
 const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
 只打基线到工作树改动单元的位点，每个位点跑一遍测试命令，裁定为杀死、存活、无覆盖、未跑四类。
@@ -93,9 +93,12 @@ process.on("SIGTERM", () => interrupted(143));
 
 let restored = true;
 if (!result.planOnly) {
-  const run = await runSites({ sites, files, runner, patcher, budgetMs: inputs.budgetMs, timeoutMs: inputs.timeoutMs, noTests: inputs.noTests });
+  const adapter = createAdapter({ planned: inputs.resources.workers, ceiling: inputs.resources.loadCeiling });
+  const run = await runSites({ sites, files, runner, patcher, budgetMs: inputs.budgetMs, timeoutMs: inputs.timeoutMs, noTests: inputs.noTests, adapter });
   result.baseline = run.baseline;
   result.budget = run.budget;
+  result.resources.adaptation = run.adaptation;
+  result.resources.timing = run.timing;
   restored = run.restored;
 }
 Object.assign(result, summarize(sites));

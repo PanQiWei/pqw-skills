@@ -31,6 +31,35 @@ export function runnerEnv(base, workers) {
   delete env.NODE_TEST_CONTEXT;
   return env;
 }
+
+/** 负载比：1 分钟负载 ÷ 逻辑 CPU 数。 */
+export const loadRatio = () => loadavg()[0] / Math.max(1, cpus().length);
+
+/**
+ * 运行中自适应：每个位点前采一次负载比，超过上限就把并行度减半（至少 1），回落到上限减去滞回量以下再翻倍（不超过计划值）；
+ * 中间地带不动，免得抖动。并行度已是 1 还连续 3 次超限，记「繁忙」，继续跑但耗时不再代表工具本身。
+ */
+export function createAdapter({ planned, ceiling = 0.8, hysteresis = 0.2, sampler = loadRatio }) {
+  const state = { workers: planned, samples: 0, downshifts: 0, upshifts: 0, minWorkers: planned, busy: false };
+  const floor = round2(ceiling - hysteresis);
+  let hot = 0;
+  return {
+    state,
+    next() {
+      const ratio = sampler();
+      state.samples++;
+      if (ratio > ceiling) {
+        hot++;
+        if (state.workers > 1) { state.workers = Math.floor(state.workers / 2); state.downshifts++; } else if (hot >= 3) state.busy = true;
+      } else {
+        hot = 0;
+        if (ratio < floor && state.workers < planned) { state.workers = Math.min(planned, state.workers * 2); state.upshifts++; }
+      }
+      state.minWorkers = Math.min(state.minWorkers, state.workers);
+      return state.workers;
+    },
+  };
+}
 import { analyze, sites as findSites, SOURCE_RE, DECLARATION_RE } from "./adapter-typescript.mjs";
 
 export const TEST_FILE_RE = /(^|\/)(tests?|__tests__|spec)\/|\.(test|spec)\.[cm]?[jt]sx?$/;
@@ -112,18 +141,18 @@ export function createPatcher(root) {
 /** 能不能降优先级：Linux 与 macOS 用 nice；Windows 不设。 */
 export const niceAvailable = () => process.platform !== "win32";
 
-/** 测试运行器：shell 里跑命令，超时杀整个进程组；nice 给了就以低优先级启动。run 从不 reject。 */
+/** 测试运行器：shell 里跑命令，超时杀整个进程组；nice 给了就以低优先级启动；run 给了 workers 就临时换并行度。run 从不 reject。 */
 export function createTestRunner(command, cwd, env, { nice = null } = {}) {
   let child = null;
-  const launch = () => (nice === null
-    ? spawn(command, { cwd, shell: true, env, stdio: ["ignore", "pipe", "pipe"], detached: true })
-    : spawn("nice", ["-n", String(nice), "sh", "-c", command], { cwd, env, stdio: ["ignore", "pipe", "pipe"], detached: true }));
+  const launch = (runEnv) => (nice === null
+    ? spawn(command, { cwd, shell: true, env: runEnv, stdio: ["ignore", "pipe", "pipe"], detached: true })
+    : spawn("nice", ["-n", String(nice), "sh", "-c", command], { cwd, env: runEnv, stdio: ["ignore", "pipe", "pipe"], detached: true }));
   return {
-    run: (timeoutMs) => new Promise((done) => {
+    run: (timeoutMs, workers = null) => new Promise((done) => {
       const t0 = Date.now();
       let output = "";
       let timedOut = false;
-      child = launch();
+      child = launch(workers === null ? env : runnerEnv(env, workers));
       child.stdout.on("data", (d) => { output += d; });
       child.stderr.on("data", (d) => { output += d; });
       const timer = setTimeout(() => { timedOut = true; killGroup(child); }, timeoutMs);
@@ -136,7 +165,7 @@ export function createTestRunner(command, cwd, env, { nice = null } = {}) {
 const killGroup = (child) => { try { process.kill(-child.pid, "SIGKILL"); } catch {} };
 
 /** 裁定一个位点：写入、跑测试、还原；「没跑测试」复跑一次。返回还原是否成功。 */
-export async function judgeSite(s, original, { runner, patcher, timeoutMs, noTests }) {
+export async function judgeSite(s, original, { runner, patcher, timeoutMs, noTests, workers = null }) {
   const mutated = original.slice(0, s.start) + s.mutant + original.slice(s.end);
   let seconds = 0;
   let restored = true;
@@ -144,7 +173,7 @@ export async function judgeSite(s, original, { runner, patcher, timeoutMs, noTes
     s.runs = round;
     patcher.apply(s.file, original, mutated);
     let r;
-    try { r = await runner.run(timeoutMs); } finally { if (!patcher.restore()) restored = false; }
+    try { r = await runner.run(timeoutMs, workers); } finally { if (!patcher.restore()) restored = false; }
     seconds += r.seconds;
     if (r.timedOut || r.code !== 0) { s.verdict = "killed"; s.reason = r.timedOut ? "timeout" : null; break; }
     if (noTests.test(r.output)) { s.verdict = "notRun"; s.reason = "noTests"; continue; }
@@ -154,22 +183,38 @@ export async function judgeSite(s, original, { runner, patcher, timeoutMs, noTes
   return restored;
 }
 
-/** 执行：先跑基线，再按预算逐个裁定 planned 的位点。timeoutMs 为 null 时基线 10 分钟、位点取基线用时的 5 倍（至少 10 秒）。 */
-export async function runSites({ sites, files, runner, patcher, budgetMs, timeoutMs, noTests }) {
+/** 自身开销：总耗时里不在测试命令上的部分。now 可注入，便于核算式。 */
+export function selfTiming(t0, testSeconds, now = Date.now()) {
+  const totalSeconds = (now - t0) / 1000;
+  const overhead = totalSeconds > 0 ? Math.max(0, (totalSeconds - testSeconds) / totalSeconds) : 0;
+  return { totalSeconds: round2(totalSeconds), testSeconds: round2(testSeconds), overheadRatio: round2(overhead) };
+}
+const round2 = (n) => Math.round(n * 100) / 100;
+
+/**
+ * 执行：先跑基线，再按预算逐个裁定 planned 的位点。timeoutMs 为 null 时基线 10 分钟、位点取基线用时的 5 倍（至少 10 秒）。
+ * adapter 给了就每个位点前取一次并行度交给运行器。返回里带计时与自适应状态。
+ */
+export async function runSites({ sites, files, runner, patcher, budgetMs, timeoutMs, noTests, adapter = NO_ADAPTER }) {
   const t0 = Date.now();
   const b = await runner.run(timeoutMs ?? 10 * 60000);
   const baseline = { passed: b.code === 0 && !b.timedOut, seconds: b.seconds, tail: b.output.split("\n").slice(-5).join("\n") };
   const budget = { limitMs: budgetMs, exceeded: false };
   const siteTimeout = timeoutMs ?? Math.max(10000, b.seconds * 5000);
   let restored = true;
+  let testSeconds = b.seconds;
   for (const s of sites) {
     if (s.verdict !== "planned") continue;
     if (!baseline.passed) { s.verdict = "notRun"; s.reason = "baselineFailed"; continue; }
     if (Date.now() - t0 > budgetMs) { budget.exceeded = true; s.verdict = "notRun"; s.reason = "budget"; continue; }
-    if (!(await judgeSite(s, files.get(s.file).text, { runner, patcher, timeoutMs: siteTimeout, noTests }))) restored = false;
+    if (!(await judgeSite(s, files.get(s.file).text, { runner, patcher, timeoutMs: siteTimeout, noTests, workers: adapter.next() }))) restored = false;
+    testSeconds += s.seconds;
   }
-  return { baseline, budget, restored };
+  return { baseline, budget, restored, timing: selfTiming(t0, testSeconds), adaptation: adapter.state };
 }
+
+/** 不自适应：并行度沿用运行器创建时的，状态记 null。 */
+const NO_ADAPTER = { next: () => null, state: null };
 
 const suggestion = (s) => (s.mutant === "" ? `删去 ${s.original} 后测试仍过：补一条能区分有无 ${s.original} 的断言，或说明它为什么等价` : `${s.original} 换成 ${s.mutant} 后测试仍过：补一条在边界上能区分两者的断言，或说明它为什么等价`);
 
@@ -202,11 +247,22 @@ export function formatMutation(result) {
   return lines.join("\n");
 }
 
+/** 跑过位点之后才有的说明：运行中降档、机器繁忙、自身开销。 */
+function runtimeNotes(r) {
+  const notes = [];
+  const a = r.adaptation;
+  if (a && a.downshifts > 0) notes.push(`运行中按负载降档 ${a.downshifts} 次、升档 ${a.upshifts} 次，最低并行度 ${a.minWorkers}`);
+  if (a && a.busy) notes.push(`机器繁忙：负载比持续高于上限 ${r.loadCeiling}，并行度已降到 1，耗时不代表工具本身`);
+  if (r.timing) notes.push(`测试命令共 ${r.timing.testSeconds}s，总耗时 ${r.timing.totalSeconds}s，工具自身开销 ${Math.round(r.timing.overheadRatio * 100)}%`);
+  return notes;
+}
+
 /** 一行资源摘要。 */
 export function formatResources(r) {
   const notes = [];
   if (r.capped) notes.push(`显式 --workers ${r.requested} 超过份额上限，按份额降到 ${r.workers}`);
   if (r.halved) notes.push(`可用内存 ${r.capacity.freeMemMb} MB 低于 ${r.lowMemoryHalveMb} MB，上限减半`);
   if (r.nice === null) notes.push("本平台不降优先级");
+  notes.push(...runtimeNotes(r));
   return `资源：${r.capacity.cpus} 核，负载 ${r.capacity.load1}，同机另有 ${r.otherHeavyTasks} 个重型任务，份额 ${Math.round(r.share * 100)}%，并行度 ${r.workers}${r.nice === null ? "" : `，nice ${r.nice}`}${notes.length ? "；" + notes.join("；") : ""}`;
 }
