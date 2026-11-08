@@ -41,12 +41,12 @@ pqw-skills/
     ├── context-pack/                 run-pack-template.md、slice-kickoff-template.md
     ├── delegate-brief/               brief-template.md
     ├── one-lesson-rule/              review-record-template.md、hosts.md、scripts/sentinel.mjs
-    ├── slice-closeout/               closeout-checklist.md、metrics-model.md、scripts/{metrics,mutation}.mjs 命令面、scripts/lib/{core,adapter-typescript,metrics,mutation,version}.mjs 逻辑
+    ├── slice-closeout/               closeout-checklist.md、metrics-model.md、scripts/{metrics,mutation}.mjs 命令面、scripts/lib/{core,adapter-typescript,metrics,mutation,stryker,version}.mjs 逻辑、scripts/package.json 钉 Stryker 引擎的依赖
     ├── progress-artifacts/           report-skeleton.md、report-template.html、demo-skeleton.html、scripts/{artifacts-dir,build-report,demo-append}.mjs 命令面、scripts/lib/{args,report,demo}.mjs 逻辑
     └── cleanup/                      checklist-template.md、scripts/cleanup.mjs
 ```
 
-每个技能目录一个 `SKILL.md`，模板与说明放同目录并由 `SKILL.md` 链接，脚本放 `scripts/`。脚本都是无依赖的 Node，`--help` 可用。
+每个技能目录一个 `SKILL.md`，模板与说明放同目录并由 `SKILL.md` 链接，脚本放 `scripts/`。脚本是直接 `node` 跑的 ESM，`--help` 可用；只有差分变异的 Stryker 引擎有依赖，装法见 `DEVELOPMENT.md`。
 
 ## 与 mattpocock/skills 的差别
 

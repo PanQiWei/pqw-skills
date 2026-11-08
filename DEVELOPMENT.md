@@ -4,7 +4,7 @@
 
 ## 前提
 
-- Node 20 以上。脚本都是无依赖的 ESM，直接 `node` 跑，仓库不装 npm 包。
+- Node 20 以上。脚本是直接 `node` 跑的 ESM；结构读数与内建变异引擎没有依赖。差分变异的 Stryker 引擎要 `@stryker-mutator/core` 与 `@stryker-mutator/vitest-runner`，优先用被测项目自己 `node_modules` 里的，没有就 `npm ci --prefix skills/slice-closeout/scripts` 装到技能目录（版本钉在那里的 `package.json`，`node_modules` 已忽略）。本仓库自己的测试是 `node:test`，自跑仍用内建引擎。
 - 至少一个宿主：Claude Code、Codex 或 Cursor。校验插件清单需要 Claude Code 的 `claude` 命令。
 - 外部技能已按各自说明装好：pstack、ub-mode、mattpocock/skills。版本见 `README.md` 的依赖表。`scripts/check-repo.mjs` 会读本机安装目录核对引用，没装会报「无法核对」。
 
@@ -24,7 +24,7 @@ claude plugin validate .
 PQW_TS=<typescript 包目录> node --test tests/
 ```
 
-`tests/` 用 `node:test`，夹具在系统临时目录建小 Git 仓库。需要 typescript 的用例从 `PQW_TS` 取包目录（要 JS 实现的 typescript，6.x 可用），取不到就跳过并打印原因。差分变异的用例要跑真实的测试命令，整套约一分钟。
+`tests/` 用 `node:test`，夹具在系统临时目录建小 Git 仓库。需要 typescript 的用例从 `PQW_TS` 取包目录（要 JS 实现的 typescript，6.x 可用），取不到就跳过并打印原因。真起 Stryker 的用例从 `PQW_STRYKER_MODULES` 取装好的 `node_modules`（例如 `npm ci --prefix skills/slice-closeout/scripts` 之后指向 `skills/slice-closeout/scripts/node_modules`），没设就跳过并打印原因。差分变异的用例要跑真实的测试命令，整套约一分钟。
 
 结构读数、差分变异、汇报件、demo 追加四个工具的逻辑在各自 `scripts/lib/` 下的函数里，`scripts/*.mjs` 只是命令面；哨兵、汇报件目录、清理三个脚本仍是单文件。改工具时用它自己量自己：
 

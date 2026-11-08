@@ -73,6 +73,8 @@
 
 引用外部技能的环节只写本仓库的补充，正文里用「加载技能 `<技能名>`」指向它们，怎么加载由宿主定。例外是 Matt 的 `to-spec` 与 `to-tickets`：它们声明了 `disable-model-invocation: true`，宿主不让模型用 Skill 工具调用，所以按已安装路径直接读正文，并在报告里写明读取方式。表里的版本是本仓库正文核对过的版本，升级时重新核对被引用的技能有没有改名或改行为。
 
+技能正文与脚本本身不装 npm 包。只有 `slice-closeout` 差分变异的 Stryker 引擎有依赖（`@stryker-mutator/core`、`@stryker-mutator/vitest-runner`，版本钉在 `skills/slice-closeout/scripts/package.json`）：用 vitest 的项目优先用自己 `node_modules` 里的，没有就 `npm ci --prefix <该 scripts 目录>` 装到技能目录；不装也能用，工具退回内建引擎并在抬头写明原因。结构读数没有依赖。
+
 维护本仓库时另用 Claude Code 的 `skill-creator` 插件（`claude-plugins-official`）审技能，用 `/skill-doctor` 报告量使用率。两者是宿主工具，不是本仓库引用的技能。
 
 ## 安装
