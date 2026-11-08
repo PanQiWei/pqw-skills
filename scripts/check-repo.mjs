@@ -18,6 +18,9 @@ const config = {
   readme: join(repo, "README.md"),
   proseFiles: ["README.md", "README_EN.md", "AGENTS.md", "STRUCTURE.md", "CHANGELOG.md", "CONTRIBUTING.md", "DEVELOPMENT.md", "SECURITY.md", "CODE_OF_CONDUCT.md"],
   proseDirs: ["skills", "meta/skills", "design"],
+  // 脚本与网页也扫禁词与破折号；tests/ 不扫，用例里会故意写禁词。本文件自身持有两张表，免检。
+  codeDirs: ["skills", "meta/skills", "scripts"],
+  codeExts: [".mjs", ".html"],
   // 外部技能安装根。pstack 与 Matt 取缓存里版本号最大的目录。
   pstackCache: join(home, ".claude", "plugins", "cache", "pstack-claude", "pstack"),
   mattCache: join(home, ".claude", "plugins", "cache", "mattpocock", "mattpocock-skills"),
@@ -48,16 +51,17 @@ const latestVersionDir = (cache) => {
   dirs.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   return join(cache, dirs[dirs.length - 1]);
 };
-const walkMd = (dir) => {
+const walkFiles = (dir, exts) => {
   const out = [];
   if (!existsSync(dir)) return out;
   for (const n of readdirSync(dir)) {
     const p = join(dir, n);
-    if (statSync(p).isDirectory()) out.push(...walkMd(p));
-    else if (n.endsWith(".md")) out.push(p);
+    if (statSync(p).isDirectory()) out.push(...walkFiles(p, exts));
+    else if (exts.some((e) => n.endsWith(e))) out.push(p);
   }
   return out;
 };
+const walkMd = (dir) => walkFiles(dir, [".md"]);
 const frontmatter = (text) => {
   const m = text.match(/^---\n([\s\S]*?)\n---\n/);
   if (!m) return null;
@@ -143,16 +147,18 @@ for (const file of checkedFiles) {
   if (/`ub-mode`/.test(text) && !existsSync(config.ubMode)) fail("无法核对", `${rel(file)} 引用 ub-mode，本机没有 ${config.ubMode}`);
 }
 
-// ---- 4. 发行技能与模板里的项目概念禁词、工作日志措辞。meta/skills/clear-writing 是原样引入的上游英文正文（attempt 是普通英文词），免检。
-for (const file of [...walkMd(config.skillsDir), ...walkMd(config.metaSkillsDir)]) {
+// ---- 4. 发行技能、模板、脚本与网页里的项目概念禁词、工作日志措辞。meta/skills/clear-writing 是原样引入的上游英文正文（attempt 是普通英文词），免检。
+const self = fileURLToPath(import.meta.url);
+const codeFiles = config.codeDirs.flatMap((d) => walkFiles(join(repo, d), config.codeExts)).filter((f) => f !== self);
+for (const file of [...walkMd(config.skillsDir), ...walkMd(config.metaSkillsDir), ...codeFiles]) {
   if (file.includes("/meta/skills/clear-writing/")) continue;
   const text = read(file);
   for (const w of config.forbidden) if (text.includes(w)) fail("项目概念", `${rel(file)} 含「${w}」`);
   for (const w of config.workLog) if (text.includes(w)) fail("工作日志措辞", `${rel(file)} 含「${w}」`);
 }
 
-// ---- 5. 全仓散文无破折号。meta/skills/clear-writing 是原样引入的上游英文正文，免检。
-for (const file of checkedFiles) {
+// ---- 5. 全仓散文、脚本与网页无破折号。meta/skills/clear-writing 是原样引入的上游英文正文，免检。
+for (const file of [...checkedFiles, ...codeFiles]) {
   if (file.includes("/meta/skills/clear-writing/")) continue;
   const lines = read(file).split("\n");
   lines.forEach((line, i) => {
@@ -162,7 +168,7 @@ for (const file of checkedFiles) {
 
 // ---- 输出
 if (failures.length === 0) {
-  if (!quiet) console.log(`PASS：${skills.length} 个发行技能，${metaSkills.length} 个元技能，${checkedFiles.length} 个文档。pstack ${pstackRoot ? basename(pstackRoot) : "缺"}，Matt ${mattRoot ? basename(mattRoot) : "缺"}。`);
+  if (!quiet) console.log(`PASS：${skills.length} 个发行技能，${metaSkills.length} 个元技能，${checkedFiles.length} 个文档，${codeFiles.length} 个脚本与网页。pstack ${pstackRoot ? basename(pstackRoot) : "缺"}，Matt ${mattRoot ? basename(mattRoot) : "缺"}。`);
   process.exit(0);
 }
 const byCheck = new Map();

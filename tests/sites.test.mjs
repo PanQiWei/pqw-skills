@@ -37,6 +37,11 @@ test("位点只落在本单元自己的行：不含相邻函数，不含内层�
   assert.deepEqual(await sitesOf(src, "c"), [[6, 6, "!==", "===", "equality"]]);
 });
 
+test("只有逻辑非是 negation 位点：负号、自增、按位非都不是", { skip }, async () => {
+  const got = await sitesOf(`function h(x: number) { let i = -x; ++i; return ~i; }\n`, "h");
+  assert.deepEqual(got, []);
+});
+
 test("属性可选链换成点，调用与下标的可选链删去", { skip }, async () => {
   const got = await sitesOf(`function g(o?: { p?: number[]; q?(): void }) { o?.q?.(); return o?.p?.[0]; }\n`, "g");
   assert.deepEqual(got.map((s) => [s[2], s[3]]), [["?.", "."], ["?.", ""], ["?.", "."], ["?.", ""]]);
