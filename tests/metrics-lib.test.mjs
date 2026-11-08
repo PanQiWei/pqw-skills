@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { makeRepo, writeFiles, dispose, tsPath } from "./fixture.mjs";
-import { byHotness, summarize, touchesOwnLines, formatMetrics } from "../skills/slice-closeout/scripts/lib/metrics.mjs";
+import { byHotness, summarize, touchesOwnLines, formatMetrics, bandOf, parseThresholds, DEFAULT_THRESHOLDS } from "../skills/slice-closeout/scripts/lib/metrics.mjs";
 import { touches } from "../skills/slice-closeout/scripts/lib/core.mjs";
 
 const SCRIPT = new URL("../skills/slice-closeout/scripts/metrics.mjs", import.meta.url).pathname;
@@ -72,6 +72,29 @@ test("表格：没有改动函数时写一行说明；覆盖率写百分比，�
   assert.match(one, /\n\n未覆盖的改动文件：\n- x\.md：r$/);
   const none = formatMetrics({ base, functions: [{ ...row, coverage: null, crap: null }], uncovered: [], summary: { coverageProvided: false } });
   assert.match(none, /\| 无覆盖 \| 无覆盖 \|/);
+  const banded = formatMetrics({ base, functions: [{ ...row, band: "warn" }], uncovered: [], summary: { coverageProvided: true } });
+  assert.match(banded, /\| CRAP \| 带位 \|\n\| --- \| --- \| --- \| --- \| --- \| --- \| --- \| --- \|\n\| f \| a\.ts \| 1-3 \| 2 \| 1 \| 25% \| 3\.69 \| warn \|/);
+});
+
+test("带位：严格大于才过线；CRAP 算不出时只看圈复杂度，都没过线记无覆盖；--cc 与 --crap 覆盖缺省线", () => {
+  const t = DEFAULT_THRESHOLDS;
+  assert.deepEqual(t, { cyclomaticWarn: 10, cyclomaticAlert: 12, crapAlert: 30 });
+  assert.equal(bandOf(10, 10, t), "ok");
+  assert.equal(bandOf(11, 11, t), "warn");
+  assert.equal(bandOf(12, 12, t), "warn");
+  assert.equal(bandOf(13, 13, t), "alert");
+  assert.equal(bandOf(3, 31, t), "alert");
+  assert.equal(bandOf(3, 30, t), "ok");
+  assert.equal(bandOf(3, null, t), "无覆盖");
+  assert.equal(bandOf(11, null, t), "warn");
+  assert.equal(bandOf(13, null, t), "alert");
+  assert.deepEqual(parseThresholds(undefined, undefined), t);
+  assert.deepEqual(parseThresholds("5,8", "20.5"), { cyclomaticWarn: 5, cyclomaticAlert: 8, crapAlert: 20.5 });
+  assert.equal(bandOf(6, 1, parseThresholds("5,8", undefined)), "warn");
+  assert.throws(() => parseThresholds("8,5", undefined), /warn 不大于 alert/);
+  assert.deepEqual(parseThresholds("5,5", undefined).cyclomaticAlert, 5, "warn 等于 alert 允许");
+  assert.throws(() => parseThresholds("x", undefined), /--cc 要写成/);
+  assert.throws(() => parseThresholds(undefined, "many"), /--crap 要是一个数/);
 });
 
 const SRC = `export function f(a: number) {

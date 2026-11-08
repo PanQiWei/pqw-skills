@@ -1,5 +1,9 @@
 # pqw-skills
 
+## 0.4.0
+
+第四程。哨兵改成便宜档的只读子代理：持有 spec、plan 与整程上下文包，每 45 分钟自己醒来取工作树事实，判偏离、兜圈、腐化与子代理健康，写回看记录并给主代理发十行以内的消息，主代理在停顿点写「处置 n」回 plan；`one-lesson-rule` 正文、`hosts.md` 三宿主派法（Claude Code 一条在本程真实验证）、回看记录模板、`delegate-brief` 的哨兵简报模板与 `scripts/sentinel.mjs` 的增量摘要和无处置信号一起落地。技能正文宿主无关：35 处「调用 Skill 工具加载」改成「加载技能」，`check-repo` 反向核宿主工具名，只有 `hosts.md` 例外。差分变异有了资源模型：按 CPU 数、可用内存与 `--other-heavy-tasks` 算份额与并行度，交给测试命令的 `PQW_TEST_WORKERS` 与 `VITEST_MAX_WORKERS`，子进程 nice 10，运行中按负载比降升档并记机器繁忙，JSON `resources` 节记容量、份额、自适应与自身开销，`--help` 是教程。读数可信：纯删除也算改动行，显式基线不是 HEAD 祖先时改用合并点并记 `baseGiven`，git 只认 `--repo`；「没跑测试」模式带词界并在基线上自检，被信号结束记 notRun(crashed)，类型位置不出位点，超时单列，存活清单只陈述事实；认知复杂度链尾 else 补记 1，适配器头注释钉上 crapper 6fd92c4 与 mutator a5a0cb8，读数每个函数带 `band`（缺省 CC 10/12、CRAP 30，`--cc`、`--crap` 可覆盖），JSON 记 `thresholds`。`tests/` 76 个用例。
+
 ## 0.3.1
 
 第三程。四个 CLI（`metrics.mjs`、`mutation.mjs`、`build-report.mjs`、`demo-append.mjs`）的逻辑拆进各自 `scripts/lib/` 的具名函数，命令面只剩参数、装载、信号与退出码，模块级圈复杂度从 17 到 74 降到 7 到 8；行为逐字节不变，原用例未改。拆完用变异工具打自己：三组 lib 的分数 97%、90%、83%，存活项逐个写了等价说明。新增 `tests/*-lib.test.mjs` 直打函数的用例，共 51 个。`check-repo.mjs` 的禁词与破折号扫描扩到 `.mjs` 与 `.html`（`tests/` 与它自身免检）。适配器 `sites` 补一条用例：只有逻辑非是 negation 位点。`DEVELOPMENT.md` 写上覆盖率与自量命令。

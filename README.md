@@ -1,7 +1,7 @@
 # pqw-skills
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.1-informational.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.4.0-informational.svg)](./CHANGELOG.md)
 [![Skills](https://img.shields.io/badge/skills-15-success.svg)](#技能)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#安装)
 [![Language](https://img.shields.io/badge/lang-%E4%B8%AD%E6%96%87%20%7C%20English-lightgrey.svg)](./README_EN.md)
@@ -173,4 +173,4 @@ bash scripts/link-skills.sh
 
 ## 状态
 
-0.3.1。十五个发行技能正文齐全，其中一个教人用这套流。十八份模板与骨架、七个脚本随技能目录发行：哨兵、汇报件目录、清理、结构读数、差分变异、网页汇报件、demo 追加；后四个工具的逻辑在 `scripts/lib/`，命令面只剩参数与退出码，并用自带的读数与变异工具量过自己。两个元技能迁自 omne-harness-lite。仓库测试 `node --test tests/`，需要 typescript 的用例从 `PQW_TS` 取。
+0.4.0。十五个发行技能正文齐全且宿主无关，其中一个教人用这套流。十八份模板与骨架、七个脚本随技能目录发行：哨兵、汇报件目录、清理、结构读数、差分变异、网页汇报件、demo 追加；后四个工具的逻辑在 `scripts/lib/`，命令面只剩参数与退出码，并用自带的读数与变异工具量过自己。哨兵是便宜档的只读子代理，每 45 分钟回看一次；差分变异按机器容量与同机重型任务数分配资源，运行中按负载降升档；读数带带位与阈值。两个元技能迁自 omne-harness-lite。仓库测试 `node --test tests/`，需要 typescript 的用例从 `PQW_TS` 取。

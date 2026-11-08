@@ -1,8 +1,9 @@
 // TypeScript 与 JavaScript 适配器：把源码变成 ../metrics-model.md 里的单元与位点。
+// 出处：unclebob/crapper 提交 6fd92c4 的 languages/typescript.py（判定集合），unclebob/mutator 提交 a5a0cb8（位点类别）；两者 0BSD。
 // 判定集合 D：if、三元、for、for-in、for-of、while、do、catch、case、default、&&、||、??、?.
-//（unclebob/crapper languages/typescript.py）。计分单元：有名字、有函数体的函数与方法；有名字的内层函数、
-// 对象字面量方法与类字段箭头函数各自成单元，匿名回调并入外层（omne 的划分）。
-// 认知复杂度按 SonarSource 白皮书：分叉结构 +1，嵌套再加深度，逻辑运算序列每换一种 +1。
+// 计分单元：有名字、有函数体的函数与方法；有名字的内层函数、对象字面量方法与类字段箭头函数各自成单元，匿名回调并入外层（omne 的划分）。
+// 计数范围与 omne 所钉的 crapper 4909ad2 不同，两边的读数不能直接比。
+// 认知复杂度按 SonarSource 白皮书：分叉结构 +1，嵌套再加深度，逻辑运算序列每换一种 +1，else 与 else-if 各 +1 不加嵌套。
 import { createRequire } from "node:module";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -66,6 +67,9 @@ function isDecision(ts, node) {
   }
 }
 
+/** 链尾的 else（不是 else-if）记 1；链上每个 if 都看自己的 else，所以三段链记 3、四段记 4。 */
+const trailingElse = (ts, node) => (ts.isIfStatement(node) && node.elseStatement && !ts.isIfStatement(node.elseStatement) ? 1 : 0);
+
 /** 认知复杂度的分叉结构：是否加嵌套。else 与 else-if 加 1 不加嵌套。 */
 function cognitiveStep(ts, node, parent) {
   const K = ts.SyntaxKind;
@@ -106,11 +110,8 @@ export function analyze(ts, path, text) {
       } else {
         if (isDecision(ts, node)) u.cyclomatic += 1;
         const step = cognitiveStep(ts, node, parent);
-        if (step?.elseIf) { u.cognitive += 1; }
-        else if (step) {
-          u.cognitive += 1 + depth; childDepth = depth + 1;
-          if (ts.isIfStatement(node) && node.elseStatement && !ts.isIfStatement(node.elseStatement)) u.cognitive += 1;
-        }
+        if (step?.elseIf) { u.cognitive += 1 + trailingElse(ts, node); }
+        else if (step) { u.cognitive += 1 + depth + trailingElse(ts, node); childDepth = depth + 1; }
         else if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) childDepth = depth + 1;
       }
     }

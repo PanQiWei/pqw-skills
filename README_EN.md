@@ -1,7 +1,7 @@
 # pqw-skills
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.1-informational.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.4.0-informational.svg)](./CHANGELOG.md)
 [![Skills](https://img.shields.io/badge/skills-15-success.svg)](#skills)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#install)
 [![Language](https://img.shields.io/badge/lang-%E4%B8%AD%E6%96%87%20%7C%20English-lightgrey.svg)](./README.md)
@@ -184,7 +184,7 @@ See [STRUCTURE.md](./STRUCTURE.md). Maintenance rules are in [AGENTS.md](./AGENT
 
 ## Status
 
-0.3.1. Fifteen distributed skills with full text, one of them teaching people the flow; eighteen templates and skeletons and seven scripts ship inside the skill directories: sentinel, artifacts directory, cleanup, structure metrics, differential mutation, HTML report, demo append. The logic of the last four lives in `scripts/lib/`; their command files only parse arguments and set exit codes, and the bundled metrics and mutation tools have been run on themselves. Two meta skills migrated from omne-harness-lite. Repository tests run with `node --test tests/`; the cases that need typescript read its path from `PQW_TS`.
+0.4.0. Fifteen distributed skills with full, host-neutral text, one of them teaching people the flow; eighteen templates and skeletons and seven scripts ship inside the skill directories: sentinel, artifacts directory, cleanup, structure metrics, differential mutation, HTML report, demo append. The logic of the last four lives in `scripts/lib/`; their command files only parse arguments and set exit codes, and the bundled metrics and mutation tools have been run on themselves. The sentinel is a cheap read-only subagent that reviews every 45 minutes; differential mutation allocates resources from machine capacity and the number of other heavy tasks, shifting down and up with load while it runs; metrics carry bands and thresholds. Two meta skills migrated from omne-harness-lite. Repository tests run with `node --test tests/`; the cases that need typescript read its path from `PQW_TS`.
 
 ## License
 

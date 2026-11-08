@@ -76,6 +76,25 @@ test("读数只认 --repo：GIT_DIR 指向别的仓库也不受影响", { skip: 
   } finally { dispose(dir); dispose(other); }
 });
 
+test("读数 JSON 记实际用的线与每个函数的带位；--cc 与 --crap 可覆盖；格式错退出 2", { skip: TS ? false : "没有 typescript" }, () => {
+  const dir = makeRepo({ "src/a.ts": BASE });
+  try {
+    writeFiles(dir, { "src/a.ts": BASE.replace("return 0;", "return -1;") });
+    const plain = JSON.parse(run(dir, ["--base", "HEAD", "--format", "json"]).stdout);
+    assert.deepEqual(plain.thresholds, { cyclomaticWarn: 10, cyclomaticAlert: 12, crapAlert: 30 });
+    assert.deepEqual(plain.functions.map((f) => [f.name, f.cyclomatic, f.band]), [["f", 3, "无覆盖"]]);
+    const low = JSON.parse(run(dir, ["--base", "HEAD", "--format", "json", "--cc", "1,2", "--crap", "5"]).stdout);
+    assert.deepEqual(low.thresholds, { cyclomaticWarn: 1, cyclomaticAlert: 2, crapAlert: 5 });
+    assert.equal(low.functions[0].band, "alert");
+    assert.equal(JSON.parse(run(dir, ["--base", "HEAD", "--format", "json", "--cc", "2,5"]).stdout).functions[0].band, "warn");
+    const table = run(dir, ["--base", "HEAD", "--cc", "1,2"]);
+    assert.match(table.stdout, /\| f \| src\/a\.ts \| 1-4 \| 3 \| 2 \| 无覆盖 \| 无覆盖 \| alert \|/);
+    const bad = run(dir, ["--base", "HEAD", "--cc", "x"]);
+    assert.equal(bad.status, 2);
+    assert.match(bad.stderr, /--cc 要写成 <warn>,<alert>/);
+  } finally { dispose(dir); }
+});
+
 test("--help 退出 0", () => {
   const r = spawnSync("node", [SCRIPT, "--help"], { encoding: "utf8" });
   assert.equal(r.status, 0);
