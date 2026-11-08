@@ -26,7 +26,7 @@ PQW_TS=<typescript 包目录> node --test tests/
 
 `tests/` 用 `node:test`，夹具在系统临时目录建小 Git 仓库。需要 typescript 的用例从 `PQW_TS` 取包目录（要 JS 实现的 typescript，6.x 可用），取不到就跳过并打印原因。差分变异的用例要跑真实的测试命令，整套约一分钟。
 
-工具的逻辑都在各自 `scripts/lib/` 下的函数里，`scripts/*.mjs` 只是命令面。改工具时用它自己量自己：
+结构读数、差分变异、汇报件、demo 追加四个工具的逻辑在各自 `scripts/lib/` 下的函数里，`scripts/*.mjs` 只是命令面；哨兵、汇报件目录、清理三个脚本仍是单文件。改工具时用它自己量自己：
 
 ```bash
 # 覆盖率：Node 自带，lcov 含用例 spawn 出来的命令面子进程；destination 不要写 /dev/null，会 fsync 报错

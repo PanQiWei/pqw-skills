@@ -184,7 +184,7 @@ See [STRUCTURE.md](./STRUCTURE.md). Maintenance rules are in [AGENTS.md](./AGENT
 
 ## Status
 
-0.3.1. Fifteen distributed skills with full text, one of them teaching people the flow; eighteen templates and skeletons and seven scripts ship inside the skill directories: sentinel, artifacts directory, cleanup, structure metrics, differential mutation, HTML report, demo append. Script logic lives in `scripts/lib/`; the command files only parse arguments and set exit codes, and the bundled metrics and mutation tools have been run on themselves. Two meta skills migrated from omne-harness-lite. Repository tests run with `node --test tests/`; the cases that need typescript read its path from `PQW_TS`.
+0.3.1. Fifteen distributed skills with full text, one of them teaching people the flow; eighteen templates and skeletons and seven scripts ship inside the skill directories: sentinel, artifacts directory, cleanup, structure metrics, differential mutation, HTML report, demo append. The logic of the last four lives in `scripts/lib/`; their command files only parse arguments and set exit codes, and the bundled metrics and mutation tools have been run on themselves. Two meta skills migrated from omne-harness-lite. Repository tests run with `node --test tests/`; the cases that need typescript read its path from `PQW_TS`.
 
 ## License
 
