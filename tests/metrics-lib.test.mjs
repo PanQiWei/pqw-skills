@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { makeRepo, writeFiles, dispose, tsPath } from "./fixture.mjs";
-import { byHotness, summarize, touchesOwnLines, formatMetrics, bandOf, parseThresholds, DEFAULT_THRESHOLDS } from "../skills/slice-closeout/scripts/lib/metrics.mjs";
+import { byHotness, summarize, touchesOwnLines, formatMetrics, bandOf, parseThresholds, DEFAULT_THRESHOLDS, trendOf, byWorseThenHotness } from "../skills/slice-closeout/scripts/lib/metrics.mjs";
 import { touches, coverageOf, selectRecord } from "../skills/slice-closeout/scripts/lib/core.mjs";
 
 const SCRIPT = new URL("../skills/slice-closeout/scripts/metrics.mjs", import.meta.url).pathname;
@@ -38,10 +38,26 @@ test("排序：CRAP 高在前，CRAP 0 仍在无覆盖之前，同 CRAP 看圈�
   assert.ok(byHotness(at(2, "a.ts", 5), at(2, "b.ts", 1)) < 0, "文件名在前，不看行号");
 });
 
-test("汇总：CRAP 最高只看有覆盖的函数，全无覆盖时为 null，coverageProvided 看有没有 lcov", () => {
-  assert.deepEqual(summarize([{ cyclomatic: 2, cognitive: 1, crap: 4 }, { cyclomatic: 5, cognitive: 7, crap: null }], {}), { count: 2, maxCyclomatic: 5, maxCognitive: 7, maxCrap: 4, coverageProvided: true });
-  assert.deepEqual(summarize([{ cyclomatic: 1, cognitive: 0, crap: null }], null), { count: 1, maxCyclomatic: 1, maxCognitive: 0, maxCrap: null, coverageProvided: false });
+test("汇总：CRAP 最高只看有覆盖的函数，全无覆盖时为 null，coverageProvided 看有没有 lcov；explain 与 overLineNotWorse（第五程 C3 加的两个字段，deepEqual 随之补上）", () => {
+  assert.deepEqual(summarize([{ cyclomatic: 2, cognitive: 1, crap: 4 }, { cyclomatic: 5, cognitive: 7, crap: null }], {}), { count: 2, maxCyclomatic: 5, maxCognitive: 7, maxCrap: 4, coverageProvided: true, explain: [], overLineNotWorse: 0 });
+  assert.deepEqual(summarize([{ cyclomatic: 1, cognitive: 0, crap: null }], null), { count: 1, maxCyclomatic: 1, maxCognitive: 0, maxCrap: null, coverageProvided: false, explain: [], overLineNotWorse: 0 });
   assert.equal(summarize([], null).maxCrap, null);
+  const rows = [{ name: "a", cyclomatic: 13, cognitive: 1, crap: 13, band: "alert", worse: true }, { name: "b", cyclomatic: 11, cognitive: 1, crap: 11, band: "warn", worse: false }, { name: "c", cyclomatic: 2, cognitive: 1, crap: 2, band: "ok", worse: false }, { name: "d", cyclomatic: 11, cognitive: 1, crap: 11, band: "warn", worse: false }];
+  assert.deepEqual([summarize(rows, {}).explain, summarize(rows, {}).overLineNotWorse], [["a"], 2], "过线但没变差的计数不含变差的");
+});
+
+test("趋势与变差：基线没有记 new；圈复杂度涨 up 降 down；相等看认知复杂度；都相等 same；变差只认过线且 new 或 up；排序变差先", () => {
+  assert.equal(trendOf({ cyclomatic: 3, cognitive: 2 }, null), "new");
+  assert.equal(trendOf({ cyclomatic: 4, cognitive: 2 }, { cyclomatic: 3, cognitive: 9 }), "up");
+  assert.equal(trendOf({ cyclomatic: 2, cognitive: 9 }, { cyclomatic: 3, cognitive: 2 }), "down");
+  assert.equal(trendOf({ cyclomatic: 3, cognitive: 3 }, { cyclomatic: 3, cognitive: 2 }), "up", "圈复杂度相等看认知复杂度");
+  assert.equal(trendOf({ cyclomatic: 3, cognitive: 2 }, { cyclomatic: 3, cognitive: 2 }), "same");
+  const rows = [{ name: "hot", path: "a.ts", startLine: 1, crap: 50, cyclomatic: 5, worse: false }, { name: "bad", path: "a.ts", startLine: 9, crap: 11, cyclomatic: 11, worse: true }];
+  assert.deepEqual([...rows].sort(byWorseThenHotness).map((r) => r.name), ["bad", "hot"]);
+  const base = "abcdef0123456789";
+  const row = { name: "f", path: "a.ts", startLine: 1, endLine: 3, cyclomatic: 12, cognitive: 1, coverage: 0.25, crap: 18.75, band: "warn" };
+  const table = formatMetrics({ base, functions: [{ ...row, baseline: { cyclomatic: 11, cognitive: 1 }, trend: "up", worse: true }, { ...row, name: "g", baseline: null, trend: "new", worse: false, band: "ok", cyclomatic: 2 }], uncovered: [], summary: { coverageProvided: true, explain: ["f"], overLineNotWorse: 0 } });
+  assert.match(table, /\| f \| a\.ts \| 1-3 \| 12 \| 1 \| 25% \| 18\.75 \| warn \| 11 → 12 \| ! \|\n\| g \| a\.ts \| 1-3 \| 2 \| 1 \| 25% \| 18\.75 \| ok \| 新 → 2 \|  \|\n要交代 1 个变差；另有 0 个过线但没有变差，照列不解释/);
 });
 
 test("改动行只算单元自己的行：内层单元的首尾行都不算，第 0 行（不是真实行号）不算，第 1 行算", () => {
@@ -98,7 +114,7 @@ test("表格：没有改动函数时写一行说明；覆盖率写百分比，�
   const nodata = formatMetrics({ base, functions: [{ ...row, coverage: null, coverageReason: "报告里没有这个文件", crap: null }], uncovered: [], summary: { coverageProvided: true } });
   assert.match(nodata, /\| 无数据 \| 无覆盖 \|/);
   const banded = formatMetrics({ base, functions: [{ ...row, band: "warn" }], uncovered: [], summary: { coverageProvided: true } });
-  assert.match(banded, /\| CRAP \| 带位 \|\n\| --- \| --- \| --- \| --- \| --- \| --- \| --- \| --- \|\n\| f \| a\.ts \| 1-3 \| 2 \| 1 \| 25% \| 3\.69 \| warn \|/);
+  assert.match(banded, /\| CRAP \| 带位 \| 原 → 现 \| 变差 \|\n\| --- \| --- \| --- \| --- \| --- \| --- \| --- \| --- \| --- \| --- \|\n\| f \| a\.ts \| 1-3 \| 2 \| 1 \| 25% \| 3\.69 \| warn \|  \|  \|/);
 });
 
 test("带位：严格大于才过线；CRAP 算不出时只看圈复杂度，都没过线记无覆盖；--cc 与 --crap 覆盖缺省线", () => {

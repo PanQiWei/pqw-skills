@@ -104,6 +104,28 @@ test("测试文件与声明文件不度量，列进未覆盖带原因；报告�
   } finally { dispose(dir); }
 });
 
+test("与基线比：存量大函数只改一行不变差，新出现的过线函数变差排第一，涨了但没过线不变差；表末一行；新文件里全部 new", { skip: TS ? false : "没有 typescript" }, () => {
+  const chain = (n, name) => `export function ${name}(a: number) {\n${Array.from({ length: n }, (_, i) => `  if (a === ${i}) return ${i};`).join("\n")}\n  return -1;\n}\n`;
+  const dir = makeRepo({ "src/a.ts": BASE + chain(10, "big") });
+  try {
+    writeFiles(dir, { "src/a.ts": BASE.replace("return a + b;", "return a + b;").replace("if (a > 0 && b > 0)", "if (a > 0 && b > 0 && a !== b)") + chain(10, "big").replace("return -1;", "return -2;") + chain(10, "fresh"), "src/n.ts": chain(2, "tiny") });
+    const r = run(dir, ["--base", "HEAD", "--format", "json"]);
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    const by = Object.fromEntries(out.functions.map((f) => [f.name, [f.cyclomatic, f.baseline, f.trend, f.worse, f.band]]));
+    assert.deepEqual(by.big, [11, { cyclomatic: 11, cognitive: 10 }, "same", false, "warn"]);
+    assert.deepEqual(by.fresh, [11, null, "new", true, "warn"]);
+    assert.deepEqual(by.f, [4, { cyclomatic: 3, cognitive: 2 }, "up", false, "无覆盖"]);
+    assert.deepEqual(by.tiny, [3, null, "new", false, "无覆盖"]);
+    assert.equal(out.functions[0].name, "fresh", "变差的排第一");
+    assert.deepEqual([out.summary.explain, out.summary.overLineNotWorse], [["fresh"], 1]);
+    const table = run(dir, ["--base", "HEAD"]);
+    assert.match(table.stdout, /\| fresh \| src\/a\.ts \| \d+-\d+ \| 11 \| 10 \| 未提供 \| 无覆盖 \| warn \| 新 → 11 \| ! \|\n/);
+    assert.match(table.stdout, /\| big \| src\/a\.ts \| \d+-\d+ \| 11 \| 10 \| 未提供 \| 无覆盖 \| warn \| 11 → 11 \|  \|\n/);
+    assert.match(table.stdout, /\n要交代 1 个变差；另有 1 个过线但没有变差，照列不解释\n/);
+  } finally { dispose(dir); }
+});
+
 test("覆盖率报告的可信度警告：报告早于改动文件；改动函数全部零命中；多个文件匹配", { skip: TS ? false : "没有 typescript" }, () => {
   const dir = makeRepo({ "src/a.ts": BASE });
   try {
