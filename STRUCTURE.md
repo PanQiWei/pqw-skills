@@ -82,7 +82,7 @@ pqw-skills/
 
 ## 现在的状态
 
-0.6.0：十五个发行技能正文齐全且宿主无关，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。plan 模板有给人读的两层叙述与文档维护表，`spec-and-plan/scripts/check-plan.mjs` 守结构，哨兵多算文档陈旧信号并问第五问，汇报件开头讲这程为什么做。结构读数、差分变异、HTML 汇报件与 demo 追加四个工具随技能发行，逻辑在 `scripts/lib/`；`tests/` 101 个用例。`node scripts/check-repo.mjs` 退出 0。
+0.7.0：十五个发行技能正文齐全且宿主无关，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。plan 模板有给人读的两层叙述与文档维护表，`spec-and-plan/scripts/check-plan.mjs` 守结构，哨兵多算文档陈旧信号并问第五问，汇报件开头讲这程为什么做。结构读数、差分变异、HTML 汇报件与 demo 追加四个工具随技能发行，逻辑在 `scripts/lib/`；差分变异两套引擎，Stryker 引擎的适配在 `slice-closeout/scripts/lib/stryker.mjs`，依赖钉在 `slice-closeout/scripts/package.json`；`tests/` 120 个用例。`node scripts/check-repo.mjs` 退出 0。
 
 ## 校验
 
