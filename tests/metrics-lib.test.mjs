@@ -206,21 +206,22 @@ test("表格尾段：警告行在抬头之后；未覆盖清单与没有断言�
 test.skipIf(skip)("collectMetrics 直打：改动函数进表；只改顶层常量的源码文件、测试文件、非源码文件各自进未覆盖清单带原因；改动行所在没有断言的用例进 testsWithoutAssertions；--assert-pattern 作用到位", () => {
   const ts = loadTypescript(TS);
   const dir = makeRepo({
-    "src/f.ts": "export function f(x: number) {\n  return x;\n}\n",
+    "src/f.ts": "export function f(x: number) {\n  return x;\n}\nexport function g(x: number) {\n  return x;\n}\nexport function h(x: number) {\n  return x;\n}\n",
     "src/consts.ts": "export const LIMIT = 10;\n",
     "test/f.test.ts": 'import { test } from "vitest";\nimport { f } from "../src/f";\n\ntest("老的只调用", () => {\n  f(1);\n});\n',
     "README.md": "a\n",
   });
   try {
     writeFiles(dir, {
-      "src/f.ts": "export function f(x: number) {\n  return x + 1;\n}\n",
+      "src/f.ts": "export function f(x: number) {\n  return x + 1;\n}\nexport function g(x: number) {\n  if (x > 1 && x < 9) return x;\n  return x > 0 ? 1 : 0;\n}\nexport function h(x: number) {\n  return x;\n}\n",
       "src/consts.ts": "export const LIMIT = 20;\n",
       "test/f.test.ts": 'import { test } from "vitest";\nimport assert from "node:assert/strict";\nimport { f } from "../src/f";\n\ntest("老的只调用", () => {\n  f(1);\n});\n\ntest("新的只调用", () => {\n  f(2);\n});\n\ntest("新的有断言", () => {\n  assert.ok(f(3));\n});\n',
       "README.md": "b\n",
     });
     const head = sh(dir, ["rev-parse", "HEAD"]);
     const r = collectMetrics({ root: dir, base: head, head, ts, report: null, scope: null });
-    assert.deepEqual(r.functions.map((f) => [f.path, f.name, f.cyclomatic]), [["src/f.ts", "f", 1]]);
+    assert.deepEqual(r.functions.map((f) => [f.path, f.name, f.cyclomatic]), [["src/f.ts", "g", 4], ["src/f.ts", "f", 1]], "没改的 h 不进表；复杂的 g 排前面");
+    assert.deepEqual(r.warnings, [], "没有 lcov 就没有可信度警告");
     assert.deepEqual(r.uncovered, [
       { path: "README.md", reason: "不是 TypeScript 或 JavaScript 源码" },
       { path: "src/consts.ts", reason: "改动行不在任何函数里（只改了顶层声明）" },

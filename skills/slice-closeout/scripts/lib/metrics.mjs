@@ -143,12 +143,12 @@ export function collectMetrics({ root, base, baseGiven = null, head, ts, report,
     }
     const { units } = analyze(ts, path, readFileSync(join(root, path), "utf8"));
     const baseUnits = baselineUnits(root, base, path, ts);
-    let measured = 0;
+    let measured = false;
     for (const unit of units) {
       const f = measureUnit(path, unit, units, ranges, report, thresholds, baseUnits);
-      if (f) { functions.push(f); measured++; }
+      if (f) { functions.push(f); measured = true; }
     }
-    if (measured === 0) uncovered.push({ path, reason: "改动行不在任何函数里（只改了顶层声明）" });
+    if (!measured) uncovered.push({ path, reason: "改动行不在任何函数里（只改了顶层声明）" });
   }
   functions.sort(byWorseThenHotness);
   const warnings = report ? coverageWarnings(root, functions, reportMtimeMs) : [];
