@@ -139,3 +139,9 @@ export function parseArgs(argv, spec) {
   }
   return { opts };
 }
+
+/** `--scope a,b` 拆成前缀数组；没给返回 null，表示不过滤。 */
+export const parseScope = (text) => (text ? text.split(",").map((s) => s.trim()).filter(Boolean) : null);
+
+/** 范围前缀过滤；scope 为 null 表示不过滤。 */
+export const inScope = (path, scope) => !scope || scope.some((p) => path.startsWith(p));
