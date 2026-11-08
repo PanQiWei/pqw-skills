@@ -115,23 +115,36 @@ function unitSites(ts, sourceFile, text, unit, units, ranges) {
  * 收集基线到工作树改动单元的全部位点。返回 { files: path → { text, units, digests }, sites, unmutated }。
  * unmutated 是改动了却没有位点的段：改动行不在任何有名单元里（模块级），或单元里没有可替换的位点；它们不进分数，要单独列出来。
  */
-export function collectSites({ root, base, ts, scope }) {
+/** 一个文件的位点与未覆盖段：改动文件只看改动行，点名的文件（pinned）全部有名单元都打，也不列未覆盖段。 */
+function fileSites(ts, path, text, ranges, isPinned) {
+  const { sourceFile, units } = analyze(ts, path, text);
+  const digests = unitDigests(text, units);
+  const sites = [];
+  const unmutated = [];
+  if (!isPinned) for (const lines of moduleLevelSegments(ranges, units, text)) unmutated.push({ file: path, unit: null, lines, reason: "改动行不在任何有名单元里" });
+  for (const unit of units) {
+    const found = unitSites(ts, sourceFile, text, unit, units, ranges);
+    if (found === null) continue;
+    if (found.length === 0 && !isPinned) unmutated.push({ file: path, unit: unit.name, lines: [unit.startLine, unit.endLine], reason: "单元里没有可替换的位点" });
+    for (const s of found) sites.push({ file: path, unit: unit.name, digest: digests.get(unit.name), ...s, offset: s.start - unit.startByte, pinned: isPinned, verdict: "planned", reason: null, runs: 0, seconds: null });
+  }
+  return { entry: { text, units, digests }, sites, unmutated };
+}
+
+/** 收集位点：基线到工作树的改动文件加点名的文件，去掉不可变异的。 */
+export function collectSites({ root, base, ts, scope, pinned = [] }) {
   const files = new Map();
   const sites = [];
   const unmutated = [];
-  for (const [path, ranges] of changedLines(root, base)) {
+  const changed = changedLines(root, base);
+  for (const path of new Set([...changed.keys(), ...pinned])) {
     if (!isMutable(root, path, scope)) continue;
     const text = readFileSync(join(root, path), "utf8");
-    const { sourceFile, units } = analyze(ts, path, text);
-    const digests = unitDigests(text, units);
-    files.set(path, { text, units, digests });
-    for (const lines of moduleLevelSegments(ranges, units, text)) unmutated.push({ file: path, unit: null, lines, reason: "改动行不在任何有名单元里" });
-    for (const unit of units) {
-      const found = unitSites(ts, sourceFile, text, unit, units, ranges);
-      if (found === null) continue;
-      if (found.length === 0) unmutated.push({ file: path, unit: unit.name, lines: [unit.startLine, unit.endLine], reason: "单元里没有可替换的位点" });
-      for (const s of found) sites.push({ file: path, unit: unit.name, digest: digests.get(unit.name), ...s, offset: s.start - unit.startByte, verdict: "planned", reason: null, runs: 0, seconds: null });
-    }
+    const isPinned = pinned.includes(path);
+    const file = fileSites(ts, path, text, isPinned ? [[1, text.split("\n").length]] : changed.get(path), isPinned);
+    files.set(path, file.entry);
+    sites.push(...file.sites);
+    unmutated.push(...file.unmutated);
   }
   sites.sort((a, b) => a.file.localeCompare(b.file) || a.start - b.start);
   // id 不含行号与文件内偏移：文件上方加几行不影响沿用；单元内偏移加类别与替换足以认出同一个位点。
@@ -370,12 +383,15 @@ function baselineNotes(result) {
 }
 
 /** 人读的表格。 */
-export function formatMutation(result) {
-  const { sites, summary: sm, base } = result;
-  const lines = [`差分变异：基线 ${baseLabel(base, result.baseGiven)} 到工作树；位点 ${sm.total}${tallyText(result)}`, ...baselineNotes(result)];
-  lines.push("| 文件 | 单元 | 行 | 原文 | 替换 | 类别 | 裁定 |", "| --- | --- | --- | --- | --- | --- | --- |");
-  for (const s of sites) lines.push(siteRow(s));
-  if (sites.length === 0) lines.push("| | 没有位点 | | | | | |");
+/** 抬头：基线、点名文件数、位点数与计数。 */
+function headLine(result) {
+  const pinned = result.pinned?.length ? `（点名 ${result.pinned.length} 个文件）` : "";
+  return `差分变异：基线 ${baseLabel(result.base, result.baseGiven)} 到工作树${pinned}；位点 ${result.summary.total}${tallyText(result)}`;
+}
+
+/** 表格后的两段清单：存活的位点、没有位点的改动段。 */
+function trailingLists(result) {
+  const lines = [];
   if (result.survivors.length) {
     lines.push("", "存活的位点：");
     for (const s of result.survivors) lines.push(`- ${s.file}:${s.line} ${s.unit}：${s.suggestion}`);
@@ -384,6 +400,16 @@ export function formatMutation(result) {
     lines.push("", "没有位点的改动段（不进分数）：");
     for (const u of result.unmutated) lines.push(`- ${u.file}:${u.lines[0]}-${u.lines[1]}${u.unit ? ` ${u.unit}` : ""}：${u.reason}`);
   }
+  return lines;
+}
+
+export function formatMutation(result) {
+  const { sites } = result;
+  const lines = [headLine(result), ...baselineNotes(result)];
+  lines.push("| 文件 | 单元 | 行 | 原文 | 替换 | 类别 | 裁定 |", "| --- | --- | --- | --- | --- | --- | --- |");
+  for (const s of sites) lines.push(siteRow(s));
+  if (sites.length === 0) lines.push("| | 没有位点 | | | | | |");
+  lines.push(...trailingLists(result));
   if (result.resources) lines.push("", formatResources(result.resources));
   return lines.join("\n");
 }

@@ -19,6 +19,7 @@ const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
   --lcov <路径>              覆盖率文件；给了就只打有执行记录的位点
   --ts <目录>                typescript 包目录（要 JS 实现，6.x 可用）；缺省从仓库 node_modules 找
   --scope <前缀,前缀>        只看这些路径前缀
+  --files <路径,路径>        点名文件：这些文件的全部有名单元都出位点，不论改没改（判据、状态机所在的文件）；抬头写「（点名 N 个文件）」，位点带 pinned
   --json <路径>              结果 JSON 写到这里；--format json 直接打印 JSON
   --plan-only                只列位点，不跑
   --budget <时长>            时间预算，缺省 20m；用尽后剩余位点记 notRun(budget)
@@ -35,7 +36,7 @@ const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
 
 还原保证：写入变异体前先把原文落到系统临时目录的还原日志（pqw-mutation/<仓库哈希>.json），还原后删；上次运行被杀留下日志，下次启动先还原并打印。写入前核文件仍是原文、还原前核文件仍是变异体，不是就不覆盖，打印「文件在变异期间被改动」退出 1。
 退出 0 正常（预算用尽也是 0）；1 基线不通过、有文件还原失败或文件在变异期间被改动；2 用法错误或未提供 typescript；129 收到 SIGHUP、130 被中断、143 被终止。`;
-const SPEC = { test: "value", repo: "value", base: "value", target: "value", lcov: "value", ts: "value", json: "value", format: "value", "plan-only": "flag", budget: "value", timeout: "value", workers: "value", "no-tests-pattern": "value", history: "value", scope: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "load-ceiling": "value", "no-nice": "flag" };
+const SPEC = { test: "value", repo: "value", base: "value", target: "value", lcov: "value", ts: "value", json: "value", format: "value", "plan-only": "flag", budget: "value", timeout: "value", workers: "value", "no-tests-pattern": "value", history: "value", scope: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "load-ceiling": "value", "no-nice": "flag", files: "value" };
 const { opts, error } = parseArgs(process.argv.slice(2), SPEC);
 if (error) { console.error(error); console.error(USAGE); process.exit(2); }
 if (opts.help) { console.log(USAGE); process.exit(0); }
@@ -108,9 +109,10 @@ function restoreLeftover(root) {
 
 const inputs = loadInputs(opts);
 restoreLeftover(inputs.root);
-const { files, sites, unmutated } = collectSites({ root: inputs.root, base: inputs.base, ts: inputs.ts, scope: parseScope(opts.scope) });
+const pinned = parseScope(opts.files) ?? [];
+const { files, sites, unmutated } = collectSites({ root: inputs.root, base: inputs.base, ts: inputs.ts, scope: parseScope(opts.scope), pinned });
 const history = selectSites(sites, inputs.report, inputs.history, inputs.fingerprint);
-const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, testCommand: opts.test, fingerprint: inputs.fingerprint, history, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, budget: { limitMs: inputs.budgetMs, exceeded: false }, resources: inputs.resources, sites, unmutated, summary: {}, survivors: [] };
+const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, testCommand: opts.test, fingerprint: inputs.fingerprint, history, pinned, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, budget: { limitMs: inputs.budgetMs, exceeded: false }, resources: inputs.resources, sites, unmutated, summary: {}, survivors: [] };
 
 const runner = createTestRunner(opts.test, inputs.root, inputs.env, { nice: inputs.resources.nice });
 const patcher = createPatcher(inputs.root);

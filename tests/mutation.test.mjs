@@ -213,6 +213,20 @@ test("还原日志：上次运行留下日志，启动先还原并打印；测�
   } finally { dispose(dir); }
 });
 
+test("点名文件：--files 让没改动的文件也出全部有名单元的位点，抬头写「点名 N 个文件」，位点带 pinned", { skip }, () => {
+  const dir = setup();
+  try {
+    spawnSync("git", ["add", "-A"], { cwd: dir }); spawnSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "all"], { cwd: dir });
+    const none = JSON.parse(run(dir, ["--test", TESTCMD, "--plan-only", "--format", "json"]).stdout);
+    assert.equal(none.sites.length, 0, "没有改动就没有位点");
+    const r = run(dir, ["--test", TESTCMD, "--plan-only", "--files", "src/calc.ts", "--format", "json"]);
+    const out = JSON.parse(r.stdout);
+    assert.ok(out.sites.length > 0 && out.sites.every((s) => s.file === "src/calc.ts" && s.pinned === true));
+    assert.deepEqual([out.pinned, out.unmutated], [["src/calc.ts"], []], "点名的文件不列未覆盖段");
+    assert.match(run(dir, ["--test", TESTCMD, "--plan-only", "--files", "src/calc.ts"]).stdout, /^差分变异：基线 [0-9a-f]{12} 到工作树（点名 1 个文件）；位点 4（只列）\n/);
+  } finally { dispose(dir); }
+});
+
 test("历史：单元摘要未变且上次 killed 的位点沿用，不再跑", { skip }, () => {
   const dir = setup();
   try {
