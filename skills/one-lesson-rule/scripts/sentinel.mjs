@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 哨兵：按间隔醒来，读 plan 的进度总览与工作树事实，写一份增量汇报给主代理，然后睡。不调用模型。
+// 哨兵子代理取事实的工具：读 plan 的进度总览、处置记录与工作树事实，写一份增量汇报（提交、改动统计、新交回件、信号），然后睡或退出。不调用模型。
 // 退出 0 正常；1 读不到 plan 或写不了汇报；2 用法错误。
 //
 // 用法：
@@ -11,7 +11,7 @@
 //   --session   会话标识，默认取 CLAUDE_CODE_SESSION_ID、CODEX_COMPANION_SESSION_ID、PQW_SESSION，再不然 unknown
 //   --run       一程标识，默认 plan 所在目录名
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, dirname, basename, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execSync } from "node:child_process";
@@ -74,6 +74,23 @@ const sh = (cmd, cwd) => {
   }
 };
 
+/** 目录里（递归）修改时刻晚于 sinceMs 的文件，相对路径；跳过 skip 目录。 */
+const listChanged = (dir, sinceMs, skip) => {
+  const out = [];
+  const walk = (d) => {
+    let names;
+    try { names = readdirSync(d, { withFileTypes: true }); } catch { return; }
+    for (const e of names) {
+      const p = join(d, e.name);
+      if (p === skip) continue;
+      if (e.isDirectory()) walk(p);
+      else { try { if (statSync(p).mtimeMs > sinceMs) out.push(p.slice(dir.length + 1)); } catch {} }
+    }
+  };
+  walk(dir);
+  return out.sort();
+};
+
 const parsePlan = (text) => {
   const progress = text.match(/^进度：.*$/m)?.[0] ?? "（没有进度行）";
   const current = text.match(/^当前：.*$/m)?.[0] ?? "（没有当前行）";
@@ -110,14 +127,22 @@ const wake = (n) => {
   const repo = sh("git rev-parse --show-toplevel", dirname(planPath));
   const head = repo ? sh("git rev-parse --short HEAD", repo) : null;
   const since = prev?.at ?? null;
-  const commits = repo ? sh(since ? `git log --oneline --since="${since}"` : "git log --oneline -5", repo) ?? "" : "";
+  // 上次唤醒以来的提交：按上次记下的 head 算，精确到提交；第一次只列最近 5 条。
+  const commits = repo ? sh(prev?.head ? `git log --oneline ${prev.head}..HEAD` : "git log --oneline -5", repo) ?? "" : "";
   const dirty = repo ? (sh("git status --porcelain", repo) ?? "").split("\n").filter(Boolean).length : 0;
   const diffStat = repo ? sh("git diff --stat | tail -1", repo) ?? "" : "";
+  const commitLines = commits.split("\n").filter(Boolean);
+  // 处置记录：主代理每次回看后在 plan 写一行「处置 n（时刻）：…」。连续两轮没有新处置，就是主代理没有回应哨兵。
+  const dispositions = (planText.match(/^处置 \d+/gm) ?? []).length;
+  const noDispositionStreak = prev && prev.dispositions === dispositions ? (prev.noDispositionStreak ?? 0) + 1 : 0;
+  // 交回件：汇报目录的上一级（本程目录）里上次唤醒以来新出现或改过的文件，不含哨兵自己的目录。
+  const newArtifacts = since ? listChanged(dirname(outDir), new Date(since).getTime(), outDir) : [];
 
   const signals = [];
   if (prev && commits === "" && prev.head === head && prev.dirty === dirty) signals.push("停滞：上次唤醒以来没有新提交，工作树也没变");
   if (prev && prev.current === plan.current && commits !== "") signals.push("可能兜圈：有提交但「当前」行没变");
-  const running = plan.agents.filter((r) => /进行中/.test(r[5] ?? ""));
+  if (noDispositionStreak >= 2) signals.push(`主代理连续 ${noDispositionStreak} 轮没有写处置：plan 里仍是 ${dispositions} 条`);
+  const running = plan.agents.filter((r) => /进行中|第 \d+\/\d+ 轮/.test(r[5] ?? ""));
   for (const r of running) {
     const start = Date.parse(r[4] ?? "");
     if (Number.isNaN(start)) continue;
@@ -147,9 +172,14 @@ const wake = (n) => {
     "",
     `里程碑：${doneM}/${plan.milestones.length} 已勾`,
     "",
-    "## 上次唤醒以来的提交",
+    "## 增量摘要",
     "",
-    commits ? "```\n" + commits + "\n```" : "无",
+    `- 上次唤醒以来提交 ${commitLines.length} 条${commitLines.length > 20 ? "（只列前 20 条）" : ""}`,
+    commitLines.length ? "```\n" + commitLines.slice(0, 20).join("\n") + "\n```" : "无",
+    `- 未提交改动：${diffStat || "无"}`,
+    `- 新出现的交回件：${newArtifacts.length ? "" : "无"}`,
+    ...newArtifacts.slice(0, 20).map((p) => `  - ${p}`),
+    `- 处置记录：${dispositions} 条${noDispositionStreak ? `；连续 ${noDispositionStreak} 轮没有新增` : ""}`,
     "",
     "## 在跑的子代理",
     "",
@@ -159,9 +189,9 @@ const wake = (n) => {
     "",
     signals.length ? signals.map((s) => `- ${s}`).join("\n") : "- 无异常信号",
     "",
-    "## 主代理要做的",
+    "## 读这份汇报的要做的",
     "",
-    "按 one-lesson-rule 回看：进度有没有偏离 spec 与 plan；是不是在局部兜圈；上下文有没有腐化；每个在跑的子代理是否健康。回看结论写进 plan 的进度总览或汇报件。",
+    "哨兵按 one-lesson-rule 对照 spec 与 plan 判四问：进度有没有偏离 spec 与 plan；是不是在局部兜圈；上下文有没有腐化的迹象；每个在跑的子代理是否健康。写回看记录，给主代理发不超过十行的消息；主代理把处置写进 plan 的进度总览。",
     "",
   ].join("\n");
 
@@ -171,7 +201,7 @@ const wake = (n) => {
   try {
     writeFileSync(file, report);
     writeFileSync(join(outDir, "latest.md"), report);
-    writeFileSync(statePath, JSON.stringify({ at: now.toISOString(), head, dirty, current: plan.current, n }, null, 2));
+    writeFileSync(statePath, JSON.stringify({ at: now.toISOString(), head, dirty, current: plan.current, n, dispositions, noDispositionStreak }, null, 2));
   } catch (e) {
     console.error(`写不了汇报：${outDir}：${e.message}`);
     process.exit(1);

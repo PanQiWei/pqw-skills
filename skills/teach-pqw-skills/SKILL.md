@@ -52,7 +52,7 @@ description: 教人用 pqw-skills：讲这条流的心智模型、哲学与协�
 | 派了很多子代理 | 「派发门三个理由是哪一个」「自己做」 | `delegate-brief` |
 | 说完成了但没有证据 | 「对照 spec 验收标准逐条核，贴命令和输出」 | `slice-closeout` |
 | 评审变成挑刺，方案越改越大 | 「确定性验收，不做对抗性评审」「不过度设计」 | 入口的验收与自主两条 |
-| 哨兵没有醒 | Claude Code 的定时任务只在会话空闲时触发；Codex 与 Cursor 用后台循环 | `one-lesson-rule/hosts.md` |
+| 哨兵没有消息来 | 哨兵是后台的便宜档子代理，自己计时；宿主派不出后台子代理时退回备用做法 | `one-lesson-rule/hosts.md` |
 | 汇报件看不懂 | 「只讲架构层面和前后差别，不讲代码」 | `progress-artifacts` |
 | 交付后留下一堆工作树和临时文件 | 「按一程清理，出交付声明」 | `cleanup` |
 

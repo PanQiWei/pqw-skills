@@ -56,7 +56,7 @@
 | 7 | [spec-and-plan](./skills/spec-and-plan/SKILL.md) | 先写 spec 定目标、边界、验收标准，再写 plan 切成有序切片；自带两份模板 | to-spec、to-tickets（读安装路径）、sharpen |
 | 8 | [context-pack](./skills/context-pack/SKILL.md) | 整程开工前整理上下文包并做关键环节的细化设计与技术验证；每切片前做开工包：上下文增量、技术设计与验证、细化推进方案、里程碑待办清单 | architect、prototype、principle-guard-the-context-window、recall |
 | 9 | [delegate-brief](./skills/delegate-brief/SKILL.md) | 先过派发门，主代理自己做是默认；派时给齐目标、边界、规格、信息包四样东西，交回要原始结果；验收防作弊、升级、合回 | poteto-mode、swarm、principle-separate-before-serializing-shared-state |
-| 10 | [one-lesson-rule](./skills/one-lesson-rule/SKILL.md) | 哨兵脚本由宿主原生定时机制唤醒，读 plan 与工作树写增量汇报；主代理每 45 到 60 分钟从顶层回看，子代理每 30 分钟看一次健康度 | recall、show-me-your-work |
+| 10 | [one-lesson-rule](./skills/one-lesson-rule/SKILL.md) | 便宜档的只读哨兵子代理常驻后台，持有 spec 与 plan，每 45 分钟自己醒来取工作树事实、判四问、发十行以内的消息；主代理在停顿点处置；子代理每 30 分钟看一次健康度 | recall、show-me-your-work |
 | 11 | [slice-closeout](./skills/slice-closeout/SKILL.md) | 每切片收口六步：类型检查与 lint、对照 spec 与不变式、结构读数、差分变异、去 AI slop、证明可用；确定性验收，不做对抗性评审。自带 `metrics.mjs`（改动函数的圈复杂度、认知复杂度、CRAP）与 `mutation.mjs`（热点差分变异，带预算与还原），与语言无关的模型加 TypeScript 适配器 | code-review、deslop、unslop、principle-prove-it-works、typescript-best-practices、ub-mode |
 | 12 | [progress-artifacts](./skills/progress-artifacts/SKILL.md) | 用架构图、UML、快速 demo 等用完即弃的汇报件让人留在高层，放系统临时目录；自带目录脚本、`build-report.mjs` 网页汇报件生成器、demo 骨架与 `demo-append.mjs` | ketchup、prototype |
 | 13 | [cleanup](./skills/cleanup/SKILL.md) | 每切片清一次不必留给下一切片的中间产物；一程交付后全盘清理；自带先列后删的清理脚本与交付声明 | 无 |

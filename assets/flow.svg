@@ -88,9 +88,9 @@
 
   <!-- 哨兵 -->
   <rect x="850" y="285" width="170" height="86" rx="6" class="box"/>
-  <text x="935" y="310" class="t" text-anchor="middle">10 哨兵</text>
-  <text x="935" y="333" class="t s" text-anchor="middle">宿主原生定时唤醒</text>
-  <text x="935" y="353" class="t s" text-anchor="middle">每 45～60 分钟顶层回看</text>
+  <text x="935" y="310" class="t" text-anchor="middle">10 哨兵子代理</text>
+  <text x="935" y="333" class="t s" text-anchor="middle">便宜档，自己计时，只读</text>
+  <text x="935" y="353" class="t s" text-anchor="middle">每 45 分钟回看并发消息</text>
   <line x1="850" y1="328" x2="833" y2="328" class="ln acc" marker-end="url(#b)"/>
 
   <text x="470" y="566" class="t s" text-anchor="middle">交接点：长期维护的知识已进唯一源并过评审</text>
