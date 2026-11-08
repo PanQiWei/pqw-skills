@@ -266,3 +266,16 @@ test("有断言", () => {
     assert.doesNotMatch(run(dir, ["--base", "HEAD"]).stdout, /没有断言的用例/);
   } finally { dispose(dir); }
 });
+
+test.skipIf(TS ? false : "没有 typescript，设 PQW_TS")("只改了顶层常量的源码文件进未覆盖清单带原因；同时改了函数的文件照旧进表（第九程 C2）", () => {
+  const dir = makeRepo({ "src/consts.ts": "export const LIMIT = 10;\nexport const NAME = \"a\";\n", "src/f.ts": "export function f(x: number) {\n  return x;\n}\nexport const K = 1;\n" });
+  try {
+    writeFiles(dir, { "src/consts.ts": "export const LIMIT = 20;\nexport const NAME = \"a\";\n", "src/f.ts": "export function f(x: number) {\n  return x + 1;\n}\nexport const K = 2;\n" });
+    const r = run(dir, ["--base", "HEAD", "--json", join(dir, "out.json")]);
+    assert.equal(r.status, 0, r.stderr);
+    const json = JSON.parse(readFileSync(join(dir, "out.json"), "utf8"));
+    assert.deepEqual(json.uncovered, [{ path: "src/consts.ts", reason: "改动行不在任何函数里（只改了顶层声明）" }]);
+    assert.deepEqual(json.functions.map((f) => [f.path, f.name]), [["src/f.ts", "f"]], "f.ts 的常量改动不另记，函数照旧进表");
+    assert.match(r.stdout, /\n\n未覆盖的改动文件：\n- src\/consts\.ts：改动行不在任何函数里（只改了顶层声明）\n$/);
+  } finally { dispose(dir); }
+});
