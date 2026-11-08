@@ -149,6 +149,9 @@ function hasAssertion(ts, node, pattern) {
 /** 改动的测试文件里没有断言的用例：[{ name, startLine, endLine }]。名字取第一个字符串字面量实参，没有写 <匿名>。 */
 export function testsWithoutAssertions(ts, path, text, pattern = /^(assert|expect)$/) {
   const sf = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, scriptKind(ts, path));
+  // 解析器容错，语法错不抛；这里不猜残缺的树，把第一条语法错报出去，调用方记「解析失败」。
+  const bad = sf.parseDiagnostics?.[0];
+  if (bad) throw new Error(`${sf.getLineAndCharacterOfPosition(bad.start ?? 0).line + 1} 行：${ts.flattenDiagnosticMessageText(bad.messageText, " ")}`);
   const lineOf = (pos) => sf.getLineAndCharacterOfPosition(pos).line + 1;
   const found = [];
   const walk = (node) => {

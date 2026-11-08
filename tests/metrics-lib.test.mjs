@@ -210,9 +210,13 @@ test.skipIf(skip)("collectMetrics 直打：改动函数进表；只改顶层常�
     "src/consts.ts": "export const LIMIT = 10;\n",
     "test/f.test.ts": 'import { test } from "vitest";\nimport { f } from "../src/f";\n\ntest("老的只调用", () => {\n  f(1);\n});\n',
     "README.md": "a\n",
+    "src/withmod.ts": "export const A = 1;\nexport const B = A > 0 ? 1 : 0;\n",
+    "test/broken.test.ts": 'import { test } from "vitest";\n\ntest("ok", () => {});\n',
   });
   try {
     writeFiles(dir, {
+      "src/withmod.ts": "export const A = 2;\nexport const B = A > 0 ? 1 : 0;\n",
+      "test/broken.test.ts": 'import { test } from "vitest";\n\ntest("ok", () => {});\ntest("bad", () => { f(1; });\n',
       "src/f.ts": "export function f(x: number) {\n  return x + 1;\n}\nexport function g(x: number) {\n  if (x > 1 && x < 9) return x;\n  return x > 0 ? 1 : 0;\n}\nexport function h(x: number) {\n  return x;\n}\n",
       "src/consts.ts": "export const LIMIT = 20;\n",
       "test/f.test.ts": 'import { test } from "vitest";\nimport assert from "node:assert/strict";\nimport { f } from "../src/f";\n\ntest("老的只调用", () => {\n  f(1);\n});\n\ntest("新的只调用", () => {\n  f(2);\n});\n\ntest("新的有断言", () => {\n  assert.ok(f(3));\n});\n',
@@ -220,14 +224,16 @@ test.skipIf(skip)("collectMetrics 直打：改动函数进表；只改顶层常�
     });
     const head = sh(dir, ["rev-parse", "HEAD"]);
     const r = collectMetrics({ root: dir, base: head, head, ts, report: null, scope: null });
-    assert.deepEqual(r.functions.map((f) => [f.path, f.name, f.cyclomatic]), [["src/f.ts", "g", 4], ["src/f.ts", "f", 1]], "没改的 h 不进表；复杂的 g 排前面");
+    assert.deepEqual(r.functions.map((f) => [f.path, f.name, f.cyclomatic]), [["src/f.ts", "g", 4], ["src/withmod.ts", "<module>", 2], ["src/f.ts", "f", 1]], "没改的 h 不进表；复杂的 g 排前面；顶层有判定的文件以 <module> 进表，不进未覆盖清单");
     assert.deepEqual(r.warnings, [], "没有 lcov 就没有可信度警告");
     assert.deepEqual(r.uncovered, [
       { path: "README.md", reason: "不是 TypeScript 或 JavaScript 源码" },
       { path: "src/consts.ts", reason: "改动行不在任何函数里（只改了顶层声明）" },
+      { path: "test/broken.test.ts", reason: "测试文件不度量" },
+      { path: "test/broken.test.ts", reason: "解析失败：4 行：')' expected." },
       { path: "test/f.test.ts", reason: "测试文件不度量" },
     ]);
-    assert.deepEqual(r.testsWithoutAssertions, [{ file: "test/f.test.ts", name: "新的只调用", line: 9 }], "老的那条不在改动行里");
+    assert.deepEqual(r.testsWithoutAssertions, [{ file: "test/f.test.ts", name: "新的只调用", line: 9 }], "老的那条不在改动行里；语法错的文件不猜，不列");
     assert.deepEqual(collectMetrics({ root: dir, base: head, head, ts, report: null, scope: null, assertPattern: /^f$/ }).testsWithoutAssertions, [], "把 f 当断言时都有「断言」");
     assert.deepEqual(collectMetrics({ root: dir, base: head, head, ts, report: null, scope: ["src/"] }).uncovered.map((u) => u.path), ["src/consts.ts"], "scope 只收前缀内");
     assert.equal(r.summary.coverageProvided, false);

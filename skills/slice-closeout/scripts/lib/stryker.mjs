@@ -169,7 +169,7 @@ function offsetOf(text, { line, column }) {
   return pos + column - 1;
 }
 
-/** 单元表里没有 <module> 时（适配器只在有顶层语句时给）顶层变异体挂到这个占位上。 */
+/** 单元表里没有 <module> 时（适配器只在顶层有判定、圈复杂度大于 1 时给）顶层变异体挂到这个占位上。 */
 const MODULE_UNIT = { name: "<module>", startLine: 1, endLine: Infinity, startByte: 0 };
 /** 行所在的最小有名单元；都不在就是 <module>。 */
 const unitAt = (units, line) => units.filter((u) => u.name !== "<module>" && u.startLine <= line && line <= u.endLine).sort((a, b) => (a.endLine - a.startLine) - (b.endLine - b.startLine))[0] ?? units.find((u) => u.name === "<module>") ?? MODULE_UNIT;

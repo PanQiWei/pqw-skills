@@ -264,6 +264,7 @@ test("有断言", () => {
     const none = run(dir, ["--base", "HEAD", "--format", "json"]);
     assert.deepEqual(JSON.parse(none.stdout).testsWithoutAssertions, []);
     assert.doesNotMatch(run(dir, ["--base", "HEAD"]).stdout, /没有断言的用例/);
+    assert.equal(git(dir, "status --porcelain").split("\n").filter((l) => !l.endsWith("out.json")).join("\n"), "M src/f.ts", "读数不改项目文件");
   } finally { dispose(dir); }
 });
 

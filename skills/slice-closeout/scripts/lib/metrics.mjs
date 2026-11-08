@@ -119,16 +119,17 @@ export function coverageWarnings(root, functions, reportMtimeMs) {
   return warnings;
 }
 
-/** 基线到工作树的改动函数读数。scope 是路径前缀数组或 null；report 是 parseLcov 的结果或 null；reportMtimeMs 是报告文件的修改时刻（毫秒）或 null。 */
+/** 认断言的缺省模式：被调用者最左标识符是 assert 或 expect。 */
 export const DEFAULT_ASSERT_PATTERN = /^(assert|expect)$/;
 
-/** 改动的测试文件里、改动行所在、没有断言的用例：[{ file, name, line }]。解析失败记进 uncovered，不中断整轮。 */
+/** 改动的测试文件里、改动行所在、没有断言的用例：[{ file, name, line }]。解析失败（语法错或读不了）记进 uncovered，不中断整轮。 */
 function unassertedTests(root, path, ranges, ts, assertPattern, uncovered) {
   try {
     return testsWithoutAssertions(ts, path, readFileSync(join(root, path), "utf8"), assertPattern).filter((t) => touches(ranges, t.startLine, t.endLine)).map((t) => ({ file: path, name: t.name, line: t.startLine }));
   } catch (e) { uncovered.push({ path, reason: `解析失败：${String(e.message ?? e).split("\n")[0]}` }); return []; }
 }
 
+/** 基线到工作树的改动函数读数。scope 是路径前缀数组或 null；report 是 parseLcov 的结果或 null；reportMtimeMs 是报告文件的修改时刻（毫秒）或 null。；assertPattern 见 DEFAULT_ASSERT_PATTERN。 */
 export function collectMetrics({ root, base, baseGiven = null, head, ts, report, scope, thresholds = DEFAULT_THRESHOLDS, reportMtimeMs = null, assertPattern = DEFAULT_ASSERT_PATTERN }) {
   const functions = [];
   const uncovered = [];
