@@ -141,8 +141,10 @@ async function recheckTimeouts(result, report, { root, stryker, entries }) {
   const timeoutMs = inputs.recheckTimeoutMs ?? Math.max(4 * (inputs.timeoutMs ?? 5000), 60000);
   const { r, report: second, logPath } = await runOnce({ root, stryker, name: "recheck", config: { entries: mutate, concurrency: 1, timeoutMs, incremental: null } });
   result.resources.timing.recheckSeconds = r.seconds;
-  result.recheck = { ...mergeRecheck(result.sites, second, entries), seconds: r.seconds };
-  if (!second) result.engine.notes.push(`复核未完成：第二轮 Stryker 退出 ${r.status ?? r.signal} 且没有报告（日志 ${logPath}），${result.recheck.total} 个超时位点保持第一轮裁定`);
+  const { unknown, ...counts } = mergeRecheck(result.sites, second, entries);
+  result.recheck = { ...counts, seconds: r.seconds };
+  result.unknown = [...new Set([...(result.unknown ?? []), ...unknown])];
+  if (!second) result.engine.notes.push(`复核未完成：第二轮 Stryker 退出 ${r.status ?? r.signal} 且没有报告，${r.tail.trim().split("\n").pop()}（日志 ${logPath}），${result.recheck.total} 个超时位点保持第一轮裁定`);
 }
 
 const { root, ts, stryker } = inputs;

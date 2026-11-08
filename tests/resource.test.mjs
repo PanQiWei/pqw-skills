@@ -72,7 +72,9 @@ test.skipIf(skip)("命令面：--other-heavy-tasks 1 时份额 0.5，--workers 9
     assert.match(table.stdout, /^差分变异：[^\n]*（只列）\n引擎：Stryker/, "只列时不出资源行以外的表格");
     const b = run(["--no-nice"]);
     assert.equal(JSON.parse(b.stdout).resources.nice, null);
-    assert.equal(run(["--other-heavy-tasks", "x"]).status, 2);
+    const bad = run(["--other-heavy-tasks", "x"]);
+    assert.equal(bad.status, 2);
+    assert.match(bad.stderr, /数值格式错误：--other-heavy-tasks x/);
     assert.equal(run(["--workers", "-1"]).status, 2);
   } finally { dispose(dir); }
 });

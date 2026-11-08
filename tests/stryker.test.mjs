@@ -56,7 +56,7 @@ const MODULES = strykerModules();
 const skipReal = skip || (MODULES ? false : "没有 Stryker 模块，设 PQW_STRYKER_MODULES");
 const strykerRun = (dir, args) => spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", ...args], { encoding: "utf8", env: cleanEnv });
 
-test.skipIf(skip)("Stryker 引擎只列：写引擎行与 mutate 条目，不起 Stryker，--test 可省略", () => {
+test.skipIf(skip)("Stryker 引擎只列：写引擎行与 mutate 条目，不起 Stryker", () => {
   const dir = makeVitestRepo();
   try {
     const fake = fakeModules(dir);
@@ -79,7 +79,7 @@ test.skipIf(skip)("Stryker 引擎只列：写引擎行与 mutate 条目，不起
   } finally { dispose(dir); }
 });
 
-test.skipIf(skipReal)("Stryker 引擎真跑一轮：四类计数与表格同内建格式，存活清单，项目文件不变，.stryker-tmp 已删，报告在系统临时目录", () => {
+test.skipIf(skipReal)("Stryker 引擎真跑一轮：四类计数与表格，存活清单，项目文件不变，.stryker-tmp 已删，报告在系统临时目录", () => {
   const dir = makeVitestRepo(MODULES);
   try {
     const mutated = VITEST_SRC.replace("  if (n < lo) return lo;", "  if (n < lo) { return lo; }");
@@ -120,13 +120,13 @@ test.skipIf(skipReal)("Stryker 引擎真跑一轮：四类计数与表格同内�
   } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); }
 });
 
-test.skipIf(skipReal)("Stryker 真跑的超时复核：死循环变异体第一轮超时，第二轮一个进程、时限按 --recheck-timeout 仍超时，抬头写复核 N（仍超时 N）", () => {
+test.skipIf(skipReal)("Stryker 真跑的超时复核：死循环变异体第一轮超时，第二轮一个进程、时限按 --recheck-timeout 放宽仍超时，抬头写复核 N（仍超时 N），项目文件不变", () => {
   const dir = makeVitestRepo(MODULES);
   try {
     writeFiles(dir, { "src/loop.ts": "export function count(n: number): number {\n  let total = 0;\n  for (let i = 0; i < n; i++) total += 1;\n  return total;\n}\n", "test/loop.test.ts": 'import { test, expect } from "vitest";\nimport { count } from "../src/loop";\n\ntest("count", () => {\n  expect(count(3)).toBe(3);\n  expect(count(0)).toBe(0);\n});\n' });
     git(dir, "add -A"); git(dir, 'commit -q -m loop');
     writeFiles(dir, { "src/loop.ts": readFileSync(join(dir, "src/loop.ts"), "utf8").replace("total += 1", "total = total + 1") });
-    const r = strykerRun(dir, ["--json", join(dir, "out.json"), "--recheck-timeout", "3s"]);
+    const r = strykerRun(dir, ["--json", join(dir, "out.json"), "--timeout", "2s", "--recheck-timeout", "8s"]);
     assert.equal(r.status, 0, r.stderr + r.stdout);
     const json = JSON.parse(readFileSync(join(dir, "out.json"), "utf8"));
     assert.ok(json.recheck && json.recheck.total >= 1, `有超时才有复核：${JSON.stringify(json.recheck)}`);
@@ -134,7 +134,9 @@ test.skipIf(skipReal)("Stryker 真跑的超时复核：死循环变异体第一�
     assert.match(r.stdout, new RegExp(`（其中超时 ${json.recheck.total}）[^\\n]*；复核 ${json.recheck.total}（超时转杀死 0、存活 0、仍超时 ${json.recheck.total}）\\n`));
     assert.match(r.stdout, /Stryker 一轮 [\d.]+s，复核 [\d.]+s，并行度启动时定下/);
     const second = JSON.parse(readFileSync(join(workDir(dir), "stryker-recheck.json"), "utf8"));
-    assert.deepEqual([second.concurrency, second.timeoutMS, second.incremental], [1, 3000, false]);
+    assert.deepEqual([second.concurrency, second.timeoutMS, second.incremental], [1, 8000, false]);
+    assert.equal(JSON.parse(readFileSync(join(workDir(dir), "stryker-mutation.json"), "utf8")).timeoutMS, 2000, "第二轮时限比第一轮宽");
+    assert.equal(git(dir, "status --porcelain"), "M src/loop.ts\n?? out.json", "项目文件不变（out.json 是本用例自己写的）");
     assert.ok(second.mutate.every((e) => /^src\/loop\.ts:\d+-\d+$/.test(e)), JSON.stringify(second.mutate));
     assert.equal(existsSync(join(dir, ".stryker-tmp")), false);
   } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); }

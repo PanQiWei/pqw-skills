@@ -18,6 +18,7 @@ const report = (mutants) => JSON.stringify({ schemaVersion: "1.0", files: { "src
 const FIRST = report([mutant("10", "ConditionalExpression", "true", "Killed"), mutant("12", "EqualityOperator", "n > 1", "Timeout"), mutant("13", "EqualityOperator", "n < 1", "Timeout")]);
 const SECOND = report([mutant("0", "EqualityOperator", "n > 1", "Killed"), mutant("1", "EqualityOperator", "n < 1", "Survived")]);
 const NO_TIMEOUT = report([mutant("10", "ConditionalExpression", "true", "Killed")]);
+const SECOND_WEIRD = report([mutant("0", "EqualityOperator", "n > 1", "Killed"), mutant("1", "EqualityOperator", "n < 1", "Weird")]);
 
 /** 一个 vitest 夹具项目（改了 isPos 的第 8 行），加一个放在仓库外的假 node_modules，核心包的 bin 指向假二进制。 */
 function setup(reports) {
@@ -92,5 +93,16 @@ test.skipIf(skip)("第二轮失败：第一轮裁定不动，全部记未复核�
     assert.deepEqual({ ...r.json.recheck, seconds: 0 }, { total: 2, killed: 0, survived: 0, timedOut: 0, notRun: 2, seconds: 0 });
     assert.ok(r.json.engine.notes.some((n) => n.startsWith("复核未完成：第二轮 Stryker 退出 1 且没有报告")), r.json.engine.notes.join("\n"));
     assert.deepEqual(r.json.sites.filter((s) => s.reason === "timeout").length, 2);
+  } finally { f.cleanup(); }
+});
+
+test.skipIf(skip)("第二轮报告里有映射表没有的状态：和第一轮一样使测量无效，对不上的位点记未复核", () => {
+  const f = setup([FIRST, SECOND_WEIRD]);
+  try {
+    const r = f.run();
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /位点 3：测量无效（报告里有映射表没有的状态：Weird）\n/);
+    assert.deepEqual([r.json.summary.valid, r.json.summary.score, r.json.unknown], [false, null, ["Weird"]]);
+    assert.deepEqual({ ...r.json.recheck, seconds: 0 }, { total: 2, killed: 1, survived: 0, timedOut: 0, notRun: 1, seconds: 0 });
   } finally { f.cleanup(); }
 });

@@ -154,7 +154,7 @@ export function tempDirIgnored(root, tempDirName = ".stryker-tmp") {
 /** 读 JSON 报告；文件不在返回 null。 */
 export const readReport = (path) => (existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : null);
 
-/** Stryker 状态到四类裁定；reason 与内建引擎的写法一致（超时记 timeout）。 */
+/** Stryker 状态到四类裁定；reason 记原因（超时记 timeout）。 */
 const STATUS = {
   Killed: ["killed", null], Timeout: ["killed", "timeout"], Survived: ["survived", null], NoCoverage: ["uncovered", null],
   RuntimeError: ["notRun", "runtime error"], CompileError: ["notRun", "compile error"], Ignored: ["notRun", "ignored"], Pending: ["notRun", "pending"],
@@ -203,7 +203,7 @@ function fileMutants(path, entry, mutants, ranges, isPinned) {
 
 /**
  * 报告映射成位点模型：files 是 path → { text, units, digests }，ranges 是 changedLines 的 Map，pinned 是点名的文件。
- * 返回 { sites, unmutated, unknown }，位点按文件与位置排序，字段与内建引擎一致，另带 strykerId；unknown 是报告里映射表没有的状态名（去重），有就不能计分。
+ * 返回 { sites, unmutated, unknown }，位点按文件与位置排序，字段按位点模型，另带 strykerId；unknown 是报告里映射表没有的状态名（去重），有就不能计分。
  */
 export function mapReport({ report, files, ranges, pinned = [] }) {
   const sites = [];
@@ -255,12 +255,13 @@ const RECHECK = { Killed: ["killed", "recheck"], Survived: ["survived", "recheck
 
 /**
  * 把第二轮报告并进位点：只动第一轮超时的位点，按位点 id（文件、单元内偏移、类别、替换）对上，两轮之间 Stryker 重新编号所以不用它的 id。
- * Killed、Survived 改裁定、原因记 recheck；仍 Timeout 保持；别的状态或没对上记未复核、裁定不动。返回复核计数。
+ * Killed、Survived 改裁定、原因记 recheck；仍 Timeout 保持；别的状态或没对上记未复核、裁定不动。返回复核计数与报告里映射表没有的状态（它们使测量无效，与第一轮同）。
  */
 export function mergeRecheck(sites, recheckReport, files) {
   const found = new Map();
-  for (const [path, entry] of files) for (const m of recheckReport?.files?.[path]?.mutants ?? []) found.set(mutantSite(path, entry, m, false).id, m.status);
-  const r = { total: 0, killed: 0, survived: 0, timedOut: 0, notRun: 0 };
+  const unknown = new Set();
+  for (const [path, entry] of files) for (const m of recheckReport?.files?.[path]?.mutants ?? []) { found.set(mutantSite(path, entry, m, false).id, m.status); if (!(m.status in STATUS)) unknown.add(m.status); }
+  const r = { total: 0, killed: 0, survived: 0, timedOut: 0, notRun: 0, unknown: [...unknown] };
   for (const s of sites) {
     if (s.reason !== "timeout") continue;
     r.total++;

@@ -181,7 +181,7 @@ test("没有 typescript 时退出 2 并写「未提供」", () => {
   } finally { dispose(dir); }
 });
 
-test("只摘改动函数：圈复杂度、认知复杂度，无 lcov 时 CRAP 为无覆盖", { skip: TS ? false : "没有 typescript，设 PQW_TS" }, () => {
+test.skipIf(TS ? false : "没有 typescript，设 PQW_TS")("只摘改动函数：圈复杂度、认知复杂度，无 lcov 时 CRAP 为无覆盖", () => {
   const dir = makeRepo({ "src/a.ts": BASE, "README.md": "x\n" });
   try {
     writeFiles(dir, { "src/a.ts": BASE.replace("return a + b;", "return a + b + 1;").replace("y > 1 ? y : 0", "y > 1 ? y : -1"), "README.md": "y\n" });

@@ -262,10 +262,11 @@ test("mergeRecheck：按位点 id 并入，Killed 与 Survived 改裁定记 rech
   // 行 2 的偏移是 2，行 3 是 4，行 4 是 6，行 5 是 8。
   const sites = [site(2, "p"), site(4, "q"), site(6, "r"), site(8, "s"), site(6, "t"), { id: "a.ts:f:0:equality:z", verdict: "killed", reason: null }];
   const second = { files: { "a.ts": { mutants: [m("9", "Killed", 2, "p"), m("8", "Survived", 3, "q"), m("7", "Timeout", 4, "r"), m("6", "RuntimeError", 5, "s"), m("5", "Timeout", 4, "t")] } } };
-  assert.deepEqual(mergeRecheck(sites, second, files), { total: 5, killed: 1, survived: 1, timedOut: 2, notRun: 1 });
+  assert.deepEqual(mergeRecheck(sites, second, files), { total: 5, killed: 1, survived: 1, timedOut: 2, notRun: 1, unknown: [] });
   assert.deepEqual(sites.map((s) => [s.verdict, s.reason]), [["killed", "recheck"], ["survived", "recheck"], ["killed", "timeout"], ["killed", "timeout"], ["killed", "timeout"], ["killed", null]]);
-  assert.deepEqual(mergeRecheck([site(2, "p")], null, files), { total: 1, killed: 0, survived: 0, timedOut: 0, notRun: 1 });
-  assert.deepEqual(mergeRecheck([site(2, "p")], { files: {} }, files), { total: 1, killed: 0, survived: 0, timedOut: 0, notRun: 1 }, "第二轮报告里没有这个文件");
+  assert.deepEqual(mergeRecheck([site(2, "p")], null, files), { total: 1, killed: 0, survived: 0, timedOut: 0, notRun: 1, unknown: [] });
+  assert.deepEqual(mergeRecheck([site(2, "p")], { files: {} }, files), { total: 1, killed: 0, survived: 0, timedOut: 0, notRun: 1, unknown: [] }, "第二轮报告里没有这个文件");
+  assert.deepEqual(mergeRecheck([site(2, "p")], { files: { "a.ts": { mutants: [m("1", "Weird", 2, "p")] } } }, files), { total: 1, killed: 0, survived: 0, timedOut: 0, notRun: 1, unknown: ["Weird"] }, "映射表没有的状态记未复核并报出来");
 });
 
 test("mapReport：单元表里没有 <module> 时顶层行的变异体挂到 <module>，不崩（本仓库 lib/stryker.mjs 顶层常量上的变异体曾让一轮在映射时崩掉）", () => {
