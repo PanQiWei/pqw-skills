@@ -1,7 +1,7 @@
 // 命令面上的引擎选择：抬头与 JSON 的 engine 字段、显式 stryker 不可用退出 2、非法 --engine 退出 2。
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawnSync, spawn } from "node:child_process";
 import { join } from "node:path";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { makeRepo, writeFiles, dispose, tsPath } from "./fixture.mjs";
@@ -66,7 +66,7 @@ test("Stryker 引擎只列：写引擎行与 mutate 条目，不起 Stryker，--
     writeFiles(dir, { "src/calc.ts": VITEST_SRC.replace("  if (n < lo) return lo;", "  if (n < lo) { return lo; }") });
     const r = strykerRun(dir, ["--plan-only", "--stryker-modules", fake, "--budget", "1m"]);
     assert.equal(r.status, 0, r.stderr);
-    assert.equal(r.stdout.trimEnd(), `差分变异：基线 ${JSON.parse(strykerRun(dir, ["--plan-only", "--stryker-modules", fake, "--format", "json"]).stdout).base.slice(0, 12)} 到工作树；位点 由引擎生成（只列）\n引擎：Stryker 10.1.1（vitest）\n--budget 对 Stryker 引擎不适用：引擎没有整轮预算\nmutate 条目：\n- src/calc.ts:2-2`);
+    assert.equal(r.stdout.trimEnd(), `差分变异：基线 ${JSON.parse(strykerRun(dir, ["--plan-only", "--stryker-modules", fake, "--format", "json"]).stdout).base.slice(0, 12)} 到工作树；位点 由引擎生成（只列）\n引擎：Stryker 10.1.1（vitest）\n--budget 对 Stryker 引擎不适用：引擎没有整轮预算\nmutate 条目：\n- src/calc.ts:1-5`, "改动行在 clamp 里，范围扩成 clamp 自己的行，与内建引擎一致");
     assert.equal(existsSync(join(dir, ".stryker-tmp")), false);
     const json = JSON.parse(strykerRun(dir, ["--plan-only", "--stryker-modules", fake, "--format", "json", "--files", "src/calc.ts"]).stdout);
     assert.deepEqual(json.mutate, ["src/calc.ts"]);
@@ -89,18 +89,20 @@ test("Stryker 引擎真跑一轮：四类计数与表格同内建格式，存活
     writeFiles(dir, { "src/calc.ts": mutated });
     const r = strykerRun(dir, ["--json", join(dir, "out.json")]);
     assert.equal(r.status, 0, r.stderr + r.stdout);
-    assert.match(r.stdout, /^差分变异：基线 [0-9a-f]{12} 到工作树；位点 5：杀死 4、存活 1、无覆盖 0、未跑 0；分数 80%\n引擎：Stryker 10\.1\.1（vitest）\n增量：已开，本轮没有沿用\n\| 文件 \| 单元 \| 行 \| 原文 \| 替换 \| 类别 \| 裁定 \|\n/);
+    assert.match(r.stdout, /^差分变异：基线 [0-9a-f]{12} 到工作树；位点 (\d+)：杀死 \d+、存活 \d+、无覆盖 0、未跑 0；分数 \d+%\n引擎：Stryker 10\.1\.1（vitest）\n增量：已开，本轮没有沿用\n\| 文件 \| 单元 \| 行 \| 原文 \| 替换 \| 类别 \| 裁定 \|\n/);
     assert.match(r.stdout, /\| src\/calc\.ts \| clamp \| 2 \| `n < lo` \| `n <= lo` \| equality \| 存活 \|/);
     assert.match(r.stdout, /\n存活的位点：\n- src\/calc\.ts:2 clamp：n < lo 换成 n <= lo 后测试仍过\n/);
     assert.match(r.stdout, /Stryker 一轮 [\d.]+s，并行度启动时定下/);
     const json = JSON.parse(readFileSync(join(dir, "out.json"), "utf8"));
     assert.equal(json.engine.name, "stryker");
     assert.equal(json.baseline.passed, true);
-    assert.ok(json.baseline.seconds > 0 && json.baseline.seconds < 120, `一轮秒数：${json.baseline.seconds}`);
-    assert.equal(json.resources.timing.totalSeconds, json.baseline.seconds);
+    assert.ok(json.baseline.seconds > 0 && json.baseline.seconds < 60, `初跑秒数从日志取：${json.baseline.seconds}`);
+    assert.ok(json.resources.timing.totalSeconds >= json.baseline.seconds, "整轮耗时不小于初跑");
     assert.equal(json.summary.valid, true);
-    assert.equal(json.sites.length, 5);
-    assert.ok(json.sites.every((s) => s.file === "src/calc.ts" && s.unit === "clamp" && s.line === 2));
+    assert.ok(json.sites.length >= 9, `clamp 自己的行上的变异体：${json.sites.length}`);
+    assert.ok(json.sites.every((s) => s.file === "src/calc.ts" && s.unit === "clamp" && s.line >= 1 && s.line <= 3), JSON.stringify(json.sites.map((s) => s.line)));
+    assert.equal(json.summary.unknown, undefined);
+    assert.deepEqual(json.unknown, []);
     assert.equal(readFileSync(join(dir, "src/calc.ts"), "utf8"), mutated, "项目文件不变");
     assert.equal(existsSync(join(dir, ".stryker-tmp")), false);
     assert.ok(existsSync(join(workDir(dir), "mutation.json")));
@@ -111,9 +113,9 @@ test("Stryker 引擎真跑一轮：四类计数与表格同内建格式，存活
     assert.ok(existsSync(join(workDir(dir), "incremental.json")), "引擎写了增量文件");
     const again = strykerRun(dir, ["--json", join(dir, "out2.json"), "--history", join(dir, "out.json")]);
     assert.equal(again.status, 0, again.stderr + again.stdout);
-    assert.match(again.stdout, /^差分变异：[^\n]*；分数 80%；沿用 5\n历史未沿用：--history 在 Stryker 引擎下不适用，增量由引擎负责\n引擎：Stryker/, "第二轮全部沿用，--history 写说明");
+    assert.match(again.stdout, new RegExp(`^差分变异：[^\\n]*；沿用 ${json.sites.length}\\n历史未沿用：--history 在 Stryker 引擎下不适用，增量由引擎负责\\n引擎：Stryker`), "第二轮全部沿用，--history 写说明");
     const json2 = JSON.parse(readFileSync(join(dir, "out2.json"), "utf8"));
-    assert.deepEqual([json2.incremental.force, json2.summary.carried, json2.history], [false, 5, { given: true, used: false, reason: "--history 在 Stryker 引擎下不适用，增量由引擎负责" }]);
+    assert.deepEqual([json2.incremental.force, json2.summary.carried, json2.history], [false, json.sites.length, { given: true, used: false, reason: "--history 在 Stryker 引擎下不适用，增量由引擎负责" }]);
     writeFiles(dir, { "test/calc.test.ts": readFileSync(join(dir, "test/calc.test.ts"), "utf8") + "\n// touched\n" });
     const forced = JSON.parse(strykerRun(dir, ["--format", "json"]).stdout);
     assert.equal(forced.incremental.force, true, "测试文件变了指纹就变，整轮重跑");
@@ -129,5 +131,22 @@ test("Stryker 初跑失败：退出 1，抬头写测量无效（Stryker 初跑�
     assert.equal(r.status, 1, r.stdout);
     assert.match(r.stdout, /^差分变异：基线 [0-9a-f]{12} 到工作树；位点 0：测量无效（Stryker 初跑失败）\n基线不通过：\n[\s\S]*initial test run[\s\S]*完整日志 .*stryker\.log）\n引擎：Stryker 10\.1\.1（vitest）\n/);
     assert.equal(existsSync(join(dir, ".stryker-tmp")), false);
+  } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); }
+});
+
+test("Stryker 引擎被 SIGTERM 结束：退出 143，自己留下的 .stryker-tmp 已删，项目文件不变", { skip: skipReal }, async () => {
+  const dir = makeVitestRepo(MODULES);
+  try {
+    const mutated = VITEST_SRC.replace("  if (n < lo) return lo;", "  if (n < lo) { return lo; }");
+    writeFiles(dir, { "src/calc.ts": mutated });
+    const child = spawn("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD"], { env: cleanEnv, stdio: ["ignore", "pipe", "pipe"] });
+    const started = Date.now();
+    while (!existsSync(join(dir, ".stryker-tmp")) && Date.now() - started < 20000) await new Promise((r) => setTimeout(r, 100));
+    assert.ok(existsSync(join(dir, ".stryker-tmp")), "Stryker 已开始建沙箱");
+    child.kill("SIGTERM");
+    const code = await new Promise((r) => child.on("close", (c) => r(c)));
+    assert.equal(code, 143);
+    assert.equal(existsSync(join(dir, ".stryker-tmp")), false, "被信号结束后自己删掉 .stryker-tmp");
+    assert.equal(readFileSync(join(dir, "src/calc.ts"), "utf8"), mutated);
   } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); }
 });

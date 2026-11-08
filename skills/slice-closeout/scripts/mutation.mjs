@@ -7,24 +7,24 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node
 import { resolve, join } from "node:path";
 import { parseArgs, parseScope, resolveBase, parseLcov, sh, changedLines } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
-import { chooseEngine, ENGINES, mutateEntries, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries, strykerFingerprint, incrementalFor, rememberFingerprint } from "./lib/stryker.mjs";
+import { chooseEngine, ENGINES, mutateEntries, unitRanges, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries, strykerFingerprint, incrementalFor, rememberFingerprint } from "./lib/stryker.mjs";
 import { parseDuration, collectSites, selectSites, createPatcher, restorePending, restoreLogPath, createTestRunner, runSites, summarize, formatMutation, capacity, plannedWorkers, runnerEnv, niceAvailable, createAdapter, fingerprintOf, isMutable } from "./lib/mutation.mjs";
 
-const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
-只打基线到工作树改动单元的位点，每个位点跑一遍测试命令，裁定为杀死、存活、无覆盖、未跑四类。
+const USAGE = `用法：mutation.mjs [--test "<测试命令>"] [选项]
+只打基线到工作树改动单元的位点，裁定为杀死、存活、无覆盖、未跑四类。两套引擎：内建引擎逐位点写入工作树、每个位点跑一遍测试命令；用 vitest 的项目找得到 Stryker 时自动改用 Stryker 引擎（一次插桩、测试进程常驻、只跑碰到变异体的用例、增量），范围与读数两套一致。
 
   --test "<命令>"            内建引擎必填，Stryker 引擎下不用（vitest 由引擎起）。测试命令，在仓库根以 shell 运行；并行度通过环境变量 PQW_TEST_WORKERS 与 VITEST_MAX_WORKERS 交给它，例如 "vitest run" 或 "jest --maxWorkers=$PQW_TEST_WORKERS"
   --repo <目录>              仓库里任一目录，缺省当前目录
   --base <ref>               基线提交；缺省取与 --target 的合并点。给的 ref 不是 HEAD 的祖先（基线分支前进过）时改用两者的合并点，抬头与 JSON 的 baseGiven 写明
   --target <分支>            缺省依次试 main、master
-  --lcov <路径>              覆盖率文件；给了就只打有执行记录的位点
+  --lcov <路径>              覆盖率文件；给了就只打有执行记录的位点。Stryker 引擎下不用，覆盖由引擎自己按用例算
   --ts <目录>                typescript 包目录（要 JS 实现，6.x 可用）；缺省从仓库 node_modules 找
   --scope <前缀,前缀>        只看这些路径前缀
   --files <路径,路径>        点名文件：这些文件的全部有名单元都出位点，不论改没改（判据、状态机所在的文件）；抬头写「（点名 N 个文件）」，位点带 pinned
   --json <路径>              结果 JSON 写到这里；--format json 直接打印 JSON
   --plan-only                只列位点，不跑
-  --budget <时长>            时间预算，缺省 20m；用尽后剩余位点记 notRun(budget)
-  --timeout <时长>           单次测试超时；缺省基线 10m，位点取基线用时的 5 倍且至少 10s
+  --budget <时长>            时间预算，缺省 20m；用尽后剩余位点记 notRun(budget)。Stryker 引擎下不适用，抬头写明
+  --timeout <时长>           单次测试超时；缺省基线 10m，位点取基线用时的 5 倍且至少 10s。Stryker 引擎下映射到它的 timeoutMS
   --engine auto|stryker|builtin  执行引擎，缺省 auto：找得到 Stryker 与它的 vitest runner、且项目有 vitest 配置或声明了 vitest 时用 Stryker，否则用内建引擎；抬头之后一行写「引擎：…」，内建带原因。显式 stryker 而条件不满足退出 2 并说明装哪里
   --stryker-modules <目录>   装了 @stryker-mutator/core 与 vitest-runner 的 node_modules；解析顺序是项目根 node_modules、这里（也读环境变量 PQW_STRYKER_MODULES）、本脚本目录的 node_modules（npm ci --prefix 该目录）
   --history <上次 JSON>      上次结果；指纹（工具版本、测试命令、测试文件摘要）相同、单元摘要未变且上次杀死的位点沿用，抬头写「沿用 N」；指纹不同整份不沿用并写明。Stryker 引擎下不适用：增量由引擎的 incremental 文件负责（在系统临时目录），指纹变了整轮重跑，抬头同样写「沿用 N」
@@ -32,9 +32,9 @@ const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
 
 资源。算式：份额 = 1 / (--other-heavy-tasks + 1)；上限 = max(1, floor(CPU 数 × 份额))，可用内存低于阈值时减半；并行度 = 缺省等于上限，显式 --workers 超过上限按上限。
   --other-heavy-tasks N      这台机器上除本工具外同时在跑的重型任务数，缺省 0；N=1 时本工具只拿一半 CPU
-  --workers N                交给测试命令的并行度，缺省等于上限
+  --workers N                交给测试命令的并行度，缺省等于上限；Stryker 引擎下写进配置的 concurrency，启动时定下
   --low-memory-halve <MB>    可用内存低于这个数时上限减半，缺省 2048
-  --load-ceiling <比例>      运行中 1 分钟负载 ÷ CPU 数超过它就降一档，回落到它减 0.2 以下再升回，缺省 0.8
+  --load-ceiling <比例>      运行中 1 分钟负载 ÷ CPU 数超过它就降一档，回落到它减 0.2 以下再升回，缺省 0.8；只有内建引擎做
   --no-nice                  不降低测试进程的优先级；缺省 nice 10，Windows 不降
 
 还原保证：写入变异体前先把原文落到系统临时目录的还原日志（pqw-mutation/<仓库哈希>.json），还原后删；上次运行被杀留下日志，下次启动先还原并打印；留下的文件已被人改过就不覆盖，退出 1。写入前核文件仍是原文、还原前核文件仍是变异体，不是就不覆盖，打印「文件在变异期间被改动」退出 1。
@@ -143,29 +143,43 @@ async function runBuiltin() {
   return !restored || (!result.planOnly && !result.baseline.passed) ? 1 : 0;
 }
 
+/** Stryker 引擎下抬头的说明行：预算不适用；.stryker-tmp 没被忽略。 */
+function strykerNotes(root) {
+  const notes = [];
+  if (opts.budget) notes.push("--budget 对 Stryker 引擎不适用：引擎没有整轮预算");
+  if (!tempDirIgnored(root)) notes.push("`.stryker-tmp` 没被项目忽略：跑完或被信号结束都会删，只有被强杀（SIGKILL）时留下，建议加进 .gitignore");
+  return notes;
+}
+
+/** 跑完之后的汇总：无效原因（初跑失败、未知状态）与沿用数。 */
+function finishStryker(result) {
+  Object.assign(result, summarize(result.sites, { planOnly: result.planOnly, baselinePassed: result.baseline.passed !== false }));
+  if (result.baseline.passed === false) result.summary.invalidReason = "Stryker 初跑失败";
+  if (result.unknown?.length) { result.summary.invalidReason = `报告里有映射表没有的状态：${result.unknown.join("、")}`; result.summary.valid = false; result.summary.score = null; }
+  if (result.reused !== undefined) result.summary.carried = result.reused;
+}
+
 /** Stryker 引擎：范围变 mutate 条目与配置，在项目根起 Stryker，读报告映射回位点。不碰项目文件，只写 .stryker-tmp 与系统临时目录。 */
 async function runStrykerEngine() {
   const { root, ts, stryker } = inputs;
   const changed = changedLines(root, inputs.base);
   const scope = parseScope(opts.scope);
   const files = [...new Set([...changed.keys(), ...pinned])].filter((p) => isMutable(root, p, scope)).sort();
+  const entries = fileEntries(root, ts, files);
+  // 范围与内建引擎一致：改动行所在单元自己的全部行；点名的文件整份。
+  const ranges = new Map(files.map((p) => [p, unitRanges(entries.get(p).units, changed.get(p) ?? [])]));
   const result = newResult([], [], { given: Boolean(opts.history), used: false, reason: opts.history ? "--history 在 Stryker 引擎下不适用，增量由引擎负责" : null });
-  result.mutate = mutateEntries(changed, pinned, files);
+  result.mutate = mutateEntries(ranges, pinned, files);
   result.budget = { limitMs: null, exceeded: false };
-  result.engine.notes = [];
-  if (opts.budget) result.engine.notes.push("--budget 对 Stryker 引擎不适用：引擎没有整轮预算");
-  if (!tempDirIgnored(root)) result.engine.notes.push("`.stryker-tmp` 没被项目忽略：跑完会删，被杀时会留下，建议加进 .gitignore");
-  let code = 0;
-  if (!result.planOnly && result.mutate.length > 0) code = await executeStryker(result, { root, ts, stryker, changed, files });
-  Object.assign(result, summarize(result.sites, { planOnly: result.planOnly, baselinePassed: result.baseline.passed !== false }));
-  if (result.baseline.passed === false) result.summary.invalidReason = "Stryker 初跑失败";
-  if (result.reused !== undefined) result.summary.carried = result.reused;
+  result.engine.notes = strykerNotes(root);
+  const code = !result.planOnly && result.mutate.length > 0 ? await executeStryker(result, { root, stryker, entries, ranges }) : 0;
+  finishStryker(result);
   emit(result, opts);
   return code;
 }
 
 /** 起一轮 Stryker 并把报告并进 result。初跑失败（退出非零且无报告）记基线不通过，返回 1。 */
-async function executeStryker(result, { root, ts, stryker, changed, files }) {
+async function executeStryker(result, { root, stryker, entries, ranges }) {
   const dir = workDir(root);
   mkdirSync(dir, { recursive: true });
   const reportPath = join(dir, "mutation.json"), configPath = join(dir, "stryker.json"), logPath = join(dir, "stryker.log"), tempDir = join(root, ".stryker-tmp");
@@ -184,12 +198,12 @@ async function executeStryker(result, { root, ts, stryker, changed, files }) {
   result.resources.timing = { testSeconds: null, totalSeconds: r.seconds, overheadRatio: null };
   const report = readReport(reportPath);
   if (!report) { result.baseline = { passed: false, seconds: r.seconds, tail: `${r.tail}\n（完整日志 ${logPath}）` }; return 1; }
-  result.baseline = { passed: true, seconds: r.seconds };
+  result.baseline = { passed: true, seconds: r.dryRunSeconds };
   rememberFingerprint(dir, inputs.fingerprint);
   result.reused = r.reused ?? 0;
   if (incremental.force && incremental.previous !== null) result.engine.notes.push("增量：指纹变了，整轮重跑");
   else if (result.reused === 0) result.engine.notes.push("增量：已开，本轮没有沿用");
-  Object.assign(result, mapReport({ report, files: fileEntries(root, ts, files), ranges: changed, pinned }));
+  Object.assign(result, mapReport({ report, files: entries, ranges, pinned }));
   return r.status === 0 ? 0 : 1;
 }
 

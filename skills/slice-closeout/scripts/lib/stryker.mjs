@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
-import { unitDigests, testFilesDigest } from "./core.mjs";
+import { unitDigests, testFilesDigest, ownLines, nestedUnits } from "./core.mjs";
 import { TOOL_VERSION } from "./version.mjs";
 import { analyze } from "./adapter-typescript.mjs";
 
@@ -66,7 +66,26 @@ export function chooseEngine({ engine = "auto", root, modulesDir = null, env = p
   return { name: "stryker", version: found.version, runner: runner.name, reason: `${runner.evidence}；Stryker ${found.version} 取自${found.from}`, modules: found, configFile: runner.configFile };
 }
 
-/** 范围变 mutate 条目：点名文件整份写路径；改动文件每个改动段写 `路径:起-止`。输入是 changedLines 的 Map 与可变异的文件列表。 */
+/** 连续的行号合并成闭区间。 */
+const segments = (lines) => lines.reduce((acc, l) => { const last = acc[acc.length - 1]; if (last && last[1] === l - 1) last[1] = l; else acc.push([l, l]); return acc; }, []);
+
+/**
+ * 改动段扩成内建引擎的范围：改动行落在哪个有名单元自己的行上，就把那个单元自己的行（扣掉嵌套单元）全算进来，
+ * 与内建引擎「改动单元自己的行上的位点」一致；不在任何有名单元里的改动行原样保留。返回合并后的闭区间列表。
+ */
+export function unitRanges(units, ranges) {
+  const owner = new Map();
+  for (const u of units) if (u.name !== "<module>") for (const l of ownLines(u, nestedUnits(u, units))) owner.set(l, u);
+  const lines = new Set();
+  for (const [a, b] of ranges) for (let l = a; l <= b; l++) {
+    const u = owner.get(l);
+    if (u) for (const [line, o] of owner) { if (o === u) lines.add(line); }
+    else lines.add(l);
+  }
+  return segments([...lines].sort((x, y) => x - y));
+}
+
+/** 范围变 mutate 条目：点名文件整份写路径；改动文件每个改动段写 `路径:起-止`。输入是按文件的闭区间 Map 与可变异的文件列表。 */
 export function mutateEntries(changed, pinned, files) {
   const entries = [];
   for (const path of files) {
@@ -99,10 +118,11 @@ export function strykerConfig({ entries, configFile, concurrency, reportPath, in
 
 const PROGRESS_RE = /^Mutation testing \d+%/;
 const REUSED_RE = /(\d+) of (\d+) mutant result\(s\) are reused/;
+const DRY_RUN_RE = /Initial test run succeeded\..*net ([\d.]+) ms, overhead ([\d.]+) ms/;
 
 /**
  * 在项目根起 Stryker：`node <core bin> run <配置>`，可包一层 nice。全部输出进日志文件，进度行另交 onProgress。
- * 返回 { status, signal, seconds, reused, tail }；reused 从日志的增量摘要行取，没有为 null；tail 是日志末 20 行。
+ * 返回 { status, signal, seconds, dryRunSeconds, reused, tail }；reused 从日志的增量摘要行取，没有为 null；dryRunSeconds 是初跑（未变异的一轮）用时，从日志取，没有为 null；tail 是日志末 20 行。
  * 返回的 kill() 给调用方转发信号。
  */
 export function runStryker({ root, coreBin, configPath, nice = null, logPath, onProgress = () => {} }) {
@@ -125,7 +145,8 @@ export function runStryker({ root, coreBin, configPath, nice = null, logPath, on
   const done = new Promise((resolve) => child.on("close", (status, signal) => {
     if (rest) lines.push(rest.replace(/\x1b\[[0-9;]*m/g, ""));
     const reused = lines.map((l) => REUSED_RE.exec(l)).find(Boolean);
-    log.end(() => resolve({ status, signal, seconds: Math.round((Date.now() - t0) / 100) / 10, reused: reused ? Number(reused[1]) : null, tail: lines.slice(-20).join("\n") }));
+    const dry = lines.map((l) => DRY_RUN_RE.exec(l)).find(Boolean);
+    log.end(() => resolve({ status, signal, seconds: Math.round((Date.now() - t0) / 100) / 10, dryRunSeconds: dry ? Math.round(Number(dry[1]) + Number(dry[2])) / 1000 : null, reused: reused ? Number(reused[1]) : null, tail: lines.slice(-20).join("\n") }));
   }));
   return { done, kill: (sig = "SIGTERM") => child.kill(sig) };
 }
@@ -162,10 +183,10 @@ function mutantSite(path, entry, m, pinned) {
   const line = m.location.start.line;
   const unit = unitAt(entry.units, line);
   const start = offsetOf(entry.text, m.location.start), end = offsetOf(entry.text, m.location.end);
-  const [verdict, reason] = STATUS[m.status] ?? ["notRun", m.status];
+  const [verdict, reason] = STATUS[m.status] ?? ["notRun", `未知状态 ${m.status}`];
   const original = entry.text.slice(start, end);
   const category = categoryOf(m.mutatorName);
-  return { id: `${path}:${unit.name}:${start - unit.startByte}:${category}:${m.replacement}`, file: path, unit: unit.name, digest: entry.digests?.get(unit.name) ?? null, line, anchorLine: line, start, end, original: original.length > 40 ? original.slice(0, 37) + "…" : original, mutant: m.replacement, category, pinned, verdict, reason, runs: m.testsCompleted ?? 0, seconds: m.duration === undefined ? null : Math.round(m.duration) / 1000, strykerId: m.id };
+  return { id: `${path}:${unit.name}:${start - unit.startByte}:${category}:${m.replacement}`, file: path, unit: unit.name, digest: entry.digests?.get(unit.name) ?? null, line, anchorLine: line, start, end, original: original.length > 40 ? original.slice(0, 37) + "…" : original, mutant: m.replacement, category, pinned, verdict, reason, runs: m.testsCompleted ?? 0, seconds: m.duration === undefined ? null : Math.round(m.duration) / 1000, strykerId: m.id, unknownStatus: m.status in STATUS ? null : m.status };
 }
 
 /** 一个文件：点名的全收；否则只收落在改动段里的变异体，没有变异体的段记成未覆盖段。 */
@@ -186,7 +207,7 @@ function fileMutants(path, entry, mutants, ranges, isPinned) {
 
 /**
  * 报告映射成位点模型：files 是 path → { text, units, digests }，ranges 是 changedLines 的 Map，pinned 是点名的文件。
- * 返回 { sites, unmutated }，位点按文件与位置排序，字段与内建引擎一致，另带 strykerId。
+ * 返回 { sites, unmutated, unknown }，位点按文件与位置排序，字段与内建引擎一致，另带 strykerId；unknown 是报告里映射表没有的状态名（去重），有就不能计分。
  */
 export function mapReport({ report, files, ranges, pinned = [] }) {
   const sites = [];
@@ -197,7 +218,7 @@ export function mapReport({ report, files, ranges, pinned = [] }) {
     unmutated.push(...r.unmutated);
   }
   sites.sort((a, b) => a.file.localeCompare(b.file) || a.start - b.start);
-  return { sites, unmutated };
+  return { sites, unmutated, unknown: [...new Set(sites.map((s) => s.unknownStatus).filter(Boolean))] };
 }
 
 /** Stryker 引擎下的指纹：工具版本、「vitest@<版本> + <配置文件>」当测试命令、测试文件摘要，再加 Stryker 版本。任一项变了上次的结果就不能再信。 */

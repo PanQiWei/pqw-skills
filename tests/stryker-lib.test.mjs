@@ -86,7 +86,7 @@ test("选引擎：auto 两种结果各带原因；显式 builtin 不看项目；
   } finally { rmSync(root, { recursive: true, force: true }); rmSync(given, { recursive: true, force: true }); }
 });
 
-import { mutateEntries, strykerConfig, categoryOf, mapReport, runStryker, tempDirIgnored, workDir } from "../skills/slice-closeout/scripts/lib/stryker.mjs";
+import { mutateEntries, strykerConfig, categoryOf, mapReport, runStryker, tempDirIgnored, workDir, unitRanges } from "../skills/slice-closeout/scripts/lib/stryker.mjs";
 import { readFileSync } from "node:fs";
 import { makeRepo, dispose } from "./fixture.mjs";
 
@@ -94,6 +94,16 @@ test("mutate 条目：改动段写 路径:起-止，点名文件整份写路径�
   const changed = new Map([["a.ts", [[2, 2], [10, 12]]], ["b.ts", [[1, 3]]], ["c.ts", [[5, 5]]]]);
   assert.deepEqual(mutateEntries(changed, ["b.ts"], ["a.ts", "b.ts"]), ["a.ts:2-2", "a.ts:10-12", "b.ts"]);
   assert.deepEqual(mutateEntries(new Map(), ["p.ts"], ["p.ts"]), ["p.ts"]);
+});
+
+test("范围按单元展开：改动行在单元里就取单元自己的全部行（扣掉嵌套单元），不在任何单元里的原样保留，相邻合并", () => {
+  const units = [{ name: "<module>", startLine: 1, endLine: 30 }, { name: "a", startLine: 2, endLine: 10 }, { name: "a.inner", startLine: 5, endLine: 7 }, { name: "b", startLine: 12, endLine: 14 }];
+  assert.deepEqual(unitRanges(units, [[3, 3]]), [[2, 4], [8, 10]], "a 自己的行扣掉嵌套的 5 到 7");
+  assert.deepEqual(unitRanges(units, [[6, 6]]), [[5, 7]], "改在嵌套单元里只取嵌套单元");
+  assert.deepEqual(unitRanges(units, [[20, 21]]), [[20, 21]], "模块级原样");
+  assert.deepEqual(unitRanges(units, [[9, 13]]), [[2, 4], [8, 14]], "跨两个单元加中间的模块级行，相邻合并");
+  assert.deepEqual(unitRanges(units, []), []);
+  assert.deepEqual(unitRanges(units, [[20, 21], [3, 3]]), [[2, 4], [8, 10], [20, 21]], "改动段倒序给也按行号排");
 });
 
 test("配置：逐项按 spec；没有配置文件就不写 configFile；--timeout 映射 timeoutMS；增量按参数", () => {
@@ -114,7 +124,8 @@ const FIXTURE_UNITS = [{ name: "<module>", startLine: 1, endLine: 20, startByte:
 const fixtureFiles = () => new Map([["src/calc.ts", { text: REPORT.files["src/calc.ts"].source, units: FIXTURE_UNITS, digests: new Map([["clamp", "d-clamp"]]) }]]);
 
 test("映射样本：三种状态各有、原文按位置切、单元按行找、只收范围里的、范围外的段进未覆盖段", () => {
-  const { sites, unmutated } = mapReport({ report: REPORT, files: fixtureFiles(), ranges: new Map([["src/calc.ts", [[2, 2], [12, 12], [19, 20]]]]) });
+  const { sites, unmutated, unknown } = mapReport({ report: REPORT, files: fixtureFiles(), ranges: new Map([["src/calc.ts", [[2, 2], [12, 12], [19, 20]]]]) });
+  assert.deepEqual(unknown, []);
   const byStatus = (v) => sites.filter((s) => s.verdict === v);
   assert.ok(byStatus("killed").length >= 1 && byStatus("survived").length >= 1 && byStatus("uncovered").length >= 1, JSON.stringify(sites.map((s) => s.verdict)));
   const lt = sites.find((s) => s.mutant === "n <= lo");
@@ -127,6 +138,8 @@ test("映射样本：三种状态各有、原文按位置切、单元按行找�
   assert.equal(lt.id, "src/calc.ts:clamp:73:equality:n <= lo");
   assert.ok(sites.every((s) => [2, 12].includes(s.line)), "只收 2 与 12 两行");
   assert.ok(sites.every((s) => s.pinned === false), "没点名的文件位点 pinned 为 false");
+  assert.equal(sites[0].line, 2, "样本里第 12 行的变异体排在前面，映射后按位置排，第 2 行在前");
+  assert.deepEqual(sites.map((s) => s.start), [...sites.map((s) => s.start)].sort((a, b) => a - b), "同一文件按起点升序");
   const plus = sites.find((s) => s.line === 12 && s.category === "arithmetic");
   assert.deepEqual([plus.original, plus.mutant, plus.unit, plus.verdict, plus.runs], ["a + b", "a - b", "unused", "uncovered", 0]);
   assert.deepEqual(unmutated, [{ file: "src/calc.ts", lines: [19, 20], unit: null, reason: "引擎没有在这段生成变异体" }]);
@@ -166,10 +179,13 @@ test("映射：点名文件全收；Timeout 记杀死（timeout）、RuntimeErro
   ms[0].status = "Timeout"; ms[1].status = "RuntimeError"; ms[2].status = "CompileError";
   const files = fixtureFiles();
   files.set("src/other.ts", { text: "export const x = 1;\n", units: [{ name: "<module>", startLine: 1, endLine: 1, startByte: 0 }], digests: new Map() });
-  const { sites, unmutated } = mapReport({ report, files, ranges: new Map([["src/other.ts", [[1, 1]]]]), pinned: ["src/calc.ts"] });
+  ms[3].status = "Weird";
+  const { sites, unmutated, unknown } = mapReport({ report, files, ranges: new Map([["src/other.ts", [[1, 1]]]]), pinned: ["src/calc.ts"] });
   assert.equal(sites.length, ms.length);
   assert.ok(sites.every((s) => s.pinned));
   const byId = (id) => sites.find((s) => s.strykerId === id);
+  assert.deepEqual([byId(ms[3].id).verdict, byId(ms[3].id).reason, byId(ms[3].id).unknownStatus], ["notRun", "未知状态 Weird", "Weird"]);
+  assert.deepEqual(unknown, ["Weird"], "映射表没有的状态单列，调用方据此判测量无效");
   assert.deepEqual([byId(ms[0].id).verdict, byId(ms[0].id).reason], ["killed", "timeout"]);
   assert.deepEqual([byId(ms[1].id).verdict, byId(ms[1].id).reason], ["notRun", "runtime error"]);
   assert.deepEqual([byId(ms[2].id).verdict, byId(ms[2].id).reason], ["notRun", "compile error"]);
@@ -180,11 +196,12 @@ test("起进程：输出进日志、进度行转出、增量摘要行解析成 r
   const dir = mkdtempSync(join(tmpdir(), "pqw-stryker-run-"));
   try {
     const fake = join(dir, "fake.js");
-    writeFileSync(fake, 'console.log("Mutation testing 50% (elapsed: <1m) 1/2 tested");\nconsole.error("\\x1b[32mINFO\\x1b[39m Result:\\t\\t22 of 23 mutant result(s) are reused.");\nconsole.log("Done in 1 seconds.");\nprocess.exit(process.argv[2] === "run" ? 0 : 9);\n');
+    writeFileSync(fake, 'const t = Date.now(); while (Date.now() - t < 150);\nconsole.log("Mutation testing 50% (elapsed: <1m) 1/2 tested");\nconsole.error("\\x1b[32mINFO\\x1b[39m Result:\\t\\t22 of 23 mutant result(s) are reused.");\nconsole.log("INFO DryRunExecutor Initial test run succeeded. Ran 4 tests in 0 seconds (net 5.5 ms, overhead 403.4 ms).");\nconsole.log("Done in 1 seconds.");\nprocess.exit(process.argv[2] === "run" ? 0 : 9);\n');
     const progress = [];
     const r = await runStryker({ root: dir, coreBin: fake, configPath: "c.json", logPath: join(dir, "log.txt"), onProgress: (l) => progress.push(l) }).done;
     assert.equal(r.status, 0);
-    assert.ok(r.seconds >= 0 && r.seconds < 10 && r.seconds === Math.round(r.seconds * 10) / 10, `seconds 是一位小数的秒数：${r.seconds}`);
+    assert.equal(r.dryRunSeconds, 0.409, "初跑用时取日志 net 加 overhead 毫秒");
+    assert.ok(r.seconds >= 0.1 && r.seconds < 10 && r.seconds === Math.round(r.seconds * 10) / 10, `seconds 是一位小数的秒数：${r.seconds}`);
     assert.equal(r.reused, 22);
     assert.deepEqual(progress, ["Mutation testing 50% (elapsed: <1m) 1/2 tested"]);
     assert.match(r.tail, /INFO Result:\t\t22 of 23 mutant result\(s\) are reused\./);
@@ -197,6 +214,7 @@ test("起进程：输出进日志、进度行转出、增量摘要行解析成 r
     const k = await long.done;
     assert.equal(k.signal, "SIGTERM");
     assert.equal(k.reused, null);
+    assert.equal(k.dryRunSeconds, null);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
