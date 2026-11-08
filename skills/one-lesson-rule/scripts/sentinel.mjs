@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// 哨兵子代理取事实的工具：读 plan 的进度总览、处置记录与工作树事实，写一份增量汇报（提交、改动统计、新交回件、信号），然后睡或退出。不调用模型。
+// 哨兵子代理取事实的工具：读 plan 的进度总览、处置记录、文档维护表与工作树事实，写一份增量汇报（提交、改动统计、新交回件、文档结构与陈旧、信号），然后睡或退出。不调用模型。
+// 文档陈旧信号：进度行 head 不是 HEAD、处置断号、汇报件早于最近提交、plan 结构不合模板（经 spec-and-plan 的 check-plan）、维护表「最近更新」落后而最近提交改了该文档。
 // 退出 0 正常；1 读不到 plan 或写不了汇报；2 用法错误。
 //
 // 用法：
@@ -13,8 +14,9 @@
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, dirname, basename, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 
 const USAGE = "用法：sentinel.mjs --plan <plan.md> [--out <目录>] [--interval 45m] [--subagent-check 30m] [--once] [--cycles N] [--session <id>] [--run <id>]";
 
@@ -65,6 +67,9 @@ const session = opts.session ?? process.env.CLAUDE_CODE_SESSION_ID ?? process.en
 const run = opts.run ?? basename(dirname(planPath));
 const outDir = resolve(opts.out ?? join(tmpdir(), "pqw-skills", session, run, "sentinel"));
 const statePath = join(outDir, "state.json");
+/** 守结构的脚本归 spec-and-plan；技能各自装成目录，所以按相对路径找它。测试可用 PQW_CHECK_PLAN 指到别处。 */
+const resolveCheckPlan = () => process.env.PQW_CHECK_PLAN ?? join(dirname(fileURLToPath(import.meta.url)), "..", "..", "spec-and-plan", "scripts", "check-plan.mjs");
+const checkPlanPath = resolveCheckPlan();
 
 const sh = (cmd, cwd) => {
   try {
@@ -106,12 +111,101 @@ const parsePlan = (text) => {
     }
   }
   if (cur) tables.push(cur);
-  const sliceTable = tables.find((t) => t[0]?.[0] === "切片");
-  const agentTable = tables.find((t) => t[0]?.[0] === "子代理");
-  const rows = (t) => (t ? t.slice(2) : []);
   const milestones = [...text.matchAll(/^\s*- \[( |x)\] (.*)$/gm)].map((m) => ({ done: m[1] === "x", text: m[2] }));
-  return { progress, current, slices: rows(sliceTable), agents: rows(agentTable), milestones };
+  return { progress, current, slices: tableRows(tables, "切片"), agents: tableRows(tables, "子代理"), docs: tableRows(tables, "文档"), milestones };
 };
+
+/** 首格为 name 的那张表的数据行（去掉表头与分隔行）；没有这张表返回空。 */
+const tableRows = (tables, name) => {
+  const table = tables.find((t) => t[0]?.[0] === name);
+  return table ? table.slice(2) : [];
+};
+
+/** 进度行里写的 head（至少 7 位十六进制才算）与更新时刻。 */
+const progressFacts = (progress) => ({
+  head: /head ([0-9a-f]{7,40})\b/.exec(progress)?.[1] ?? null,
+  updatedMs: Date.parse(/更新 (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?Z)/.exec(progress)?.[1] ?? ""),
+});
+
+/** 处置编号按出现顺序是否连续；返回第一处断号的说明，没有返回 null。 */
+const disposalGap = (text) => {
+  let expected = 1;
+  for (const m of text.matchAll(/^处置 (\d+)（/gm)) {
+    if (Number(m[1]) !== expected) return `应为 ${expected} 却是 ${m[1]}`;
+    expected = Number(m[1]) + 1;
+  }
+  return null;
+};
+
+/** 汇报件：本程目录或其 artifacts 子目录下的 report.html，取第一个存在的。 */
+const reportFile = (runDir) => [join(runDir, "report.html"), join(runDir, "artifacts", "report.html")].find((p) => existsSync(p)) ?? null;
+
+/** 跑 spec-and-plan 的 check-plan：返回 { note, defects }；不是模板格式的 plan 或找不到脚本时 defects 为 null。 */
+const checkStructure = (planText) => {
+  if (!/^# .+ 交付计划（revision \d+）/m.test(planText)) return { note: "未核结构：plan 抬头不是模板格式", defects: null };
+  if (!existsSync(checkPlanPath)) return { note: `未核结构：找不到 check-plan（${checkPlanPath}）`, defects: null };
+  const r = spawnSync(process.execPath, [checkPlanPath, "--plan", planPath, "--format", "json"], { encoding: "utf8" });
+  try {
+    const parsed = JSON.parse(r.stdout);
+    return { note: parsed.ok ? "check-plan：结构合模板" : `check-plan：${parsed.defects.length} 处缺陷`, defects: parsed.defects };
+  } catch {
+    return { note: `未核结构：check-plan 没有给出结果（退出 ${r.status}）`, defects: null };
+  }
+};
+
+/** 进度行写的 head 与当前 HEAD 不是同一个提交（互不为前缀）。 */
+const headSignal = (facts, head) => (facts.head && head && !facts.head.startsWith(head) && !head.startsWith(facts.head) ? [`文档陈旧：plan 进度行写的 head ${facts.head} 不是当前 HEAD ${head}`] : []);
+
+/** 汇报件早于最近一次提交。 */
+const reportSignal = (repo, runDir) => {
+  const lastCommitMs = repo ? Number(sh("git log -1 --format=%ct", repo) ?? 0) * 1000 : 0;
+  const report = reportFile(runDir);
+  if (!report || !lastCommitMs) return [];
+  const builtMs = statSync(report).mtimeMs;
+  return builtMs < lastCommitMs ? [`文档陈旧：汇报件 ${basename(report)} 生成于 ${new Date(builtMs).toISOString()}，早于最近提交 ${new Date(lastCommitMs).toISOString()}`] : [];
+};
+
+/** 维护表的一行：第一格反引号里的路径、最后一格的时刻；时刻早于进度行更新且最近提交改了它就是一条信号，否则 null。 */
+const staleDocRow = (row, facts, head, touched) => {
+  const path = /`([^`]+)`/.exec(row[0] ?? "")?.[1];
+  const updatedMs = Date.parse(row[5] ?? "");
+  if (!path || Number.isNaN(updatedMs) || updatedMs >= facts.updatedMs || !touched(path)) return null;
+  return `文档陈旧：维护表里 ${path} 最近更新 ${row[5]} 早于进度行更新 ${new Date(facts.updatedMs).toISOString()}，而最近提交 ${head} 改了它`;
+};
+
+/** 维护表里落后且被最近提交改过的文档，每份一条信号。 */
+const docsTableSignals = (plan, facts, head, repo) => {
+  if (Number.isNaN(facts.updatedMs)) return [];
+  const changed = repo ? (sh("git show --name-only --format= HEAD", repo) ?? "").split("\n").filter(Boolean) : [];
+  const touched = (path) => changed.some((f) => f === path || f.endsWith(`/${path}`) || path.endsWith(`/${f}`));
+  return plan.docs.map((row) => staleDocRow(row, facts, head, touched)).filter(Boolean);
+};
+
+/**
+ * 文档陈旧信号：进度行 head 不是 HEAD；处置断号；汇报件早于最近提交；plan 结构不合模板；
+ * 维护表某行「最近更新」早于进度行更新时刻而该文档在最近提交里被改过。每条带证据。
+ */
+const staleSignals = ({ planText, plan, head, repo, runDir, structure }) => {
+  const facts = progressFacts(plan.progress);
+  const gap = disposalGap(planText);
+  return [
+    ...headSignal(facts, head),
+    ...(gap ? [`文档陈旧：处置编号断号，${gap}`] : []),
+    ...reportSignal(repo, runDir),
+    ...(structure.defects?.length ? [`文档陈旧：plan 结构不合模板，${structure.defects.length} 处缺陷（${structure.defects[0].message}）`] : []),
+    ...docsTableSignals(plan, facts, head, repo),
+  ];
+};
+
+/** 汇报的「文档」节：结构核对结果（最多列 10 条缺陷）与维护表行数。 */
+const docsSection = (structure, plan) => [
+  "## 文档",
+  "",
+  `- ${structure.note}`,
+  ...(structure.defects ?? []).slice(0, 10).map((d) => `  - ${d.file}${d.line === null ? "" : `:${d.line}`} ${d.message}`),
+  `- 维护表：${plan.docs.length} 行`,
+  "",
+];
 
 const wake = (n) => {
   const now = new Date();
@@ -153,6 +247,8 @@ const wake = (n) => {
     }
   }
   const doneM = plan.milestones.filter((m) => m.done).length;
+  const structure = checkStructure(planText);
+  signals.push(...staleSignals({ planText, plan, head, repo, runDir: dirname(outDir), structure }));
 
   const report = [
     `# 哨兵汇报 ${now.toISOString()}`,
@@ -185,13 +281,14 @@ const wake = (n) => {
     "",
     running.length ? running.map((r) => `- ${r[0]}：${r[1]}，开始 ${r[4]}`).join("\n") : "无",
     "",
+    ...docsSection(structure, plan),
     "## 信号",
     "",
     signals.length ? signals.map((s) => `- ${s}`).join("\n") : "- 无异常信号",
     "",
     "## 读这份汇报的要做的",
     "",
-    "哨兵按 one-lesson-rule 对照 spec 与 plan 判四问：进度有没有偏离 spec 与 plan；是不是在局部兜圈；上下文有没有腐化的迹象；每个在跑的子代理是否健康。写回看记录，给主代理发不超过十行的消息；主代理把处置写进 plan 的进度总览。",
+    "哨兵按 one-lesson-rule 对照 spec 与 plan 判五问：进度有没有偏离 spec 与 plan；是不是在局部兜圈；上下文有没有腐化的迹象；每个在跑的子代理是否健康；给人看的文档有没有过期（信号里以「文档陈旧」开头的）。写回看记录，给主代理发不超过十行的消息；主代理把处置写进 plan 的进度总览。",
     "",
   ].join("\n");
 
