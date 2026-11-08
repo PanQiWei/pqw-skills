@@ -1,0 +1,11 @@
+{
+  "name": "pqw-slice-closeout-engines",
+  "private": true,
+  "description": "差分变异 Stryker 引擎的兜底依赖。项目自己 node_modules 里的 Stryker 与 vitest 优先；没有时 npm ci --prefix skills/slice-closeout/scripts 装到这里。结构读数与内建引擎不需要它。",
+  "devDependencies": {
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/vitest-runner": "10.1.1",
+    "typescript": "6.0.3",
+    "vitest": "4.1.11"
+  }
+}

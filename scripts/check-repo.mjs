@@ -57,6 +57,7 @@ const walkFiles = (dir, exts) => {
   const out = [];
   if (!existsSync(dir)) return out;
   for (const n of readdirSync(dir)) {
+    if (n === "node_modules") continue;
     const p = join(dir, n);
     if (statSync(p).isDirectory()) out.push(...walkFiles(p, exts));
     else if (exts.some((e) => n.endsWith(e))) out.push(p);

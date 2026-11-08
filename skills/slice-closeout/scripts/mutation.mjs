@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // 差分变异：只打改动行所在单元的位点，带时间预算，「没跑测试」自动复跑，四类裁定，还原有保证。模型见 ../metrics-model.md，逻辑在 lib/mutation.mjs，本文件是命令面与进程生命周期。
 // 用法与每个参数的含义见 --help。
-// 退出 0 正常（预算用尽也是 0）；1 基线不通过、有文件还原失败或文件在变异期间被改动；2 用法错误或未提供 typescript；129 收到 SIGHUP、130 被中断、143 被终止。
+// 退出 0 正常（预算用尽也是 0）；1 基线不通过、有文件还原失败或文件在变异期间被改动；2 用法错误、未提供 typescript 或显式要的引擎不可用；129 收到 SIGHUP、130 被中断、143 被终止。
 // 写入变异体前先把原文落到系统临时目录的还原日志，进程被杀也能在下次启动时还原。
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs, parseScope, resolveBase, parseLcov, sh } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
+import { chooseEngine, ENGINES } from "./lib/stryker.mjs";
 import { parseDuration, collectSites, selectSites, createPatcher, restorePending, restoreLogPath, createTestRunner, runSites, summarize, formatMutation, capacity, plannedWorkers, runnerEnv, niceAvailable, createAdapter, fingerprintOf } from "./lib/mutation.mjs";
 
 const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
@@ -24,6 +25,8 @@ const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
   --plan-only                只列位点，不跑
   --budget <时长>            时间预算，缺省 20m；用尽后剩余位点记 notRun(budget)
   --timeout <时长>           单次测试超时；缺省基线 10m，位点取基线用时的 5 倍且至少 10s
+  --engine auto|stryker|builtin  执行引擎，缺省 auto：找得到 Stryker 与它的 vitest runner、且项目有 vitest 配置或声明了 vitest 时用 Stryker，否则用内建引擎；抬头之后一行写「引擎：…」，内建带原因。显式 stryker 而条件不满足退出 2 并说明装哪里
+  --stryker-modules <目录>   装了 @stryker-mutator/core 与 vitest-runner 的 node_modules；解析顺序是项目根 node_modules、这里（也读环境变量 PQW_STRYKER_MODULES）、本脚本目录的 node_modules（npm ci --prefix 该目录）
   --history <上次 JSON>      上次结果；指纹（工具版本、测试命令、测试文件摘要）相同、单元摘要未变且上次杀死的位点沿用，抬头写「沿用 N」；指纹不同整份不沿用并写明
   --no-tests-pattern <正则>  判「没跑测试」的输出模式，命中就复跑一次；缺省带词界，「Tests 10 passed」不算。基线输出也命中时该模式判不出东西，抬头写明并按通过处理
 
@@ -35,12 +38,13 @@ const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
   --no-nice                  不降低测试进程的优先级；缺省 nice 10，Windows 不降
 
 还原保证：写入变异体前先把原文落到系统临时目录的还原日志（pqw-mutation/<仓库哈希>.json），还原后删；上次运行被杀留下日志，下次启动先还原并打印；留下的文件已被人改过就不覆盖，退出 1。写入前核文件仍是原文、还原前核文件仍是变异体，不是就不覆盖，打印「文件在变异期间被改动」退出 1。
-退出 0 正常（预算用尽也是 0）；1 基线不通过、有文件还原失败或文件在变异期间被改动；2 用法错误或未提供 typescript；129 收到 SIGHUP、130 被中断、143 被终止。`;
-const SPEC = { test: "value", repo: "value", base: "value", target: "value", lcov: "value", ts: "value", json: "value", format: "value", "plan-only": "flag", budget: "value", timeout: "value", workers: "value", "no-tests-pattern": "value", history: "value", scope: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "load-ceiling": "value", "no-nice": "flag", files: "value" };
+退出 0 正常（预算用尽也是 0）；1 基线不通过、有文件还原失败或文件在变异期间被改动；2 用法错误、未提供 typescript 或显式要的引擎不可用；129 收到 SIGHUP、130 被中断、143 被终止。`;
+const SPEC = { test: "value", repo: "value", base: "value", target: "value", lcov: "value", ts: "value", json: "value", format: "value", "plan-only": "flag", budget: "value", timeout: "value", workers: "value", "no-tests-pattern": "value", history: "value", scope: "value", engine: "value", "stryker-modules": "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "load-ceiling": "value", "no-nice": "flag", files: "value" };
 const { opts, error } = parseArgs(process.argv.slice(2), SPEC);
 if (error) { console.error(error); console.error(USAGE); process.exit(2); }
 if (opts.help) { console.log(USAGE); process.exit(0); }
 if (!opts.test) { console.error("未提供：测试命令（--test）"); console.error(USAGE); process.exit(2); }
+if (opts.engine && !ENGINES.includes(opts.engine)) { console.error(`--engine 只接受 ${ENGINES.join("、")}：${opts.engine}`); console.error(USAGE); process.exit(2); }
 
 /** 装载失败一律退出 2，打印给定的话，没给就打印异常的话。 */
 const load = (fn, message) => { try { return fn(); } catch (e) { console.error(message ?? e.message); process.exit(2); } };
@@ -64,10 +68,11 @@ function loadInputs(opts) {
   const repo = resolve(opts.repo ?? process.cwd());
   const root = load(() => sh(repo, ["rev-parse", "--show-toplevel"]), `不是 Git 仓库：${repo}`);
   const ts = load(() => loadTypescript(opts.ts, root));
+  const { modules, configFile, ...engine } = load(() => chooseEngine({ engine: opts.engine, root, modulesDir: opts["stryker-modules"] }));
   const { base, baseGiven } = load(() => resolveBase(root, opts.base, opts.target));
   const resources = planResources(opts);
   return {
-    root, ts, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources, env: runnerEnv(process.env, resources.workers), fingerprint: fingerprintOf(root, opts.test),
+    root, ts, engine, stryker: { modules, configFile }, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources, env: runnerEnv(process.env, resources.workers), fingerprint: fingerprintOf(root, opts.test),
     report: opts.lcov ? parseLcov(readFileSync(resolve(root, opts.lcov), "utf8")) : null,
     history: opts.history ? JSON.parse(readFileSync(resolve(opts.history), "utf8")) : null,
     budgetMs: duration(opts.budget, 20 * 60000),
@@ -114,11 +119,12 @@ function restoreLeftover(root) {
 }
 
 const inputs = loadInputs(opts);
+if (inputs.engine.name === "stryker") { console.error("Stryker 引擎的运行尚未接入，请先用 --engine builtin"); process.exit(2); }
 restoreLeftover(inputs.root);
 const pinned = parseScope(opts.files) ?? [];
 const { files, sites, unmutated } = collectSites({ root: inputs.root, base: inputs.base, ts: inputs.ts, scope: parseScope(opts.scope), pinned });
 const history = selectSites(sites, inputs.report, inputs.history, inputs.fingerprint);
-const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, testCommand: opts.test, fingerprint: inputs.fingerprint, history, pinned, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, budget: { limitMs: inputs.budgetMs, exceeded: false }, resources: inputs.resources, sites, unmutated, summary: {}, survivors: [] };
+const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, engine: inputs.engine, testCommand: opts.test, fingerprint: inputs.fingerprint, history, pinned, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, budget: { limitMs: inputs.budgetMs, exceeded: false }, resources: inputs.resources, sites, unmutated, summary: {}, survivors: [] };
 
 const runner = createTestRunner(opts.test, inputs.root, inputs.env, { nice: inputs.resources.nice });
 const patcher = createPatcher(inputs.root);

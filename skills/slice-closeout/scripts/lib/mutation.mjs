@@ -386,7 +386,13 @@ function baselineNotes(result) {
   return notes;
 }
 
-/** 人读的表格。 */
+/** 引擎那一行：Stryker 写版本与运行器，内建写原因；结果里没有 engine（直接调库）时不出这一行。 */
+function engineLine(result) {
+  const e = result.engine;
+  if (!e) return [];
+  return [e.name === "stryker" ? `引擎：Stryker ${e.version}（${e.runner}）` : `引擎：内建（${e.reason}）`];
+}
+
 /** 抬头：基线、点名文件数、位点数与计数。 */
 function headLine(result) {
   const pinned = result.pinned?.length ? `（点名 ${result.pinned.length} 个文件）` : "";
@@ -409,7 +415,7 @@ function trailingLists(result) {
 
 export function formatMutation(result) {
   const { sites } = result;
-  const lines = [headLine(result), ...baselineNotes(result)];
+  const lines = [headLine(result), ...baselineNotes(result), ...engineLine(result)];
   lines.push("| 文件 | 单元 | 行 | 原文 | 替换 | 类别 | 裁定 |", "| --- | --- | --- | --- | --- | --- | --- |");
   for (const s of sites) lines.push(siteRow(s));
   if (sites.length === 0) lines.push("| | 没有位点 | | | | | |");
