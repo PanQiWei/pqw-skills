@@ -181,3 +181,23 @@ test("历史：单元摘要未变且上次 killed 的位点沿用，不再跑", 
     assert.ok(killed.length > 0 && killed.every((s) => s.reason === "carried"));
   } finally { dispose(dir); }
 });
+
+test("历史指纹：文件顶部加一行照样沿用并写「沿用 N」；改了测试文件或换了测试命令整份不沿用并写明", { skip }, () => {
+  const dir = setup();
+  try {
+    const first = JSON.parse(run(dir, ["--test", TESTCMD, "--json", join(dir, "h.json"), "--format", "json"]).stdout);
+    assert.deepEqual(Object.keys(first.fingerprint), ["toolVersion", "testCommand", "testFilesDigest"]);
+    writeFileSync(join(dir, "src/calc.ts"), "// 顶部加一行\n" + readFileSync(join(dir, "src/calc.ts"), "utf8"));
+    const shifted = JSON.parse(run(dir, ["--test", TESTCMD, "--history", join(dir, "h.json"), "--format", "json"]).stdout);
+    assert.deepEqual([shifted.history.used, shifted.summary.carried], [true, first.summary.killed], "行号变了仍沿用全部杀死");
+    const table = run(dir, ["--test", TESTCMD, "--history", join(dir, "h.json")]);
+    assert.match(table.stdout, new RegExp(`；沿用 ${first.summary.killed}`));
+    writeFileSync(join(dir, "test/calc.test.mjs"), readFileSync(join(dir, "test/calc.test.mjs"), "utf8") + "// 改了测试\n");
+    const changedTests = run(dir, ["--test", TESTCMD, "--history", join(dir, "h.json"), "--format", "json"]);
+    const outT = JSON.parse(changedTests.stdout);
+    assert.deepEqual([outT.history.used, outT.history.reason, outT.summary.carried], [false, "历史指纹不同（测试文件）", 0]);
+    assert.match(run(dir, ["--test", TESTCMD, "--history", join(dir, "h.json")]).stdout, /\n历史未沿用：历史指纹不同（测试文件）\n/);
+    const outC = JSON.parse(run(dir, ["--test", TESTCMD + " ", "--history", join(dir, "h.json"), "--format", "json"]).stdout);
+    assert.equal(outC.history.reason, "历史指纹不同（测试命令）");
+  } finally { dispose(dir); }
+});

@@ -176,7 +176,7 @@ test("收集：位点按文件名再按位置排序，id 稳定", { skip: TS ? f
   try {
     writeFiles(dir, { "src/b.ts": "export function f(a: number) { return a > 1 && a < 9; }\n", "src/a.ts": "export function g(a: number) { return a >= 1 || a <= 9; }\nexport function h(a: number) { return a !== 1; }\n", "src/c.ts": "export function o(a: number) {\n  function i(b: number) { return b > 1; }\n  return a < 2 && i(a);\n}\n" });
     const { sites } = collectSites({ root: dir, base: "HEAD", ts: loadTypescript(TS), scope: null });
-    assert.deepEqual(sites.map((s) => s.id), ["src/a.ts:1:40:relational", "src/a.ts:1:45:logical", "src/a.ts:1:50:relational", "src/a.ts:2:98:equality", "src/b.ts:1:40:relational", "src/b.ts:1:44:logical", "src/b.ts:1:49:relational", "src/c.ts:2:66:relational", "src/c.ts:3:84:relational", "src/c.ts:3:88:logical"]);
+    assert.deepEqual(sites.map((s) => s.id), ["src/a.ts:g:40:relational:>", "src/a.ts:g:45:logical:&&", "src/a.ts:g:50:relational:<", "src/a.ts:h:40:equality:===", "src/b.ts:f:40:relational:>=", "src/b.ts:f:44:logical:||", "src/b.ts:f:49:relational:<=", "src/c.ts:o.i:33:relational:>=", "src/c.ts:o:84:relational:<=", "src/c.ts:o:88:logical:||"], "id 是 文件:单元:单元内偏移:类别:替换，不含行号");
     assert.deepEqual(sites.slice(7).map((s) => s.unit), ["o.i", "o", "o"], "内层单元的位点按位置排在外层之前");
   } finally { dispose(dir); }
 });
@@ -218,6 +218,23 @@ test("基线输出命中「没跑测试」模式：记 patternHit，裁定时不
   assert.equal(clean.baseline.patternHit, false);
 });
 
+test("历史指纹：不给指纹就不核；历史没有指纹、工具版本、测试命令、测试文件任一不同整份不沿用并给原因；相同就沿用并计数", () => {
+  const fp = { toolVersion: "1", testCommand: "t", testFilesDigest: "d" };
+  const history = (fingerprint) => ({ fingerprint, sites: [{ id: "a.ts:f:2:logical:||", digest: "d1", verdict: "killed" }] });
+  const fresh = () => [{ ...site(), id: "a.ts:f:2:logical:||" }];
+  let s = fresh();
+  assert.deepEqual(selectSites(s, null, history(fp), fp), { given: true, used: true, reason: null, carried: 1 });
+  assert.deepEqual([s[0].verdict, s[0].reason], ["killed", "carried"]);
+  s = fresh();
+  assert.deepEqual(selectSites(s, null, history({ ...fp, testFilesDigest: "x" }), fp), { given: true, used: false, reason: "历史指纹不同（测试文件）", carried: 0 });
+  assert.equal(s[0].verdict, "planned");
+  assert.equal(selectSites(fresh(), null, history({ ...fp, testCommand: "u" }), fp).reason, "历史指纹不同（测试命令）");
+  assert.equal(selectSites(fresh(), null, history({ ...fp, toolVersion: "2" }), fp).reason, "历史指纹不同（工具版本）");
+  assert.equal(selectSites(fresh(), null, history(undefined), fp).reason, "历史没有指纹");
+  assert.deepEqual(selectSites(fresh(), null, history(undefined)), { given: true, used: true, reason: null, carried: 1 }, "不给指纹就不核");
+  assert.deepEqual(selectSites(fresh(), null, null, fp), { given: false, used: false, reason: null, carried: 0 });
+});
+
 test("测量有效性：基线不通过、没有位点、全部无覆盖、没有执行任何位点四种无效都让分数为 null；只列时为 null；正常为 true", () => {
   const v = (sites, opts) => { const s = summarize(sites, opts).summary; return [s.valid, s.invalidReason, s.score]; };
   assert.deepEqual(v([site({ verdict: "killed" })], { baselinePassed: false }), [false, "基线不通过", null]);
@@ -243,8 +260,11 @@ test("没有位点的改动段：模块级的改动行与没有可替换位点�
   const dir = makeRepo({ "src/a.ts": 'export const V = 1;\nexport function f(a: number) {\n  return a + 1;\n}\nexport function g() {\n  return "x";\n}\n' });
   try {
     writeFiles(dir, { "src/a.ts": 'export const V = 2;\nexport function f(a: number) {\n  return a + 2;\n}\nexport function g() {\n  return "y";\n}\n' });
-    const { sites, unmutated } = collectSites({ root: dir, base: "HEAD", ts: loadTypescript(TS), scope: null });
+    const { files, sites, unmutated } = collectSites({ root: dir, base: "HEAD", ts: loadTypescript(TS), scope: null });
     assert.deepEqual(sites.map((s) => [s.unit, s.original]), [["f", "+"]]);
+    const f = files.get("src/a.ts").units.find((u) => u.name === "f");
+    assert.equal(sites[0].offset, sites[0].start - f.startByte, "offset 相对单元起始字节");
+    assert.equal(sites[0].id, `src/a.ts:f:${sites[0].offset}:arithmetic:-`, "id 不含行号");
     assert.deepEqual(unmutated, [
       { file: "src/a.ts", unit: null, lines: [1, 1], reason: "改动行不在任何有名单元里" },
       { file: "src/a.ts", unit: "g", lines: [5, 7], reason: "单元里没有可替换的位点" },
@@ -255,7 +275,8 @@ test("没有位点的改动段：模块级的改动行与没有可替换位点�
 test("汇总：五类计数、超时单列、分数与存活清单的事实", () => {
   const sites = [site({ verdict: "killed" }), site({ verdict: "survived", original: "!", mutant: "" }), site({ verdict: "survived" }), site({ verdict: "uncovered" }), site({ verdict: "notRun" }), site()];
   const { summary, survivors } = summarize(sites);
-  assert.deepEqual(summary, { total: 6, killed: 1, survived: 2, uncovered: 1, notRun: 1, planned: 1, timedOut: 0, score: score(sites), valid: true, invalidReason: null });
+  assert.deepEqual(summary, { total: 6, killed: 1, survived: 2, uncovered: 1, notRun: 1, planned: 1, timedOut: 0, carried: 0, score: score(sites), valid: true, invalidReason: null });
+  assert.equal(summarize([site({ verdict: "killed", reason: "carried" }), site({ verdict: "killed" })]).summary.carried, 1);
   assert.equal(summarize([site({ verdict: "killed", reason: "timeout" }), site({ verdict: "killed" })]).summary.timedOut, 1);
   assert.equal(survivors[0].suggestion, "删去 ! 后测试仍过", "只陈述事实");
   assert.equal(survivors[1].suggestion, "&& 换成 || 后测试仍过");
@@ -270,7 +291,7 @@ test("表格：只列时不报计数；基线不过时贴尾巴；裁定带原�
   const sites = [site({ verdict: "killed", reason: "carried" }), site({ verdict: "survived", line: 2, original: "!", mutant: "", category: "negation" })];
   const { summary, survivors } = summarize(sites);
   const ran = formatMutation({ base, planOnly: false, baseline: { passed: true, tail: "" }, budget: { exceeded: true }, sites, summary, survivors });
-  assert.match(ran, /^差分变异：基线 0123456789ab 到工作树；位点 2：杀死 1、存活 1、无覆盖 0、未跑 0；分数 50%；预算用尽\n/);
+  assert.match(ran, /^差分变异：基线 0123456789ab 到工作树；位点 2：杀死 1、存活 1、无覆盖 0、未跑 0；分数 50%；沿用 1；预算用尽\n/);
   assert.match(ran, /\| a\.ts \| f \| 1 \| `&&` \| `\|\|` \| logical \| 杀死（carried） \|/);
   assert.match(ran, /\| a\.ts \| f \| 2 \| `!` \| `（删去）` \| negation \| 存活 \|/);
   assert.match(ran, /\n\n存活的位点：\n- a\.ts:2 f：删去 ! 后测试仍过/);

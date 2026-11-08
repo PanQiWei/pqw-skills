@@ -4,7 +4,8 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { cpus, freemem, loadavg } from "node:os";
-import { changedLines, inScope, lookupFile, nestedUnits, ownLines, unitDigests, score, baseLabel, TEST_FILE_RE } from "./core.mjs";
+import { changedLines, inScope, lookupFile, nestedUnits, ownLines, unitDigests, score, baseLabel, TEST_FILE_RE, testFilesDigest } from "./core.mjs";
+import { TOOL_VERSION } from "./version.mjs";
 
 // ---- 资源：容量自测、份额、并行度。模型见 ../../metrics-model.md「资源」。
 
@@ -128,12 +129,26 @@ export function collectSites({ root, base, ts, scope }) {
       const found = unitSites(ts, sourceFile, text, unit, units, ranges);
       if (found === null) continue;
       if (found.length === 0) unmutated.push({ file: path, unit: unit.name, lines: [unit.startLine, unit.endLine], reason: "单元里没有可替换的位点" });
-      for (const s of found) sites.push({ file: path, unit: unit.name, digest: digests.get(unit.name), ...s, verdict: "planned", reason: null, runs: 0, seconds: null });
+      for (const s of found) sites.push({ file: path, unit: unit.name, digest: digests.get(unit.name), ...s, offset: s.start - unit.startByte, verdict: "planned", reason: null, runs: 0, seconds: null });
     }
   }
   sites.sort((a, b) => a.file.localeCompare(b.file) || a.start - b.start);
-  for (const s of sites) s.id = `${s.file}:${s.line}:${s.start}:${s.category}`;
+  // id 不含行号与文件内偏移：文件上方加几行不影响沿用；单元内偏移加类别与替换足以认出同一个位点。
+  for (const s of sites) s.id = `${s.file}:${s.unit}:${s.offset}:${s.category}:${s.mutant}`;
   return { files, sites, unmutated };
+}
+
+/** 历史指纹：工具版本、测试命令、测试文件摘要。任一项变了，上次的杀死就不能再信。 */
+export const fingerprintOf = (root, testCommand) => ({ toolVersion: TOOL_VERSION, testCommand, testFilesDigest: testFilesDigest(root) });
+
+const FINGERPRINT_LABEL = { toolVersion: "工具版本", testCommand: "测试命令", testFilesDigest: "测试文件" };
+
+/** 历史不能沿用的原因；能沿用（或调用方不核指纹）返回 null。 */
+function historyMismatch(history, fingerprint) {
+  if (!history || !fingerprint) return null;
+  if (!history.fingerprint) return "历史没有指纹";
+  for (const k of Object.keys(FINGERPRINT_LABEL)) if (history.fingerprint[k] !== fingerprint[k]) return `历史指纹不同（${FINGERPRINT_LABEL[k]}）`;
+  return null;
 }
 
 /** 位点所在行或所在语句行有执行记录。没有 lcov 时一律算有覆盖。 */
@@ -145,14 +160,20 @@ export function isCovered(report, s) {
   return hit(s.line) || hit(s.anchorLine);
 }
 
-/** 选择：无覆盖的标 uncovered；上次已杀死且单元摘要未变的沿用 killed。原地改。 */
-export function selectSites(sites, report, history) {
-  const prior = new Map((history?.sites ?? []).map((s) => [s.id, s]));
+/**
+ * 选择：无覆盖的标 uncovered；上次已杀死且单元摘要未变的沿用 killed。原地改。
+ * 给了 fingerprint 就先核历史的指纹，不同就整份不沿用。返回 { given, used, reason, carried }。
+ */
+export function selectSites(sites, report, history, fingerprint = null) {
+  const reason = historyMismatch(history, fingerprint);
+  const prior = new Map(reason === null ? (history?.sites ?? []).map((s) => [s.id, s]) : []);
+  let carried = 0;
   for (const s of sites) {
     if (!isCovered(report, s)) { s.verdict = "uncovered"; continue; }
     const p = prior.get(s.id);
-    if (p && p.digest === s.digest && p.verdict === "killed") { s.verdict = "killed"; s.reason = "carried"; }
+    if (p && p.digest === s.digest && p.verdict === "killed") { s.verdict = "killed"; s.reason = "carried"; carried++; }
   }
+  return { given: Boolean(history), used: Boolean(history) && reason === null, reason, carried };
 }
 
 /** 写入器：一次只写一个文件，记住原文；还原后逐字节核对，返回是否一致。没有待还原的也返回 true。 */
@@ -281,7 +302,8 @@ function invalidReasonOf(summary, baselinePassed) {
  */
 export function summarize(sites, { planOnly = false, baselinePassed = true } = {}) {
   const count = (v) => sites.filter((s) => s.verdict === v).length;
-  const summary = { total: sites.length, killed: count("killed"), survived: count("survived"), uncovered: count("uncovered"), notRun: count("notRun"), planned: count("planned"), timedOut: sites.filter((s) => s.reason === "timeout").length, score: score(sites), valid: null, invalidReason: null };
+  const byReason = (r) => sites.filter((s) => s.reason === r).length;
+  const summary = { total: sites.length, killed: count("killed"), survived: count("survived"), uncovered: count("uncovered"), notRun: count("notRun"), planned: count("planned"), timedOut: byReason("timeout"), carried: byReason("carried"), score: score(sites), valid: null, invalidReason: null };
   if (!planOnly) {
     summary.invalidReason = invalidReasonOf(summary, baselinePassed);
     summary.valid = summary.invalidReason === null;
@@ -302,7 +324,8 @@ function tallyText(result) {
   if (sm.valid === false) return `：测量无效（${sm.invalidReason}）`;
   const score = sm.score === null ? "无" : (sm.score * 100).toFixed(0) + "%";
   const timedOut = sm.timedOut ? `（其中超时 ${sm.timedOut}）` : "";
-  return `：杀死 ${sm.killed}${timedOut}、存活 ${sm.survived}、无覆盖 ${sm.uncovered}、未跑 ${sm.notRun}；分数 ${score}${result.budget.exceeded ? "；预算用尽" : ""}`;
+  const carried = sm.carried ? `；沿用 ${sm.carried}` : "";
+  return `：杀死 ${sm.killed}${timedOut}、存活 ${sm.survived}、无覆盖 ${sm.uncovered}、未跑 ${sm.notRun}；分数 ${score}${carried}${result.budget.exceeded ? "；预算用尽" : ""}`;
 }
 
 /** 抬头之后关于基线的说明：不通过的尾巴；「没跑测试」模式在基线上也命中。 */
@@ -311,6 +334,7 @@ function baselineNotes(result) {
   const notes = [];
   if (!result.baseline.passed) notes.push(`基线不通过：\n${result.baseline.tail}`);
   if (result.baseline.patternHit) notes.push("「没跑测试」模式在基线输出上也命中，判不出没跑测试，位点按通过处理");
+  if (result.history?.given && !result.history.used) notes.push(`历史未沿用：${result.history.reason}`);
   return notes;
 }
 

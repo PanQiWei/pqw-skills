@@ -2,7 +2,7 @@
 // 定义取自 unclebob/crapper 与 unclebob/mutator（0BSD）。不认识任何语言的语法。
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 /** 会把 git 指到别的仓库或索引的环境变量；读数只认 cwd 所在的仓库，所以剥掉。 */
@@ -64,6 +64,16 @@ export const touches = (ranges, start, end) => ranges.some(([a, b]) => a <= end 
 
 /** 测试文件：tests、test、__tests__、spec 目录下的，或 .test、.spec 后缀的。读数不度量，变异不打。 */
 export const TEST_FILE_RE = /(^|\/)(tests?|__tests__|spec)\/|\.(test|spec)\.[cm]?[jt]sx?$/;
+
+/** 测试文件摘要：工作树里（含未跟踪的）测试文件的路径与内容按路径排序后取 sha256。测试一变，变异的历史就不能沿用。 */
+export function testFilesDigest(root) {
+  const tracked = sh(root, ["ls-files"]).split("\n");
+  const untracked = sh(root, ["ls-files", "--others", "--exclude-standard"]).split("\n");
+  const paths = [...new Set([...tracked, ...untracked])].filter((p) => p && TEST_FILE_RE.test(p) && existsSync(join(root, p))).sort();
+  const hash = createHash("sha256");
+  for (const p of paths) hash.update(p).update("\0").update(readFileSync(join(root, p))).update("\0");
+  return hash.digest("hex");
+}
 
 /** lcov：file → { lines: Map<line,[covered,total]>, branches: Map<line,[covered,total]> }。 */
 export function parseLcov(text) {

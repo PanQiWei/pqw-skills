@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs, parseScope, resolveBase, parseLcov, sh } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
-import { parseDuration, collectSites, selectSites, createPatcher, createTestRunner, runSites, summarize, formatMutation, capacity, plannedWorkers, runnerEnv, niceAvailable, createAdapter } from "./lib/mutation.mjs";
+import { parseDuration, collectSites, selectSites, createPatcher, createTestRunner, runSites, summarize, formatMutation, capacity, plannedWorkers, runnerEnv, niceAvailable, createAdapter, fingerprintOf } from "./lib/mutation.mjs";
 
 const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
 只打基线到工作树改动单元的位点，每个位点跑一遍测试命令，裁定为杀死、存活、无覆盖、未跑四类。
@@ -22,7 +22,7 @@ const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
   --plan-only                只列位点，不跑
   --budget <时长>            时间预算，缺省 20m；用尽后剩余位点记 notRun(budget)
   --timeout <时长>           单次测试超时；缺省基线 10m，位点取基线用时的 5 倍且至少 10s
-  --history <上次 JSON>      上次结果；单元摘要未变且上次杀死的位点沿用
+  --history <上次 JSON>      上次结果；指纹（工具版本、测试命令、测试文件摘要）相同、单元摘要未变且上次杀死的位点沿用，抬头写「沿用 N」；指纹不同整份不沿用并写明
   --no-tests-pattern <正则>  判「没跑测试」的输出模式，命中就复跑一次；缺省带词界，「Tests 10 passed」不算。基线输出也命中时该模式判不出东西，抬头写明并按通过处理
 
 资源。算式：份额 = 1 / (--other-heavy-tasks + 1)；上限 = max(1, floor(CPU 数 × 份额))，可用内存低于阈值时减半；并行度 = 缺省等于上限，显式 --workers 超过上限按上限。
@@ -64,7 +64,7 @@ function loadInputs(opts) {
   const { base, baseGiven } = load(() => resolveBase(root, opts.base, opts.target));
   const resources = planResources(opts);
   return {
-    root, ts, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources, env: runnerEnv(process.env, resources.workers),
+    root, ts, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources, env: runnerEnv(process.env, resources.workers), fingerprint: fingerprintOf(root, opts.test),
     report: opts.lcov ? parseLcov(readFileSync(resolve(root, opts.lcov), "utf8")) : null,
     history: opts.history ? JSON.parse(readFileSync(resolve(opts.history), "utf8")) : null,
     budgetMs: duration(opts.budget, 20 * 60000),
@@ -82,8 +82,8 @@ function emit(result, opts) {
 
 const inputs = loadInputs(opts);
 const { files, sites, unmutated } = collectSites({ root: inputs.root, base: inputs.base, ts: inputs.ts, scope: parseScope(opts.scope) });
-selectSites(sites, inputs.report, inputs.history);
-const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, testCommand: opts.test, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, budget: { limitMs: inputs.budgetMs, exceeded: false }, resources: inputs.resources, sites, unmutated, summary: {}, survivors: [] };
+const history = selectSites(sites, inputs.report, inputs.history, inputs.fingerprint);
+const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, testCommand: opts.test, fingerprint: inputs.fingerprint, history, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, budget: { limitMs: inputs.budgetMs, exceeded: false }, resources: inputs.resources, sites, unmutated, summary: {}, survivors: [] };
 
 const runner = createTestRunner(opts.test, inputs.root, inputs.env, { nice: inputs.resources.nice });
 const patcher = createPatcher(inputs.root);
