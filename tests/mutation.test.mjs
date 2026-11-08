@@ -171,16 +171,22 @@ test("SIGINT 时先还原再退出 130", { skip }, async () => {
   } finally { dispose(dir); }
 });
 
-test("SIGHUP 时先还原再退出 129", { skip }, async () => {
+test("SIGHUP 时先还原再退出 129：信号到时变异体已写入，还原后逐字节相等且日志删掉", { skip }, async () => {
   const dir = setup();
   try {
+    const root = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd: dir, encoding: "utf8" }).stdout.trim();
     const before = readFileSync(join(dir, "src/calc.ts"));
-    const child = spawn("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--test", "node -e \"setTimeout(()=>{}, 4000)\"", "--timeout", "20s"], { stdio: ["ignore", "pipe", "pipe"] });
-    await new Promise((res) => setTimeout(res, 1500));
+    // 基线那次立刻通过，之后每次睡 4 秒：发信号时第一个变异体一定在文件里。
+    const slowAfterBaseline = "node -e \"const fs=require('fs'); if (fs.existsSync('ran')) setTimeout(()=>{}, 4000); else fs.writeFileSync('ran', '')\"";
+    const child = spawn("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--test", slowAfterBaseline, "--timeout", "20s"], { stdio: ["ignore", "pipe", "pipe"] });
+    await new Promise((res) => setTimeout(res, 2500));
+    const duringRun = readFileSync(join(dir, "src/calc.ts"));
     child.kill("SIGHUP");
     const code = await new Promise((res) => child.on("close", res));
+    assert.notDeepEqual(duringRun, before, "发信号时文件里是变异体");
     assert.equal(code, 129);
     assert.deepEqual(readFileSync(join(dir, "src/calc.ts")), before);
+    assert.equal(existsSync(restoreLogPath(root)), false, "还原后日志删掉");
   } finally { dispose(dir); }
 });
 
@@ -191,7 +197,7 @@ test("还原日志：上次运行留下日志，启动先还原并打印；测�
     const original = readFileSync(join(dir, "src/calc.ts"), "utf8");
     writeFileSync(join(dir, "src/calc.ts"), original + "// mutant left behind\n");
     mkdirSync(join(restoreLogPath(root), ".."), { recursive: true });
-    writeFileSync(restoreLogPath(root), JSON.stringify({ root, path: "src/calc.ts", original }));
+    writeFileSync(restoreLogPath(root), JSON.stringify({ root, path: "src/calc.ts", original, mutated: original + "// mutant left behind\n" }));
     const r = run(dir, ["--test", TESTCMD, "--plan-only"]);
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stderr, /^上次运行留下的变异体已还原：src\/calc\.ts$/m);
@@ -208,8 +214,14 @@ test("还原日志：上次运行留下日志，启动先还原并打印；测�
     assert.notEqual(left.replace("// edited during run\n", ""), original, "变异体也留在文件里，由日志下次还原");
     assert.equal(existsSync(restoreLogPath(root)), true, "没还原成功的日志保留");
     const again = run(dir, ["--test", TESTCMD, "--plan-only"]);
-    assert.match(again.stderr, /已还原：src\/calc\.ts/);
-    assert.equal(readFileSync(join(dir, "src/calc.ts"), "utf8"), original, "下次启动用日志还原");
+    assert.equal(again.status, 1, "留下的文件既不是原文也不是变异体，下次启动不覆盖");
+    assert.match(again.stderr, /^文件在变异期间被改动：src\/calc\.ts；上次运行留下的变异体没有还原，请手工核对后删除还原日志 /m);
+    assert.equal(readFileSync(join(dir, "src/calc.ts"), "utf8"), left, "人的改动还在");
+    assert.equal(existsSync(restoreLogPath(root)), true);
+    writeFileSync(join(dir, "src/calc.ts"), original);
+    const cleared = run(dir, ["--test", TESTCMD, "--plan-only"]);
+    assert.equal(cleared.status, 0, cleared.stderr);
+    assert.equal(existsSync(restoreLogPath(root)), false, "人把文件改回原文后，启动只删日志");
   } finally { dispose(dir); }
 });
 

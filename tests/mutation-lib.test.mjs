@@ -97,7 +97,7 @@ test("还原日志：写入期间日志在、内容是原文，还原后删；�
     writeFileSync(join(dir, "a.ts"), "a && b\n");
     const p = createPatcher(dir, logPath);
     p.apply("a.ts", "a && b\n", "a || b\n");
-    assert.deepEqual(JSON.parse(readFileSync(logPath, "utf8")), { root: dir, path: "a.ts", original: "a && b\n" });
+    assert.deepEqual(JSON.parse(readFileSync(logPath, "utf8")), { root: dir, path: "a.ts", original: "a && b\n", mutated: "a || b\n" });
     assert.equal(p.restore(), true);
     assert.equal(existsSync(logPath), false, "还原后日志删掉");
     assert.throws(() => p.apply("a.ts", "x\n", "y\n"), { code: "tampered", path: "a.ts" }, "文件不是原文就不写");
@@ -112,11 +112,22 @@ test("还原日志：写入期间日志在、内容是原文，还原后删；�
     const root = join(dir, "repo"); mkdirSync(root);
     writeFileSync(join(root, "b.ts"), "mutant\n");
     mkdirSync(join(tmpdir(), "pqw-mutation"), { recursive: true });
-    writeFileSync(restoreLogPath(root), JSON.stringify({ root, path: "b.ts", original: "orig\n" }));
-    assert.equal(restorePending(root), "b.ts");
+    const leftover = JSON.stringify({ root, path: "b.ts", original: "orig\n", mutated: "mutant\n" });
+    writeFileSync(restoreLogPath(root), leftover);
+    assert.equal(restorePending(root), "b.ts", "文件仍是变异体就还原");
     assert.equal(readFileSync(join(root, "b.ts"), "utf8"), "orig\n");
     assert.equal(existsSync(restoreLogPath(root)), false);
     assert.equal(restorePending(root), null, "没有日志返回 null");
+    writeFileSync(restoreLogPath(root), leftover);
+    assert.equal(restorePending(root), null, "文件已是原文就只删日志");
+    assert.equal(existsSync(restoreLogPath(root)), false);
+    writeFileSync(restoreLogPath(root), leftover);
+    writeFileSync(join(root, "b.ts"), "mutant\n// 人改过\n");
+    assert.throws(() => restorePending(root), { code: "tampered", path: "b.ts" }, "文件是别的内容就不覆盖");
+    assert.equal(readFileSync(join(root, "b.ts"), "utf8"), "mutant\n// 人改过\n");
+    assert.equal(existsSync(restoreLogPath(root)), true, "日志保留给人核对");
+    rmSync(restoreLogPath(root));
+    writeFileSync(join(root, "b.ts"), "orig\n");
     writeFileSync(restoreLogPath(root), JSON.stringify({ root: "/elsewhere", path: "b.ts", original: "other\n" }));
     assert.equal(restorePending(root), null, "别的仓库的日志不动");
     assert.equal(readFileSync(join(root, "b.ts"), "utf8"), "orig\n");
@@ -204,7 +215,7 @@ test("执行：基线不过则全部 notRun(baselineFailed) 且不写文件；�
 const TS = tsPath();
 const SCRIPT = new URL("../skills/slice-closeout/scripts/mutation.mjs", import.meta.url).pathname;
 
-test("收集：位点按文件名再按位置排序，id 稳定", { skip: TS ? false : "没有 typescript，设 PQW_TS" }, async () => {
+test("收集：位点按文件名再按位置排序，id 稳定（第五程改：id 是 文件:单元:单元内偏移:类别:替换）", { skip: TS ? false : "没有 typescript，设 PQW_TS" }, async () => {
   const { loadTypescript } = await import("../skills/slice-closeout/scripts/lib/adapter-typescript.mjs");
   const dir = makeRepo({ "README.md": "x\n" });
   try {

@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs, parseScope, resolveBase, parseLcov, sh } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
-import { parseDuration, collectSites, selectSites, createPatcher, restorePending, createTestRunner, runSites, summarize, formatMutation, capacity, plannedWorkers, runnerEnv, niceAvailable, createAdapter, fingerprintOf } from "./lib/mutation.mjs";
+import { parseDuration, collectSites, selectSites, createPatcher, restorePending, restoreLogPath, createTestRunner, runSites, summarize, formatMutation, capacity, plannedWorkers, runnerEnv, niceAvailable, createAdapter, fingerprintOf } from "./lib/mutation.mjs";
 
 const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
 只打基线到工作树改动单元的位点，每个位点跑一遍测试命令，裁定为杀死、存活、无覆盖、未跑四类。
@@ -34,7 +34,7 @@ const USAGE = `用法：mutation.mjs --test "<测试命令>" [选项]
   --load-ceiling <比例>      运行中 1 分钟负载 ÷ CPU 数超过它就降一档，回落到它减 0.2 以下再升回，缺省 0.8
   --no-nice                  不降低测试进程的优先级；缺省 nice 10，Windows 不降
 
-还原保证：写入变异体前先把原文落到系统临时目录的还原日志（pqw-mutation/<仓库哈希>.json），还原后删；上次运行被杀留下日志，下次启动先还原并打印。写入前核文件仍是原文、还原前核文件仍是变异体，不是就不覆盖，打印「文件在变异期间被改动」退出 1。
+还原保证：写入变异体前先把原文落到系统临时目录的还原日志（pqw-mutation/<仓库哈希>.json），还原后删；上次运行被杀留下日志，下次启动先还原并打印；留下的文件已被人改过就不覆盖，退出 1。写入前核文件仍是原文、还原前核文件仍是变异体，不是就不覆盖，打印「文件在变异期间被改动」退出 1。
 退出 0 正常（预算用尽也是 0）；1 基线不通过、有文件还原失败或文件在变异期间被改动；2 用法错误或未提供 typescript；129 收到 SIGHUP、130 被中断、143 被终止。`;
 const SPEC = { test: "value", repo: "value", base: "value", target: "value", lcov: "value", ts: "value", json: "value", format: "value", "plan-only": "flag", budget: "value", timeout: "value", workers: "value", "no-tests-pattern": "value", history: "value", scope: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "load-ceiling": "value", "no-nice": "flag", files: "value" };
 const { opts, error } = parseArgs(process.argv.slice(2), SPEC);
@@ -101,10 +101,16 @@ async function execute(result, { sites, files, runner, patcher, inputs }) {
   return run.restored;
 }
 
-/** 上次运行留下的变异体先还原再开始。 */
+/** 上次运行留下的变异体先还原再开始；留下的文件已被人改过就不覆盖，退出 1。 */
 function restoreLeftover(root) {
-  const pending = restorePending(root);
-  if (pending) console.error(`上次运行留下的变异体已还原：${pending}`);
+  try {
+    const pending = restorePending(root);
+    if (pending) console.error(`上次运行留下的变异体已还原：${pending}`);
+  } catch (e) {
+    if (e.code !== "tampered") throw e;
+    console.error(`${e.message}；上次运行留下的变异体没有还原，请手工核对后删除还原日志 ${restoreLogPath(root)}`);
+    process.exit(1);
+  }
 }
 
 const inputs = loadInputs(opts);

@@ -111,10 +111,6 @@ function unitSites(ts, sourceFile, text, unit, units, ranges) {
   return own ? findSites(ts, sourceFile, text, unit, own) : null;
 }
 
-/**
- * 收集基线到工作树改动单元的全部位点。返回 { files: path → { text, units, digests }, sites, unmutated }。
- * unmutated 是改动了却没有位点的段：改动行不在任何有名单元里（模块级），或单元里没有可替换的位点；它们不进分数，要单独列出来。
- */
 /** 一个文件的位点与未覆盖段：改动文件只看改动行，点名的文件（pinned）全部有名单元都打，也不列未覆盖段。 */
 function fileSites(ts, path, text, ranges, isPinned) {
   const { sourceFile, units } = analyze(ts, path, text);
@@ -131,7 +127,10 @@ function fileSites(ts, path, text, ranges, isPinned) {
   return { entry: { text, units, digests }, sites, unmutated };
 }
 
-/** 收集位点：基线到工作树的改动文件加点名的文件，去掉不可变异的。 */
+/**
+ * 收集位点：基线到工作树的改动文件加点名的文件，去掉不可变异的。返回 { files: path → { text, units, digests }, sites, unmutated }。
+ * unmutated 是改动了却没有位点的段：改动行不在任何有名单元里（模块级），或单元里没有可替换的位点；它们不进分数，要单独列出来。
+ */
 export function collectSites({ root, base, ts, scope, pinned = [] }) {
   const files = new Map();
   const sites = [];
@@ -190,26 +189,31 @@ export function selectSites(sites, report, history, fingerprint = null) {
   return { given: Boolean(history), used: Boolean(history) && reason === null, reason, carried };
 }
 
-/** 写入器：一次只写一个文件，记住原文；还原后逐字节核对，返回是否一致。没有待还原的也返回 true。 */
 /** 还原日志的位置：系统临时目录下按仓库根哈希命名，同一仓库的两次运行共用一份。 */
 export const restoreLogPath = (root) => join(tmpdir(), "pqw-mutation", createHash("sha256").update(root).digest("hex").slice(0, 16) + ".json");
 
 /** 被改动：文件现在不是工具期望的内容。调用方据此退出 1，不覆盖。 */
 const tampered = (path) => Object.assign(new Error(`文件在变异期间被改动：${path}`), { code: "tampered", path });
 
-/** 启动时：上次运行留下日志（被 SIGKILL 或断电）就把原文写回去、删日志，返回还原的路径；没有日志或日志不是本仓库的返回 null。 */
+/**
+ * 启动时：上次运行留下日志（被 SIGKILL 或断电）就处理它。文件仍是变异体就写回原文、删日志，返回还原的路径；
+ * 文件已是原文就只删日志，返回 null；文件是别的内容（上次退出后有人改过）就不覆盖、保留日志，抛 tampered。没有日志或日志不是本仓库的返回 null。
+ */
 export function restorePending(root) {
   const logPath = restoreLogPath(root);
   if (!existsSync(logPath)) return null;
   const log = JSON.parse(readFileSync(logPath, "utf8"));
   if (log.root !== root) return null;
+  const current = readFileSync(join(root, log.path), "utf8");
+  if (current === log.original) { unlinkSync(logPath); return null; }
+  if (current !== log.mutated) throw tampered(log.path);
   writeFileSync(join(root, log.path), log.original);
   unlinkSync(logPath);
   return log.path;
 }
 
 /**
- * 打补丁：写入前核文件仍等于原文，并先把 { root, path, original } 落到还原日志再写；还原时核文件仍等于写入的变异体，
+ * 打补丁：写入前核文件仍等于原文，并先把 { root, path, original, mutated } 落到还原日志再写；还原时核文件仍等于写入的变异体，
  * 等就写回原文、逐字节核对、删日志；不等（测试期间被人改了）就不覆盖、保留日志并抛 tampered。
  */
 export function createPatcher(root, logPath = restoreLogPath(root)) {
@@ -219,7 +223,7 @@ export function createPatcher(root, logPath = restoreLogPath(root)) {
     apply(path, original, mutated) {
       if (current(path) !== original) throw tampered(path);
       mkdirSync(dirname(logPath), { recursive: true });
-      writeFileSync(logPath, JSON.stringify({ root, path, original }));
+      writeFileSync(logPath, JSON.stringify({ root, path, original, mutated }));
       applied = { path, original, mutated };
       writeFileSync(join(root, path), mutated);
     },

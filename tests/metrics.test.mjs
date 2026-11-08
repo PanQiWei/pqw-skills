@@ -148,7 +148,7 @@ test("覆盖率报告的可信度警告：报告早于改动文件；改动函�
   } finally { dispose(dir); }
 });
 
-test("读数 JSON 记实际用的线与每个函数的带位；--cc 与 --crap 可覆盖；格式错退出 2", { skip: TS ? false : "没有 typescript" }, () => {
+test("读数 JSON 记实际用的线与每个函数的带位；--cc 与 --crap 可覆盖；格式错退出 2（第五程改：没给 lcov 的覆盖率列写「未提供」）", { skip: TS ? false : "没有 typescript" }, () => {
   const dir = makeRepo({ "src/a.ts": BASE });
   try {
     writeFiles(dir, { "src/a.ts": BASE.replace("return 0;", "return -1;") });

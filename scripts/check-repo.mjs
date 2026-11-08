@@ -175,7 +175,6 @@ for (const file of [...checkedFiles, ...codeFiles]) {
   });
 }
 
-// ---- 输出
 // ---- 7. 工具版本常量与 plugin.json 一致：差分变异的历史指纹用它，不一致就沿用错历史。
 function checkToolVersion() {
   try {
@@ -187,6 +186,8 @@ function checkToolVersion() {
   }
 }
 checkToolVersion();
+
+// ---- 输出
 
 if (failures.length === 0) {
   if (!quiet) console.log(`PASS：${skills.length} 个发行技能，${metaSkills.length} 个元技能，${checkedFiles.length} 个文档，${codeFiles.length} 个脚本与网页。pstack ${pstackRoot ? basename(pstackRoot) : "缺"}，Matt ${mattRoot ? basename(mattRoot) : "缺"}。`);
