@@ -82,6 +82,28 @@ test("读数只认 --repo：GIT_DIR 指向别的仓库也不受影响", { skip: 
   } finally { dispose(dir); dispose(other); }
 });
 
+test("测试文件与声明文件不度量，列进未覆盖带原因；报告里没有的文件与范围内没记录的函数覆盖率为 null 带原因，表格写无数据", { skip: TS ? false : "没有 typescript" }, () => {
+  const dir = makeRepo({ "src/a.ts": BASE, "src/b.ts": BASE, "tests/a.test.ts": "import { test } from 'node:test';\ntest('x', () => { if (1) {} });\n", "src/t.d.ts": "export declare function f(a: number): number;\n" });
+  try {
+    writeFiles(dir, {
+      "src/a.ts": BASE.replace("return 0;", "return -1;"),
+      "src/b.ts": BASE.replace("return 0;", "return 2;"),
+      "tests/a.test.ts": "import { test } from 'node:test';\ntest('x', () => { if (2) {} });\n",
+      "src/t.d.ts": "export declare function f(a: number, b: number): number;\n",
+      "lcov.info": "SF:src/a.ts\nDA:20,1\nend_of_record\n",
+    });
+    const r = run(dir, ["--base", "HEAD", "--lcov", "lcov.info", "--format", "json"]);
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    assert.deepEqual(out.uncovered.filter((u) => u.path !== "lcov.info"), [{ path: "src/t.d.ts", reason: "声明文件不度量" }, { path: "tests/a.test.ts", reason: "测试文件不度量" }]);
+    const byPath = Object.fromEntries(out.functions.map((f) => [f.path, [f.coverage, f.coverageReason, f.crap]]));
+    assert.deepEqual(byPath, { "src/a.ts": [null, "范围内没有记录", null], "src/b.ts": [null, "报告里没有这个文件", null] });
+    const table = run(dir, ["--base", "HEAD", "--lcov", "lcov.info"]);
+    assert.match(table.stdout, /\| f \| src\/a\.ts \| 1-4 \| 3 \| 2 \| 无数据 \| 无覆盖 \| 无覆盖 \|/);
+    assert.match(table.stdout, /- tests\/a\.test\.ts：测试文件不度量/);
+  } finally { dispose(dir); }
+});
+
 test("读数 JSON 记实际用的线与每个函数的带位；--cc 与 --crap 可覆盖；格式错退出 2", { skip: TS ? false : "没有 typescript" }, () => {
   const dir = makeRepo({ "src/a.ts": BASE });
   try {
@@ -94,7 +116,7 @@ test("读数 JSON 记实际用的线与每个函数的带位；--cc 与 --crap �
     assert.equal(low.functions[0].band, "alert");
     assert.equal(JSON.parse(run(dir, ["--base", "HEAD", "--format", "json", "--cc", "2,5"]).stdout).functions[0].band, "warn");
     const table = run(dir, ["--base", "HEAD", "--cc", "1,2"]);
-    assert.match(table.stdout, /\| f \| src\/a\.ts \| 1-4 \| 3 \| 2 \| 无覆盖 \| 无覆盖 \| alert \|/);
+    assert.match(table.stdout, /\| f \| src\/a\.ts \| 1-4 \| 3 \| 2 \| 未提供 \| 无覆盖 \| alert \|/);
     const bad = run(dir, ["--base", "HEAD", "--cc", "x"]);
     assert.equal(bad.status, 2);
     assert.match(bad.stderr, /--cc 要写成 <warn>,<alert>/);

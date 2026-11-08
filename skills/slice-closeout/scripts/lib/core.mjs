@@ -62,6 +62,9 @@ export function changedLines(cwd, base) {
 
 export const touches = (ranges, start, end) => ranges.some(([a, b]) => a <= end && b >= start);
 
+/** 测试文件：tests、test、__tests__、spec 目录下的，或 .test、.spec 后缀的。读数不度量，变异不打。 */
+export const TEST_FILE_RE = /(^|\/)(tests?|__tests__|spec)\/|\.(test|spec)\.[cm]?[jt]sx?$/;
+
 /** lcov：file → { lines: Map<line,[covered,total]>, branches: Map<line,[covered,total]> }。 */
 export function parseLcov(text) {
   const files = new Map();
@@ -107,17 +110,20 @@ export function ownLines(unit, nested) {
 
 export const nestedUnits = (outer, units) => units.filter((o) => o !== outer && o.startLine >= outer.startLine && o.endLine <= outer.endLine && (o.startLine > outer.startLine || o.endLine < outer.endLine));
 
-/** 覆盖率：分支记录优先，否则行记录；范围内没记录记 0；文件不在报告记 0；没有报告记 null。 */
+/**
+ * 覆盖率三态：有值；没有报告（「未提供报告」）；报告里没有这个文件或范围内没有记录（「无数据」的两种原因）。
+ * 有记录时分支记录优先，没有分支取行记录。返回 { value, reason }，value 为 null 时 reason 说明为什么。
+ */
 export function coverageOf(report, path, unit, nested) {
-  if (!report) return null;
+  if (!report) return { value: null, reason: "未提供报告" };
   const rec = lookupFile(report, path);
-  if (!rec) return 0;
+  if (!rec) return { value: null, reason: "报告里没有这个文件" };
   const lines = ownLines(unit, nested);
   const sum = (map) => lines.reduce(([c, t], l) => { const e = map.get(l); return e ? [c + e[0], t + e[1]] : [c, t]; }, [0, 0]);
   const [bc, bt] = sum(rec.branches);
-  if (bt > 0) return bc / bt;
+  if (bt > 0) return { value: bc / bt, reason: null };
   const [lc, lt] = sum(rec.lines);
-  return lt === 0 ? 0 : lc / lt;
+  return lt === 0 ? { value: null, reason: "范围内没有记录" } : { value: lc / lt, reason: null };
 }
 
 export const crap = (cc, coverage) => (coverage === null || coverage === undefined ? null : cc * cc * (1 - coverage) ** 3 + cc);

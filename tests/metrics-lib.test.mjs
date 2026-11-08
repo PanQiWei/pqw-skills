@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { makeRepo, writeFiles, dispose, tsPath } from "./fixture.mjs";
 import { byHotness, summarize, touchesOwnLines, formatMetrics, bandOf, parseThresholds, DEFAULT_THRESHOLDS } from "../skills/slice-closeout/scripts/lib/metrics.mjs";
-import { touches } from "../skills/slice-closeout/scripts/lib/core.mjs";
+import { touches, coverageOf } from "../skills/slice-closeout/scripts/lib/core.mjs";
 
 const SCRIPT = new URL("../skills/slice-closeout/scripts/metrics.mjs", import.meta.url).pathname;
 const TS = tsPath();
@@ -59,7 +59,19 @@ test("改动行只算单元自己的行：内层单元的首尾行都不算，�
   assert.equal(touchesOwnLines(unit, nested, [[0, 0], [4, 7]]), true);
 });
 
-test("表格：没有改动函数时写一行说明；覆盖率写百分比，缺 lcov 写无覆盖；未覆盖文件列在末尾", () => {
+test("覆盖率三态：没有报告「未提供报告」；报告里没有文件、范围内没有记录都是无数据带原因；有分支取分支，否则取行", () => {
+  const unit = { startLine: 3, endLine: 6 };
+  const rec = { lines: new Map([[3, [1, 1]], [4, [0, 1]]]), branches: new Map() };
+  assert.deepEqual(coverageOf(null, "a.ts", unit, []), { value: null, reason: "未提供报告" });
+  assert.deepEqual(coverageOf(new Map([["b.ts", rec]]), "a.ts", unit, []), { value: null, reason: "报告里没有这个文件" });
+  assert.deepEqual(coverageOf(new Map([["a.ts", rec]]), "a.ts", { startLine: 10, endLine: 12 }, []), { value: null, reason: "范围内没有记录" });
+  assert.deepEqual(coverageOf(new Map([["a.ts", rec]]), "a.ts", unit, []), { value: 0.5, reason: null });
+  const branched = { lines: rec.lines, branches: new Map([[3, [1, 4]]]) };
+  assert.deepEqual(coverageOf(new Map([["a.ts", branched]]), "a.ts", unit, []), { value: 0.25, reason: null }, "分支优先");
+  assert.deepEqual(coverageOf(new Map([["a.ts", { lines: new Map([[3, [0, 1]]]), branches: new Map() }]]), "a.ts", unit, []), { value: 0, reason: null }, "有记录全没命中才是 0");
+});
+
+test("表格：没有改动函数时写一行说明；覆盖率写百分比，缺 lcov 写未提供（第五程 C1 起三态，原「无覆盖」）；未覆盖文件列在末尾", () => {
   const base = "abcdef0123456789";
   const empty = formatMetrics({ base, functions: [], uncovered: [], summary: { coverageProvided: false } });
   assert.match(empty, /^结构读数：基线 abcdef012345 到工作树；改动函数 0 个；没有 lcov，CRAP 写无覆盖\n/);
@@ -71,7 +83,9 @@ test("表格：没有改动函数时写一行说明；覆盖率写百分比，�
   assert.doesNotMatch(one, /没有改动的函数/);
   assert.match(one, /\n\n未覆盖的改动文件：\n- x\.md：r$/);
   const none = formatMetrics({ base, functions: [{ ...row, coverage: null, crap: null }], uncovered: [], summary: { coverageProvided: false } });
-  assert.match(none, /\| 无覆盖 \| 无覆盖 \|/);
+  assert.match(none, /\| 未提供 \| 无覆盖 \|/);
+  const nodata = formatMetrics({ base, functions: [{ ...row, coverage: null, coverageReason: "报告里没有这个文件", crap: null }], uncovered: [], summary: { coverageProvided: true } });
+  assert.match(nodata, /\| 无数据 \| 无覆盖 \|/);
   const banded = formatMetrics({ base, functions: [{ ...row, band: "warn" }], uncovered: [], summary: { coverageProvided: true } });
   assert.match(banded, /\| CRAP \| 带位 \|\n\| --- \| --- \| --- \| --- \| --- \| --- \| --- \| --- \|\n\| f \| a\.ts \| 1-3 \| 2 \| 1 \| 25% \| 3\.69 \| warn \|/);
 });

@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { cpus, freemem, loadavg } from "node:os";
-import { changedLines, inScope, lookupFile, nestedUnits, ownLines, unitDigests, score, baseLabel } from "./core.mjs";
+import { changedLines, inScope, lookupFile, nestedUnits, ownLines, unitDigests, score, baseLabel, TEST_FILE_RE } from "./core.mjs";
 
 // ---- 资源：容量自测、份额、并行度。模型见 ../../metrics-model.md「资源」。
 
@@ -62,7 +62,7 @@ export function createAdapter({ planned, ceiling = 0.8, hysteresis = 0.2, sample
 }
 import { analyze, sites as findSites, SOURCE_RE, DECLARATION_RE } from "./adapter-typescript.mjs";
 
-export const TEST_FILE_RE = /(^|\/)(tests?|__tests__|spec)\/|\.(test|spec)\.[cm]?[jt]sx?$/;
+export { TEST_FILE_RE };
 const NODE_MODULES_RE = /(^|\/)node_modules\//;
 const UNITS = { ms: 1, s: 1000, m: 60000, h: 3600000 };
 
