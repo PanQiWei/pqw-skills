@@ -26,6 +26,19 @@ PQW_TS=<typescript 包目录> node --test tests/
 
 `tests/` 用 `node:test`，夹具在系统临时目录建小 Git 仓库。需要 typescript 的用例从 `PQW_TS` 取包目录（要 JS 实现的 typescript，6.x 可用），取不到就跳过并打印原因。差分变异的用例要跑真实的测试命令，整套约一分钟。
 
+工具的逻辑都在各自 `scripts/lib/` 下的函数里，`scripts/*.mjs` 只是命令面。改工具时用它自己量自己：
+
+```bash
+# 覆盖率：Node 自带，lcov 含用例 spawn 出来的命令面子进程；destination 不要写 /dev/null，会 fsync 报错
+PQW_TS=<目录> node --test --experimental-test-coverage --test-reporter=lcov --test-reporter-destination=tmp/lcov.info --test-reporter=spec --test-reporter-destination=stdout tests/
+# 只摘改动函数的读数
+node skills/slice-closeout/scripts/metrics.mjs --ts <目录> --base <起点提交> --lcov tmp/lcov.info --scope skills/slice-closeout/scripts
+# 只打改动单元的位点；第二轮带 --history 沿用上一轮杀死的
+node skills/slice-closeout/scripts/mutation.mjs --ts <目录> --test "PQW_TS=<目录> node --test tests/" --base <起点提交> --lcov tmp/lcov.info --scope skills/slice-closeout/scripts --budget 25m --json tmp/mutation.json
+```
+
+命令面的用例只从 CLI 进，摸不到排序、汇总、边界这些分支；变异分数低时补直打 lib 函数的用例（`tests/*-lib.test.mjs`），不改命令面用例。
+
 第一条核：`skills/` 扁平布局、frontmatter、无「待写」、三处同步、外部引用在钉定版本里存在、DMI 技能的措辞、发行技能、模板、脚本与网页里无项目概念禁词、全仓散文与脚本无破折号（`tests/` 与 `check-repo.mjs` 自身免检）、模板被 `SKILL.md` 链接。退出 0 通过，1 列出失败，2 用法错误。
 
 第二条校插件清单。不用 `--strict`：它把根目录 `CLAUDE.md` 不随插件分发、没有图标这两条有意接受的警告算失败。

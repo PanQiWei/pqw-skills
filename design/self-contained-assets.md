@@ -94,7 +94,7 @@
 | 汇报件 | 一份 HTML 骨架：进展（读 plan 的进度表）、架构变化（Mermaid 前后对照）、读数（结构读数与变异的 JSON）、还缺什么、待人决定。图表按统一的配色与暗色适配 |
 | demo 骨架 | 单文件 HTML，可增量更新：每个切片追加一段，不重写整页 |
 
-这四块已在第二程实现：`slice-closeout/scripts/metrics.mjs`、`mutation.mjs`（核心在 `lib/core.mjs`，TypeScript 适配器在 `lib/adapter-typescript.mjs`，模型在 `metrics-model.md`），`progress-artifacts/scripts/build-report.mjs` 与 `demo-append.mjs`。
+这四块已在第二程实现：`slice-closeout/scripts/metrics.mjs`、`mutation.mjs`（核心在 `lib/core.mjs`，TypeScript 适配器在 `lib/adapter-typescript.mjs`，模型在 `metrics-model.md`），`progress-artifacts/scripts/build-report.mjs` 与 `demo-append.mjs`。第三程把四个命令面的逻辑拆进 `lib/metrics.mjs`、`lib/mutation.mjs`、`lib/report.mjs`、`lib/demo.mjs`，命令面只剩参数、装载、信号与退出码；这样变异工具能打到工具自己的逻辑。
 
 ## 接入点：消费者项目要提供什么
 

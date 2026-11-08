@@ -41,8 +41,8 @@ pqw-skills/
     ├── context-pack/                 run-pack-template.md、slice-kickoff-template.md
     ├── delegate-brief/               brief-template.md
     ├── one-lesson-rule/              review-record-template.md、hosts.md、scripts/sentinel.mjs
-    ├── slice-closeout/               closeout-checklist.md、metrics-model.md、scripts/metrics.mjs、scripts/mutation.mjs、scripts/lib/{core,adapter-typescript}.mjs
-    ├── progress-artifacts/           report-skeleton.md、report-template.html、demo-skeleton.html、scripts/{artifacts-dir,build-report,demo-append}.mjs
+    ├── slice-closeout/               closeout-checklist.md、metrics-model.md、scripts/{metrics,mutation}.mjs 命令面、scripts/lib/{core,adapter-typescript,metrics,mutation}.mjs 逻辑
+    ├── progress-artifacts/           report-skeleton.md、report-template.html、demo-skeleton.html、scripts/{artifacts-dir,build-report,demo-append}.mjs 命令面、scripts/lib/{args,report,demo}.mjs 逻辑
     └── cleanup/                      checklist-template.md、scripts/cleanup.mjs
 ```
 
@@ -82,7 +82,7 @@ pqw-skills/
 
 ## 现在的状态
 
-0.3.0：十五个发行技能正文齐全，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。`node scripts/check-repo.mjs` 退出 0。结构读数与差分变异的可移植工具、HTML 汇报件与 demo 骨架归下一程，方向在 `design/self-contained-assets.md`。
+0.3.1：十五个发行技能正文齐全，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。结构读数、差分变异、HTML 汇报件与 demo 追加四个工具随技能发行，逻辑在 `scripts/lib/`，命令面只剩参数与退出码，`tests/` 51 个用例。`node scripts/check-repo.mjs` 退出 0，禁词与破折号也扫脚本与网页。
 
 ## 校验
 
