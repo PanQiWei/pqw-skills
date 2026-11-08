@@ -11,7 +11,7 @@
 ## Claude Code 的派法
 
 1. plan 写好、第一个切片开工前，用 `Agent` 工具在后台派哨兵，简报按 `delegate-brief/sentinel-brief-template.md` 填：spec、plan、整程上下文包与汇报目录的路径，间隔 45 分钟，轮数 4，便宜档。
-2. 哨兵每轮：把 `node <技能目录>/scripts/sentinel.mjs --plan <plan 路径> --out <汇报目录>/sentinel --interval 45m --cycles 1` 作为后台命令启动，结束回合；脚本睡满 45 分钟写一份汇报后退出，完成通知唤醒哨兵；读它打印的汇报文件；按简报判四问并写回看记录；`SendMessage` 发给 `main` 不超过十行。
+2. 哨兵每轮：把 `node <技能目录>/scripts/sentinel.mjs --plan <plan 路径> --out <汇报目录>/sentinel --interval 45m --cycles 1` 作为后台命令启动，结束回合；脚本睡满 45 分钟写一份汇报后退出，完成通知唤醒哨兵；读它打印的汇报文件；按简报判六问并写回看记录；`SendMessage` 发给 `main` 不超过十行。
 3. 满 4 轮，最后一条消息写「本哨兵结束，记录在 <目录>」。主代理续派，新简报里写上一个哨兵的记录目录。
 
 ## 备用：会话内 cron
