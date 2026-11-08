@@ -86,20 +86,19 @@ export function parseLcov(text) {
 
 export const normalizePath = (p) => p.replace(/\\/g, "/").replace(/^file:/, "").replace(/^(\.\/)+/, "").replace(/\/{2,}/g, "/");
 
-/** 报告里找一个源码文件：先全等，再按后缀最长匹配。 */
-export function lookupFile(report, path) {
+/**
+ * 报告里选一个源码文件的记录（照 crapper 的 _select_key）：全等优先；否则按整段路径后缀匹配，任一方向，
+ * 恰一个候选才取；多个候选不猜，记歧义。多包仓库里成员相对的 `src/index.ts` 不能被任何同名文件认领。
+ */
+export function selectRecord(report, path) {
   const target = normalizePath(path);
-  if (report.has(target)) return report.get(target);
-  const parts = target.split("/");
-  let best = null; let bestLen = 0;
-  for (const [key, value] of report) {
-    const kp = key.split("/");
-    const n = Math.min(kp.length, parts.length);
-    let i = 0; while (i < n && kp[kp.length - 1 - i] === parts[parts.length - 1 - i]) i++;
-    if (i === Math.min(kp.length, parts.length) && i > bestLen) { best = value; bestLen = i; }
-  }
-  return best;
+  if (report.has(target)) return { record: report.get(target), ambiguous: false };
+  const candidates = [...report.keys()].filter((key) => key.endsWith("/" + target) || target.endsWith("/" + key));
+  if (candidates.length === 1) return { record: report.get(candidates[0]), ambiguous: false };
+  return { record: null, ambiguous: candidates.length > 1 };
 }
+
+export const lookupFile = (report, path) => selectRecord(report, path).record;
 
 /** 单元自己的行：扣掉更内层单元。 */
 export function ownLines(unit, nested) {
@@ -116,8 +115,8 @@ export const nestedUnits = (outer, units) => units.filter((o) => o !== outer && 
  */
 export function coverageOf(report, path, unit, nested) {
   if (!report) return { value: null, reason: "未提供报告" };
-  const rec = lookupFile(report, path);
-  if (!rec) return { value: null, reason: "报告里没有这个文件" };
+  const { record: rec, ambiguous } = selectRecord(report, path);
+  if (!rec) return { value: null, reason: ambiguous ? "报告里多个文件匹配" : "报告里没有这个文件" };
   const lines = ownLines(unit, nested);
   const sum = (map) => lines.reduce(([c, t], l) => { const e = map.get(l); return e ? [c + e[0], t + e[1]] : [c, t]; }, [0, 0]);
   const [bc, bt] = sum(rec.branches);

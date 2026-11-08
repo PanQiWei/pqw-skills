@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { makeRepo, writeFiles, dispose, tsPath } from "./fixture.mjs";
 import { byHotness, summarize, touchesOwnLines, formatMetrics, bandOf, parseThresholds, DEFAULT_THRESHOLDS } from "../skills/slice-closeout/scripts/lib/metrics.mjs";
-import { touches, coverageOf } from "../skills/slice-closeout/scripts/lib/core.mjs";
+import { touches, coverageOf, selectRecord } from "../skills/slice-closeout/scripts/lib/core.mjs";
 
 const SCRIPT = new URL("../skills/slice-closeout/scripts/metrics.mjs", import.meta.url).pathname;
 const TS = tsPath();
@@ -69,6 +69,17 @@ test("覆盖率三态：没有报告「未提供报告」；报告里没有文�
   const branched = { lines: rec.lines, branches: new Map([[3, [1, 4]]]) };
   assert.deepEqual(coverageOf(new Map([["a.ts", branched]]), "a.ts", unit, []), { value: 0.25, reason: null }, "分支优先");
   assert.deepEqual(coverageOf(new Map([["a.ts", { lines: new Map([[3, [0, 1]]]), branches: new Map() }]]), "a.ts", unit, []), { value: 0, reason: null }, "有记录全没命中才是 0");
+});
+
+test("报告里选记录照 crapper：全等优先；整段后缀任一方向恰一个才取；多个候选记歧义不猜；部分段不算", () => {
+  const a = { lines: new Map(), branches: new Map() }; const b = { lines: new Map(), branches: new Map() };
+  assert.deepEqual(selectRecord(new Map([["src/a.ts", a]]), "src/a.ts"), { record: a, ambiguous: false });
+  assert.deepEqual(selectRecord(new Map([["/abs/repo/src/a.ts", a]]), "src/a.ts"), { record: a, ambiguous: false }, "报告是绝对路径");
+  assert.deepEqual(selectRecord(new Map([["src/a.ts", a]]), "packages/x/src/a.ts"), { record: a, ambiguous: false }, "报告是成员相对路径");
+  assert.deepEqual(selectRecord(new Map([["x/src/a.ts", a], ["y/src/a.ts", b]]), "src/a.ts"), { record: null, ambiguous: true });
+  assert.deepEqual(selectRecord(new Map([["src/b.ts", a]]), "src/a.ts"), { record: null, ambiguous: false });
+  assert.deepEqual(selectRecord(new Map([["xsrc/a.ts", a]]), "src/a.ts"), { record: null, ambiguous: false }, "不是整段不算");
+  assert.deepEqual(coverageOf(new Map([["x/src/a.ts", a], ["y/src/a.ts", b]]), "src/a.ts", { startLine: 1, endLine: 2 }, []), { value: null, reason: "报告里多个文件匹配" });
 });
 
 test("表格：没有改动函数时写一行说明；覆盖率写百分比，缺 lcov 写未提供（第五程 C1 起三态，原「无覆盖」）；未覆盖文件列在末尾", () => {

@@ -1,6 +1,6 @@
 // 结构读数的逻辑：改动函数的圈复杂度、认知复杂度、覆盖率与 CRAP。模型见 ../../metrics-model.md。
 // 不读 argv，不 exit；调用方传已装载的 typescript、lcov 报告与基线。
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { changedLines, inScope, touches, coverageOf, crap, nestedUnits, round, baseLabel, TEST_FILE_RE } from "./core.mjs";
 import { analyze, SOURCE_RE, DECLARATION_RE } from "./adapter-typescript.mjs";
@@ -84,7 +84,18 @@ const coverageText = (f, provided) => {
 };
 
 /** 基线到工作树的改动函数读数。scope 是路径前缀数组或 null；report 是 parseLcov 的结果或 null。 */
-export function collectMetrics({ root, base, baseGiven = null, head, ts, report, scope, thresholds = DEFAULT_THRESHOLDS }) {
+/** 覆盖率报告的可信度警告：报告早于被度量的改动文件；改动函数全部零命中；报告里多个文件匹配同一路径。 */
+export function coverageWarnings(root, functions, reportMtimeMs) {
+  const warnings = [];
+  const paths = [...new Set(functions.map((f) => f.path))];
+  if (reportMtimeMs !== null) for (const p of paths) if (statSync(join(root, p)).mtimeMs > reportMtimeMs) warnings.push(`覆盖率报告早于改动文件 ${p}，行号可能错位`);
+  if (functions.length && functions.every((f) => f.coverage === 0)) warnings.push("改动函数在报告里全部零命中，可能没跑到或报告过旧");
+  for (const p of paths) if (functions.some((f) => f.path === p && f.coverageReason === "报告里多个文件匹配")) warnings.push(`报告里多个文件匹配 ${p}，没有取任何一个`);
+  return warnings;
+}
+
+/** 基线到工作树的改动函数读数。scope 是路径前缀数组或 null；report 是 parseLcov 的结果或 null；reportMtimeMs 是报告文件的修改时刻（毫秒）或 null。 */
+export function collectMetrics({ root, base, baseGiven = null, head, ts, report, scope, thresholds = DEFAULT_THRESHOLDS, reportMtimeMs = null }) {
   const functions = [];
   const uncovered = [];
   for (const [path, ranges] of changedLines(root, base)) {
@@ -98,7 +109,8 @@ export function collectMetrics({ root, base, baseGiven = null, head, ts, report,
     }
   }
   functions.sort(byHotness);
-  return { kind: "pqw-metrics", generatedAt: new Date().toISOString(), base, baseGiven, head, thresholds, functions, uncovered, summary: summarize(functions, report) };
+  const warnings = report ? coverageWarnings(root, functions, reportMtimeMs) : [];
+  return { kind: "pqw-metrics", generatedAt: new Date().toISOString(), base, baseGiven, head, thresholds, warnings, functions, uncovered, summary: summarize(functions, report) };
 }
 
 /** 人读的表格。 */
@@ -106,6 +118,7 @@ export function formatMetrics(result) {
   const { functions, uncovered, base, summary } = result;
   const lines = [
     `结构读数：基线 ${baseLabel(base, result.baseGiven)} 到工作树；改动函数 ${functions.length} 个${summary.coverageProvided ? "" : "；没有 lcov，CRAP 写无覆盖"}`,
+    ...(result.warnings ?? []).map((w) => `警告：${w}`),
     "| 函数 | 文件 | 行 | 圈复杂度 | 认知复杂度 | 覆盖率 | CRAP | 带位 |",
     "| --- | --- | --- | --- | --- | --- | --- | --- |",
   ];

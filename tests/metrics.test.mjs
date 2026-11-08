@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 import { makeRepo, writeFiles, dispose, tsPath, git } from "./fixture.mjs";
 
@@ -101,6 +101,28 @@ test("测试文件与声明文件不度量，列进未覆盖带原因；报告�
     const table = run(dir, ["--base", "HEAD", "--lcov", "lcov.info"]);
     assert.match(table.stdout, /\| f \| src\/a\.ts \| 1-4 \| 3 \| 2 \| 无数据 \| 无覆盖 \| 无覆盖 \|/);
     assert.match(table.stdout, /- tests\/a\.test\.ts：测试文件不度量/);
+  } finally { dispose(dir); }
+});
+
+test("覆盖率报告的可信度警告：报告早于改动文件；改动函数全部零命中；多个文件匹配", { skip: TS ? false : "没有 typescript" }, () => {
+  const dir = makeRepo({ "src/a.ts": BASE });
+  try {
+    writeFiles(dir, { "src/a.ts": BASE.replace("return 0;", "return -1;"), "lcov.info": "SF:src/a.ts\nDA:2,0\nDA:3,0\nend_of_record\n" });
+    const old = new Date("2000-01-01T00:00:00Z");
+    utimesSync(join(dir, "lcov.info"), old, old);
+    const r = run(dir, ["--base", "HEAD", "--lcov", "lcov.info", "--format", "json"]);
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    assert.deepEqual(out.warnings, ["覆盖率报告早于改动文件 src/a.ts，行号可能错位", "改动函数在报告里全部零命中，可能没跑到或报告过旧"]);
+    assert.equal(out.functions[0].coverage, 0);
+    const table = run(dir, ["--base", "HEAD", "--lcov", "lcov.info"]);
+    assert.match(table.stdout, /改动函数 1 个\n警告：覆盖率报告早于改动文件 src\/a\.ts，行号可能错位\n警告：改动函数在报告里全部零命中，可能没跑到或报告过旧\n\| 函数/);
+    writeFiles(dir, { "lcov.info": "SF:x/src/a.ts\nDA:2,1\nend_of_record\nSF:y/src/a.ts\nDA:2,1\nend_of_record\n" });
+    const amb = JSON.parse(run(dir, ["--base", "HEAD", "--lcov", "lcov.info", "--format", "json"]).stdout);
+    assert.deepEqual(amb.warnings, ["报告里多个文件匹配 src/a.ts，没有取任何一个"]);
+    assert.deepEqual([amb.functions[0].coverage, amb.functions[0].coverageReason], [null, "报告里多个文件匹配"]);
+    const fresh = JSON.parse(run(dir, ["--base", "HEAD", "--format", "json"]).stdout);
+    assert.deepEqual(fresh.warnings, [], "没给报告不警告");
   } finally { dispose(dir); }
 });
 
