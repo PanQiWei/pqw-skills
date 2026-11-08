@@ -25,7 +25,7 @@ claude plugin validate .
 npx vitest run
 ```
 
-`tests/` 用 vitest 跑、`node:assert/strict` 断言，夹具在系统临时目录建小 Git 仓库。根 `package.json` 钉着测试链的依赖（vitest、覆盖率插件、Stryker 两个包、typescript），`npm ci` 之后用例从仓库根的 `node_modules` 解析 typescript 与 Stryker；`PQW_TS`、`PQW_STRYKER_MODULES` 两个环境变量仍可覆盖，取不到时相关用例跳过并打印原因。命令面用例真起子进程，整套约一分钟。
+`tests/` 用 vitest 跑、`node:assert/strict` 断言，夹具在系统临时目录建小 Git 仓库。根 `package.json` 钉着测试链的依赖（vitest、覆盖率插件、Stryker 两个包、typescript），`npm ci` 之后用例从仓库根的 `node_modules` 解析 typescript 与 Stryker；`PQW_TS`、`PQW_STRYKER_MODULES` 两个环境变量仍可覆盖，取不到时相关用例跳过并打印原因。命令面用例真起子进程，整套约半分钟；真起 Stryker 的几条占大头。
 
 结构读数、差分变异、汇报件、demo 追加四个工具的逻辑在各自 `scripts/lib/` 下的函数里，`scripts/*.mjs` 只是命令面；哨兵、汇报件目录、清理三个脚本仍是单文件。改工具时用它自己量自己：
 
@@ -44,7 +44,7 @@ node skills/slice-closeout/scripts/mutation.mjs --base <起点提交> --scope sk
 
 一程进行中另有一条：`node skills/spec-and-plan/scripts/check-plan.mjs --plan <plan> --spec <spec>` 核这程的 plan 与 spec 是否仍合模板，退出 0 合、1 有缺陷并逐条列出、2 用法错误；收口最后一步、哨兵每轮、汇报件生成前各跑一次。
 
-第二条校插件清单。不用 `--strict`：它把根目录 `CLAUDE.md` 不随插件分发、没有图标这两条有意接受的警告算失败。
+第二条校插件清单。它会给两条警告，都是预期，所以不用 `--strict`（它把警告算失败）：一、根目录 `CLAUDE.md` 不作为插件上下文分发。它只是 `@AGENTS.md` 一行，给在本仓库里工作的 agent 指路，不是给装了插件的人看的，保留。二、没有图标。校验说明写明上架图标只在第一次保存或提交到插件目录时生效，之后改不了，所以不放占位图；要不要加、加什么，由仓库作者定（第八程待裁清单里有这一条）。
 
 ## 跑脚本
 
