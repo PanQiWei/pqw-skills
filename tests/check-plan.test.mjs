@@ -13,7 +13,7 @@ const SPEC_TEMPLATE = new URL("../skills/spec-and-plan/spec-template.md", import
 
 /** 模板正文（分隔线之后），把三个机读占位符换成合法值。 */
 const instantiate = (path) => readFileSync(path, "utf8").split("\n---\n").slice(1).join("\n---\n")
-  .replaceAll("<UTC 时间>", "2026-11-08T10:00Z").replaceAll("<短 sha>", "0123abc").replaceAll("<N>", "1").replaceAll("<r>", "1");
+  .replaceAll("<UTC 时间>", "2026-11-08T10:00Z").replaceAll("<UTC 时刻>", "2026-11-08T10:00Z").replaceAll("<短 sha>", "0123abc").replaceAll("<N>", "1").replaceAll("<r>", "1");
 
 const GOOD_PLAN = `# 示例 交付计划（revision 1）
 
