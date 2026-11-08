@@ -40,7 +40,7 @@
 | 执行 | 不单设技能 | 引用 | 无 | `mattpocock-skills:tdd`（seam、mocking、好测试的判据） | `pstack:typescript-best-practices`、`ub-mode` | 入口技能里一句：实施走 TDD，不过度设计。不够格走流的小修与原型直接用 `mattpocock-skills:tdd`、`prototype`、`diagnosing-bugs` |
 | 11 | `slice-closeout` | 自写加辅助 | `review-code` 的确定性三面（对规格核验收、结构读数、固定差分变异；父会话先自跑类型检查与 lint；变异只打热点；两轮同类阻断就缩窄承诺）、`review-delivery`（候选是否达到 spec 的交付边界与验收标准）、`verification-facility` 的故障注入与跨边界场景 | `mattpocock-skills:code-review`，只用标准面 | `pstack:deslop`、`pstack:unslop`、`pstack:principle-prove-it-works`、`pstack:typescript-best-practices`、`ub-mode` | 收口清单的顺序；读数与变异的命令从接入点取；两轮不收敛就先问承诺是否本阶段必需。不做对抗性评审，所以不引 `thermos`、`interrogate`、`thermo-nuclear-review`，`review-code` 里「设计与实践」那一面也不迁 |
 | 12 | `progress-artifacts` | 自写加辅助 | 无 | 无 | `pstack:ketchup`（追进度的讲法：说变化，不说过程）、`mattpocock-skills:prototype`（demo 的做法：单文件 HTML） | 汇报件的三种形式、放置位置、用完即弃 |
-| 13 | `cleanup` | 自写 | `delegate` 的工作树清理条件 | 无 | 无 | 两个尺度的清理清单、删前核对、交付声明含清理 |
+| 13 | `cleanup` | 自写 | `delegate` 的工作树清理条件 | 无 | 无 | 两个尺度、一个判断（还要不要）、交付声明含一句清了什么 |
 
 ## omne 技能的迁移分类
 

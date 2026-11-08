@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 清理：先列后删。默认只列（--plan）；只有 --apply 才动手。每条独立执行，中断不留半删状态。
+// 清理：缺省只列（--plan），列出来是让人判断还要不要；只有 --apply 才动手。每条独立执行，中断不留半删状态。
 // 退出 0 正常；1 有条目删除失败；2 用法错误。
 //
 // 用法：cleanup.mjs --scope slice|run --prefix <分支或工作树名前缀> [--repo <路径>] [--session <id>] [--run <id>] [--project-tmp <目录>] [--apply]

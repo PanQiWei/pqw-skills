@@ -59,7 +59,7 @@
 | 10 | [one-lesson-rule](./skills/one-lesson-rule/SKILL.md) | 便宜档的只读哨兵子代理常驻后台，持有 spec 与 plan，每 45 分钟自己醒来取工作树事实、判四问、发十行以内的消息；主代理在停顿点处置；子代理每 30 分钟看一次健康度 | recall、show-me-your-work |
 | 11 | [slice-closeout](./skills/slice-closeout/SKILL.md) | 每切片收口六步：类型检查与 lint、对照 spec 与不变式、结构读数、差分变异、去 AI slop、证明可用；确定性验收，不做对抗性评审。自带 `metrics.mjs`（改动函数的圈复杂度、认知复杂度、CRAP）与 `mutation.mjs`（热点差分变异，带预算与还原），与语言无关的模型加 TypeScript 适配器 | code-review、deslop、unslop、principle-prove-it-works、typescript-best-practices、ub-mode |
 | 12 | [progress-artifacts](./skills/progress-artifacts/SKILL.md) | 用架构图、UML、快速 demo 等用完即弃的汇报件让人留在高层，放系统临时目录；自带目录脚本、`build-report.mjs` 网页汇报件生成器、demo 骨架与 `demo-append.mjs` | ketchup、prototype |
-| 13 | [cleanup](./skills/cleanup/SKILL.md) | 每切片清一次不必留给下一切片的中间产物；一程交付后全盘清理；自带先列后删的清理脚本与交付声明 | 无 |
+| 13 | [cleanup](./skills/cleanup/SKILL.md) | 每切片清一次不必留给下一切片的中间产物；一程交付后全盘清理；只判断还要不要，不要的直接删；自带清理脚本与交付声明 | 无 |
 
 实施本身走 TDD，不过度设计，不过度优化，由 `pstack:poteto-mode` 与 `mattpocock-skills:tdd` 承载，本仓库不另写。表里的「引用」列是各 `SKILL.md` 当前声明的外部技能；完整的主引用与辅助引用见 [design/skill-mapping.md](./design/skill-mapping.md)。
 
