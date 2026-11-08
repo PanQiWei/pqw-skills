@@ -78,6 +78,21 @@ function checkNarrative(file, sec) {
   return defects;
 }
 
+/** 维护表「最近更新」允许的写法：UTC 时刻，或以「未」开头的状态（未生成、未派、未动）。 */
+export const UPDATED_RE = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z|未.*)$/;
+
+/** 文档维护表：表头六列；每行最后一格是 UTC 时刻或「未…」，别的写法哨兵解析不了会静默跳过。 */
+function checkDocsTable(file, sec) {
+  const defects = [];
+  if (!hasLine(sec, (l) => l.trim() === DOCS_TABLE_HEADER)) defects.push({ file, line: sec.start, message: `文档维护表表头应为「${DOCS_TABLE_HEADER}」` });
+  sec.lines.forEach((l, i) => {
+    const cells = l.trim().startsWith("|") ? l.trim().slice(1, -1).split("|").map((c) => c.trim()) : null;
+    if (!cells || cells.length !== 6 || cells[0] === "文档" || cells[0] === "---") return;
+    if (!UPDATED_RE.test(cells[5])) defects.push({ file, line: sec.start + i, message: `文档维护表「最近更新」应是 UTC 时刻或「未…」，写的是「${cells[5]}」` });
+  });
+  return defects;
+}
+
 /** 切片节：每个 ### NN： 都有意义段、开工包、收口；切片号与切片表一致。 */
 function checkSlices(file, sec, tableIds) {
   const defects = [];
@@ -119,7 +134,7 @@ export function checkPlan(text, file = "plan.md") {
   const narrative = byTitle(secs, "一程目标与前后差别");
   if (narrative) defects.push(...checkNarrative(file, narrative));
   const docs = byTitle(secs, "文档维护表");
-  if (docs && !hasLine(docs, (l) => l.trim() === DOCS_TABLE_HEADER)) defects.push({ file, line: docs.start, message: `文档维护表表头应为「${DOCS_TABLE_HEADER}」` });
+  if (docs) defects.push(...checkDocsTable(file, docs));
   const slices = byTitle(secs, "切片");
   if (slices) defects.push(...checkSlices(file, slices, overview ? sliceTableIds(overview) : []));
   defects.push(...checkDisposals(file, text));

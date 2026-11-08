@@ -159,6 +159,8 @@ test("六种坏 plan 各报对应缺陷：缺节、节顺序错、进度行格�
   assert.deepEqual(noMeaning.map((d) => [d.line, d.message]), [[GOOD_PLAN.split("\n").indexOf("### 02：第二片") + 1, "切片 02 缺「- **交付这片的意义：**」"]], "行号指向切片标题");
   assert.ok(messages(GOOD_PLAN.replace("处置 2（", "处置 3（")).some((m) => m === "处置编号断号：应为 2，写的是 3"));
   assert.ok(messages(GOOD_PLAN.replace("| 怎么判断过期 | 最近更新 |", "| 最近更新 |")).some((m) => m.startsWith("文档维护表表头应为")));
+  assert.deepEqual(checkPlan(GOOD_PLAN.replace("| head 不对 | 2026-11-08T10:00Z |", "| head 不对 | 10 点（刚改） |")).map((d) => [d.line, d.message]), [[GOOD_PLAN.split("\n").findIndex((l) => l.includes("| head 不对 |")) + 1, "文档维护表「最近更新」应是 UTC 时刻或「未…」，写的是「10 点（刚改）」"]]);
+  assert.deepEqual(checkPlan(GOOD_PLAN.replace("| head 不对 | 2026-11-08T10:00Z |", "| head 不对 | 未生成 |")), [], "「未…」是允许的状态");
 });
 
 test("其余缺陷：抬头没 revision、缺进度行、切片表切片号不递增、切片不在表里、表里的切片没有节、目标节没正文、spec 缺节与缺 C 条目", () => {

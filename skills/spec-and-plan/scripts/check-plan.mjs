@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import { checkPlan, checkSpec, formatDefects } from "./lib/check-plan.mjs";
 
 const USAGE = `用法：check-plan.mjs --plan <plan.md> [--spec <spec.md>] [--format json]
-按 spec-and-plan 的模板核结构：必需的节在且顺序对、进度行与处置行格式对、切片表与文档维护表表头齐、每个切片有「交付这片的意义」「开工包」「收口」、处置编号连续。
+按 spec-and-plan 的模板核结构：必需的节在且顺序对、进度行与处置行格式对、切片表与文档维护表表头齐、维护表「最近更新」是 UTC 时刻或「未…」、每个切片有「交付这片的意义」「开工包」「收口」、处置编号连续。缺陷按「文件:行 缺什么」列出，整节缺失取不到行时只写文件。
 只核结构，不核内容好坏。
 
   --plan <路径>    必填。交付计划
