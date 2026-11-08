@@ -4,14 +4,14 @@
 
 | 宿主 | 后台子代理 | 两轮之间怎样等 | 消息怎样到主代理 | 备用 | 验证状态 |
 | --- | --- | --- | --- | --- | --- |
-| Claude Code | `Agent` 工具后台派发，主代理不等它 | 子代理用 shell 的 `sleep` 阻塞，单条命令最长十分钟，分段睡满间隔；睡着时不消耗 token | 子代理用 `SendMessage` 发给主代理；主代理在当前回合结束或下一个工具结果到来时看到，排队不算丢失 | `CronCreate` 到点排一条提示，主代理自己跑脚本并回看 | 待第四程切片 03 在真实会话里验证两次唤醒后填入时刻 |
+| Claude Code | `Agent` 工具后台派发，主代理不等它 | 让脚本等：子代理把 `sentinel.mjs --interval 45m --cycles 1` 作为后台命令（`run_in_background`）启动后结束回合，脚本在 Node 里睡满间隔再写汇报退出，宿主用完成通知唤醒子代理；等待期间零 token。前台 `sleep` 会被 Bash 工具拒绝，不要用 | 子代理用 `SendMessage` 发给 `main`；主代理在当前回合结束或下一个工具结果到来时看到，排队不算丢失 | `CronCreate` 到点排一条提示，主代理自己跑脚本并回看 | 2026-11-08T04:08:38Z 与 04:11:14Z 两轮各等 2 分钟验证通过：后台脚本结束，子代理收到通知并发消息到主代理 |
 | Codex | 后台命令起一个子代理会话，或只起脚本循环 | 同上 | 子代理写 `latest.md` 与回看记录；主代理在切片边界读 | 后台脚本循环 | 脚本在本机 shell 验证；真实 Codex 会话未验证 |
 | Cursor | 后台终端 | 同上 | 同 Codex | 同 Codex | 脚本在本机 shell 验证；真实 Cursor 会话未验证 |
 
 ## Claude Code 的派法
 
 1. plan 写好、第一个切片开工前，用 `Agent` 工具在后台派哨兵，简报按 `delegate-brief/sentinel-brief-template.md` 填：spec、plan、整程上下文包与汇报目录的路径，间隔 45 分钟，轮数 4，便宜档。
-2. 哨兵每轮：`sleep 600` 四次加 `sleep 300` 睡满 45 分钟；跑 `node <技能目录>/scripts/sentinel.mjs --plan <plan 路径> --once`；读它打印的汇报文件；按简报判四问并写回看记录；`SendMessage` 给主代理不超过十行。
+2. 哨兵每轮：把 `node <技能目录>/scripts/sentinel.mjs --plan <plan 路径> --out <汇报目录>/sentinel --interval 45m --cycles 1` 作为后台命令启动，结束回合；脚本睡满 45 分钟写一份汇报后退出，完成通知唤醒哨兵；读它打印的汇报文件；按简报判四问并写回看记录；`SendMessage` 发给 `main` 不超过十行。
 3. 满 4 轮，最后一条消息写「本哨兵结束，记录在 <目录>」。主代理续派，新简报里写上一个哨兵的记录目录。
 
 ## 备用：会话内 cron

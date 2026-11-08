@@ -10,8 +10,7 @@
 
 每轮步骤：
 
-1. 等待：用 shell 的 sleep 分段阻塞睡满间隔（单条命令有时长上限时分几段）。等待期间不做任何别的事。
-2. 取事实：运行 `node <技能目录>/scripts/sentinel.mjs --plan <plan 路径> --once`，读它打印的汇报文件。
+1. 等待并取事实：让脚本自己等。把 `node <技能目录>/scripts/sentinel.mjs --plan <plan 路径> --out <汇报目录>/sentinel --interval <间隔> --cycles 1` 作为后台命令启动，它睡满间隔后写一份汇报再退出；启动后结束你的回合，等完成通知，不轮询、不用 shell 的 sleep。醒来读它打印的汇报文件。
 3. 比差：重读 plan，与上一轮比：进度行、当前行、切片表状态、里程碑勾选数、收口记录、处置记录。spec 的 revision 变了才重读 spec。
 4. 判四问，按回看记录模板写到 `<汇报目录>/sentinel/<UTC 时间>.md`。
 5. 发消息：不超过十行，格式见第 4 节。
