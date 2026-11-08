@@ -1,4 +1,4 @@
-// 命令面上的引擎选择：抬头与 JSON 的 engine 字段、显式 stryker 不可用退出 2、非法 --engine 退出 2。
+// 命令面：退役参数、不是 vitest 或缺依赖退出 2、只列、真跑、增量、初跑失败、信号清理。
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import { spawnSync, spawn } from "node:child_process";
@@ -11,42 +11,40 @@ const TS = tsPath();
 const skip = TS ? false : "没有 typescript，设 PQW_TS";
 const SRC = "export function isPos(x: number) {\n  return x > 0;\n}\n";
 const cleanEnv = { ...process.env, PQW_STRYKER_MODULES: "/nonexistent/modules" };
-const run = (dir, args, env = cleanEnv) => spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--test", "true", "--plan-only", ...args], { encoding: "utf8", env });
+const run = (dir, args, env = cleanEnv) => spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--plan-only", ...args], { encoding: "utf8", env });
+const fakeModules = (dir) => { const fake = join(dir, "fake-modules"); for (const name of ["@stryker-mutator/core", "@stryker-mutator/vitest-runner", "vitest"]) { mkdirSync(join(fake, name), { recursive: true }); writeFileSync(join(fake, name, "package.json"), JSON.stringify({ name, version: "10.1.1" })); } return fake; };
 
-test("非法 --engine 退出 2，不需要别的输入", () => {
-  const r = spawnSync("node", [SCRIPT, "--test", "true", "--engine", "jest"], { encoding: "utf8" });
-  assert.equal(r.status, 2);
-  assert.match(r.stderr, /^--engine 只接受 auto、stryker、builtin：jest/);
+test("0.8.0 退役的参数退出 2 并写原因，不需要别的输入", () => {
+  for (const [flag, why] of [["--engine", "内建引擎已删"], ["--test", "不再需要"], ["--budget", "单独复核"], ["--lcov", "不读 lcov"], ["--history", "incremental"]]) {
+    const r = spawnSync("node", [SCRIPT, flag, "x"], { encoding: "utf8" });
+    assert.equal(r.status, 2, flag);
+    assert.match(r.stderr, new RegExp(`^${flag} 0\\.8\\.0 起退役：.*${why}`), flag);
+  }
+  assert.equal(spawnSync("node", [SCRIPT, "--help"], { encoding: "utf8" }).status, 0);
 });
 
-test.skipIf(skip)("auto 在没有 vitest 的项目选内建：抬头第二行写原因，JSON 顶层有 engine", () => {
+test.skipIf(skip)("项目不是 vitest：退出 2 写只支持 vitest", () => {
   const dir = makeRepo({ "src/calc.ts": SRC });
   try {
-    writeFiles(dir, { "src/calc.ts": SRC.replace("> 0", ">= 0") });
-    const text = run(dir, []);
-    assert.equal(text.status, 0, text.stderr);
-    assert.match(text.stdout, /^差分变异：基线 [0-9a-f]{12} 到工作树；位点 \d+（只列）\n引擎：内建（项目没有 vitest 配置也没有声明 vitest，Stryker 引擎只支持 vitest）\n\| 文件/);
-    const json = JSON.parse(run(dir, ["--format", "json"]).stdout);
-    assert.deepEqual(json.engine, { name: "builtin", version: null, runner: null, reason: "项目没有 vitest 配置也没有声明 vitest，Stryker 引擎只支持 vitest" });
-    assert.deepEqual(json.budget, { limitMs: 20 * 60000, exceeded: false });
-    assert.match(run(dir, ["--engine", "builtin"]).stdout, /\n引擎：内建（显式 --engine builtin）\n/);
+    const r = run(dir, []);
+    assert.equal(r.status, 2, r.stdout);
+    assert.match(r.stderr, /^项目没有 vitest 配置也没有声明 vitest：本工具只支持 vitest 项目/);
   } finally { dispose(dir); }
 });
 
-test.skipIf(skip)("有 vitest 配置但找不到依赖：auto 选内建并写装法；显式 stryker 退出 2 写装法与三处目录", () => {
-  const dir = makeRepo({ "src/calc.ts": SRC, "vitest.config.ts": "export default {};\n" });
+test.skipIf(skip)("有 vitest 配置但找不到依赖：退出 2 写装法与三处目录；指定目录里有就用它", () => {
+  const dir = makeRepo({ "src/calc.ts": SRC, "vitest.config.ts": "export default {};\n", ".gitignore": ".stryker-tmp\n" });
   try {
-    const auto = run(dir, ["--format", "json"]);
-    assert.equal(auto.status, 0, auto.stderr);
-    assert.match(JSON.parse(auto.stdout).engine.reason, /^找不到 Stryker：.*npm ci --prefix /);
-    const forced = run(dir, ["--engine", "stryker"]);
-    assert.equal(forced.status, 2);
-    assert.match(forced.stderr, new RegExp(`找不到 Stryker：${join(dir, "node_modules")}、/nonexistent/modules、.*skills/slice-closeout/scripts/node_modules 里都没有`));
-    const fake = join(dir, "fake-modules");
-    for (const name of ["@stryker-mutator/core", "@stryker-mutator/vitest-runner", "vitest"]) { mkdirSync(join(fake, name), { recursive: true }); writeFileSync(join(fake, name, "package.json"), JSON.stringify({ name, version: "10.1.1" })); }
-    const found = run(dir, ["--stryker-modules", fake]);
+    const missing = run(dir, []);
+    assert.equal(missing.status, 2, missing.stdout);
+    assert.match(missing.stderr, new RegExp(`^找不到 Stryker：${join(dir, "node_modules")}、/nonexistent/modules、.*skills/slice-closeout/scripts/node_modules 里都没有.*npm ci --prefix`));
+    const found = run(dir, ["--stryker-modules", fakeModules(dir)]);
     assert.equal(found.status, 0, found.stderr);
     assert.match(found.stdout, /\n引擎：Stryker 10\.1\.1（vitest）\n/);
+    const json = JSON.parse(run(dir, ["--stryker-modules", fakeModules(dir), "--format", "json"]).stdout);
+    assert.deepEqual(json.engine, { name: "stryker", version: "10.1.1", runner: "vitest", reason: "项目根有 vitest.config.ts；Stryker 10.1.1 取自指定目录", notes: [] });
+    assert.equal(json.recheck, null);
+    assert.equal("budget" in json, false);
   } finally { dispose(dir); }
 });
 
@@ -56,7 +54,6 @@ import { workDir } from "../skills/slice-closeout/scripts/lib/stryker.mjs";
 
 const MODULES = strykerModules();
 const skipReal = skip || (MODULES ? false : "没有 Stryker 模块，设 PQW_STRYKER_MODULES");
-const fakeModules = (dir) => { const fake = join(dir, "fake-modules"); for (const name of ["@stryker-mutator/core", "@stryker-mutator/vitest-runner", "vitest"]) { mkdirSync(join(fake, name), { recursive: true }); writeFileSync(join(fake, name, "package.json"), JSON.stringify({ name, version: "10.1.1" })); } return fake; };
 const strykerRun = (dir, args) => spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", ...args], { encoding: "utf8", env: cleanEnv });
 
 test.skipIf(skip)("Stryker 引擎只列：写引擎行与 mutate 条目，不起 Stryker，--test 可省略", () => {
@@ -64,14 +61,14 @@ test.skipIf(skip)("Stryker 引擎只列：写引擎行与 mutate 条目，不起
   try {
     const fake = fakeModules(dir);
     writeFiles(dir, { "src/calc.ts": VITEST_SRC.replace("  if (n < lo) return lo;", "  if (n < lo) { return lo; }") });
-    const r = strykerRun(dir, ["--plan-only", "--stryker-modules", fake, "--budget", "1m"]);
+    const r = strykerRun(dir, ["--plan-only", "--stryker-modules", fake]);
     assert.equal(r.status, 0, r.stderr);
-    assert.equal(r.stdout.trimEnd(), `差分变异：基线 ${JSON.parse(strykerRun(dir, ["--plan-only", "--stryker-modules", fake, "--format", "json"]).stdout).base.slice(0, 12)} 到工作树；位点 由引擎生成（只列）\n引擎：Stryker 10.1.1（vitest）\n--budget 对 Stryker 引擎不适用：引擎没有整轮预算\nmutate 条目：\n- src/calc.ts:1-5`, "改动行在 clamp 里，范围扩成 clamp 自己的行，与内建引擎一致");
+    assert.equal(r.stdout.trimEnd(), `差分变异：基线 ${JSON.parse(strykerRun(dir, ["--plan-only", "--stryker-modules", fake, "--format", "json"]).stdout).base.slice(0, 12)} 到工作树；位点 由引擎生成（只列）\n引擎：Stryker 10.1.1（vitest）\nmutate 条目：\n- src/calc.ts:1-5`, "改动行在 clamp 里，范围扩成 clamp 自己的行，与内建引擎一致");
     assert.equal(existsSync(join(dir, ".stryker-tmp")), false);
     const json = JSON.parse(strykerRun(dir, ["--plan-only", "--stryker-modules", fake, "--format", "json", "--files", "src/calc.ts"]).stdout);
     assert.deepEqual(json.mutate, ["src/calc.ts"]);
-    assert.equal(json.testCommand, null);
-    assert.deepEqual(json.budget, { limitMs: null, exceeded: false });
+    assert.equal("testCommand" in json, false);
+    assert.equal("budget" in json, false);
     rmSync(join(dir, ".gitignore"));
     assert.match(strykerRun(dir, ["--plan-only", "--stryker-modules", fake]).stdout, /\n`\.stryker-tmp` 没被项目忽略/);
     writeFiles(dir, { "src/calc.ts": VITEST_SRC, ".gitignore": "node_modules\n.stryker-tmp\n" });
@@ -111,11 +108,11 @@ test.skipIf(skipReal)("Stryker 引擎真跑一轮：四类计数与表格同内�
     assert.equal(json.fingerprint.testCommand, "vitest@4.1.11 + vitest.config.ts");
     assert.equal(json.fingerprint.strykerVersion, "10.1.1");
     assert.ok(existsSync(join(workDir(dir), "incremental.json")), "引擎写了增量文件");
-    const again = strykerRun(dir, ["--json", join(dir, "out2.json"), "--history", join(dir, "out.json")]);
+    const again = strykerRun(dir, ["--json", join(dir, "out2.json")]);
     assert.equal(again.status, 0, again.stderr + again.stdout);
-    assert.match(again.stdout, new RegExp(`^差分变异：[^\\n]*；沿用 ${json.sites.length}\\n历史未沿用：--history 在 Stryker 引擎下不适用，增量由引擎负责\\n引擎：Stryker`), "第二轮全部沿用，--history 写说明");
+    assert.match(again.stdout, new RegExp(`^差分变异：[^\\n]*；沿用 ${json.sites.length}\\n引擎：Stryker`), "第二轮全部沿用");
     const json2 = JSON.parse(readFileSync(join(dir, "out2.json"), "utf8"));
-    assert.deepEqual([json2.incremental.force, json2.summary.carried, json2.history], [false, json.sites.length, { given: true, used: false, reason: "--history 在 Stryker 引擎下不适用，增量由引擎负责" }]);
+    assert.deepEqual([json2.incremental.force, json2.summary.carried, "history" in json2], [false, json.sites.length, false]);
     writeFiles(dir, { "test/calc.test.ts": readFileSync(join(dir, "test/calc.test.ts"), "utf8") + "\n// touched\n" });
     const forced = JSON.parse(strykerRun(dir, ["--format", "json"]).stdout);
     assert.equal(forced.incremental.force, true, "测试文件变了指纹就变，整轮重跑");

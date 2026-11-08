@@ -59,17 +59,12 @@ test("运行器：配置文件优先并记下文件名；只有 package.json 声
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test("选引擎：auto 两种结果各带原因；显式 builtin 不看项目；显式 stryker 缺依赖或没 vitest 抛 unavailable；非法值抛 usage", () => {
+test("选引擎：只有 Stryker；项目没 vitest 抛 unavailable；有 vitest 缺依赖抛 unavailable 带装法；指定目录找到就用", () => {
   const root = tmp(), given = tmp();
   try {
-    const noRunner = chooseEngine({ root, env: {}, scriptsModules: NOWHERE });
-    assert.equal(noRunner.name, "builtin");
-    assert.match(noRunner.reason, /没有 vitest 配置/);
+    assert.throws(() => chooseEngine({ root, env: {}, scriptsModules: NOWHERE }), (e) => e.code === "unavailable" && /只支持 vitest 项目/.test(e.message));
     writeFileSync(join(root, "vitest.config.ts"), "");
-    const noDeps = chooseEngine({ root, env: {}, scriptsModules: NOWHERE });
-    assert.equal(noDeps.name, "builtin");
-    assert.match(noDeps.reason, /找不到 Stryker：.*node_modules.*npm ci --prefix/);
-    assert.throws(() => chooseEngine({ engine: "stryker", root, env: {}, scriptsModules: NOWHERE }), (e) => e.code === "unavailable" && /npm ci/.test(e.message));
+    assert.throws(() => chooseEngine({ root, env: {}, scriptsModules: NOWHERE }), (e) => e.code === "unavailable" && new RegExp(`^找不到 Stryker：${join(root, "node_modules")}、${NOWHERE} 里都没有 .*npm ci --prefix`).test(e.message));
     fakeModules(given);
     const chosen = chooseEngine({ root, env: { PQW_STRYKER_MODULES: given }, scriptsModules: NOWHERE });
     assert.equal(chosen.name, "stryker");
@@ -78,11 +73,6 @@ test("选引擎：auto 两种结果各带原因；显式 builtin 不看项目；
     assert.equal(chosen.configFile, "vitest.config.ts");
     assert.equal(chosen.modules.modulesDir, given);
     assert.match(chosen.reason, /^项目根有 vitest\.config\.ts；Stryker 9\.9\.9 取自指定目录$/);
-    const forced = chooseEngine({ engine: "builtin", root, env: { PQW_STRYKER_MODULES: given }, scriptsModules: NOWHERE });
-    assert.deepEqual(forced, { name: "builtin", version: null, runner: null, reason: "显式 --engine builtin", modules: null, configFile: null });
-    rmSync(join(root, "vitest.config.ts"));
-    assert.throws(() => chooseEngine({ engine: "stryker", root, env: { PQW_STRYKER_MODULES: given }, scriptsModules: NOWHERE }), (e) => e.code === "unavailable" && /只支持 vitest/.test(e.message));
-    assert.throws(() => chooseEngine({ engine: "jest", root, env: {} }), (e) => e.code === "usage");
   } finally { rmSync(root, { recursive: true, force: true }); rmSync(given, { recursive: true, force: true }); }
 });
 

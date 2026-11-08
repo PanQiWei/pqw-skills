@@ -48,21 +48,15 @@ export function detectRunner(root) {
   return null;
 }
 
-export const ENGINES = ["auto", "stryker", "builtin"];
-const installHint = (dirs) => `找不到 Stryker：${dirs.map(([d]) => d).join("、")} 里都没有 ${CORE} 与 ${RUNNER}；装法 npm ci --prefix ${SCRIPTS_DIR}，或用 --stryker-modules / PQW_STRYKER_MODULES 指向装好的 node_modules`;
+const installHint = (dirs) => `找不到 Stryker：${dirs.map(([d]) => d).join("、")} 里都没有 ${CORE} 与 ${RUNNER}；装法：项目里 npm i -D @stryker-mutator/core @stryker-mutator/vitest-runner，或 npm ci --prefix ${SCRIPTS_DIR}，或用 --stryker-modules / PQW_STRYKER_MODULES 指向装好的 node_modules`;
 
-/** 选引擎。返回 { name, version, runner, reason, modules, configFile }：前四项进抬头与 JSON；modules 与 configFile 给 Stryker 路径用。
- *  显式要 Stryker 而找不到依赖或认不出运行器时抛错（.code = "unavailable"），命令面退出 2。 */
-export function chooseEngine({ engine = "auto", root, modulesDir = null, env = process.env, scriptsModules = SCRIPTS_MODULES }) {
-  if (!ENGINES.includes(engine)) { const e = new Error(`--engine 只接受 ${ENGINES.join("、")}：${engine}`); e.code = "usage"; throw e; }
-  const builtin = (reason) => ({ name: "builtin", version: null, runner: null, reason, modules: null, configFile: null });
-  if (engine === "builtin") return builtin("显式 --engine builtin");
+/** 选引擎：只有 Stryker。返回 { name, version, runner, reason, modules, configFile }，前四项进抬头与 JSON；项目不是 vitest 或找不到依赖抛错（.code = "unavailable"），命令面退出 2。 */
+export function chooseEngine({ root, modulesDir = null, env = process.env, scriptsModules = SCRIPTS_MODULES }) {
   const where = { root, modulesDir, env, scriptsModules };
   const runner = detectRunner(root);
-  const found = runner ? resolveStryker(where) : null;
-  const missing = !runner ? "项目没有 vitest 配置也没有声明 vitest，Stryker 引擎只支持 vitest" : !found ? installHint(searchDirs(where)) : null;
-  if (missing && engine === "stryker") { const e = new Error(missing); e.code = "unavailable"; throw e; }
-  if (missing) return builtin(missing);
+  if (!runner) { const e = new Error("项目没有 vitest 配置也没有声明 vitest：本工具只支持 vitest 项目（jest、node:test 等暂不支持）"); e.code = "unavailable"; throw e; }
+  const found = resolveStryker(where);
+  if (!found) { const e = new Error(installHint(searchDirs(where))); e.code = "unavailable"; throw e; }
   return { name: "stryker", version: found.version, runner: runner.name, reason: `${runner.evidence}；Stryker ${found.version} 取自${found.from}`, modules: found, configFile: runner.configFile };
 }
 
@@ -70,8 +64,8 @@ export function chooseEngine({ engine = "auto", root, modulesDir = null, env = p
 const segments = (lines) => lines.reduce((acc, l) => { const last = acc[acc.length - 1]; if (last && last[1] === l - 1) last[1] = l; else acc.push([l, l]); return acc; }, []);
 
 /**
- * 改动段扩成内建引擎的范围：改动行落在哪个有名单元自己的行上，就把那个单元自己的行（扣掉嵌套单元）全算进来，
- * 与内建引擎「改动单元自己的行上的位点」一致；不在任何有名单元里的改动行原样保留。返回合并后的闭区间列表。
+ * 改动段扩成「改动行所在单元自己的全部行」：改动行落在哪个有名单元自己的行上，就把那个单元自己的行（扣掉嵌套单元）全算进来；
+ * 不在任何有名单元里的改动行原样保留。返回合并后的闭区间列表。
  */
 export function unitRanges(units, ranges) {
   const owner = new Map();

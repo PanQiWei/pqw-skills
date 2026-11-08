@@ -4,7 +4,7 @@
 
 ## 前提
 
-- Node 20 以上。脚本是直接 `node` 跑的 ESM；结构读数与内建变异引擎没有依赖。差分变异的 Stryker 引擎要 `@stryker-mutator/core` 与 `@stryker-mutator/vitest-runner`，优先用被测项目自己 `node_modules` 里的，没有就 `npm ci --prefix skills/slice-closeout/scripts` 装到技能目录（版本钉在那里的 `package.json`，`node_modules` 已忽略）。本仓库自己的测试是 `node:test`，自跑仍用内建引擎。
+- Node 20 以上。脚本是直接 `node` 跑的 ESM；结构读数没有依赖。差分变异由 Stryker 执行，要 `@stryker-mutator/core` 与 `@stryker-mutator/vitest-runner`，优先用被测项目自己 `node_modules` 里的，没有就 `npm ci --prefix skills/slice-closeout/scripts` 装到技能目录（版本钉在那里的 `package.json`，`node_modules` 已忽略）。本仓库自己是 vitest 项目，根 `package.json` 装着同样的包，自跑走 Stryker。
 - 至少一个宿主：Claude Code、Codex 或 Cursor。校验插件清单需要 Claude Code 的 `claude` 命令。
 - 外部技能已按各自说明装好：pstack、ub-mode、mattpocock/skills。版本见 `README.md` 的依赖表。`scripts/check-repo.mjs` 会读本机安装目录核对引用，没装会报「无法核对」。
 
@@ -34,8 +34,8 @@ npx vitest run
 npx vitest run --coverage
 # 只摘改动函数的读数
 node skills/slice-closeout/scripts/metrics.mjs --base <起点提交> --lcov coverage/lcov.info --scope skills/slice-closeout/scripts
-# 只打改动单元的位点；第二轮带 --history 沿用上一轮杀死的
-node skills/slice-closeout/scripts/mutation.mjs --ts <目录> --test "PQW_TS=<目录> node --test tests/" --base <起点提交> --lcov tmp/lcov.info --scope skills/slice-closeout/scripts --budget 25m --json tmp/mutation.json
+# 只打改动单元的位点，由 Stryker 执行；增量文件在系统临时目录，第二轮自动沿用
+node skills/slice-closeout/scripts/mutation.mjs --base <起点提交> --scope skills/slice-closeout/scripts --json tmp/mutation.json
 ```
 
 命令面的用例只从 CLI 进，摸不到排序、汇总、边界这些分支；变异分数低时补直打 lib 函数的用例（`tests/*-lib.test.mjs`），不改命令面用例。

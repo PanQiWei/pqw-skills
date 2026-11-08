@@ -46,7 +46,7 @@ pqw-skills/
     └── cleanup/                      checklist-template.md、scripts/cleanup.mjs
 ```
 
-每个技能目录一个 `SKILL.md`，模板与说明放同目录并由 `SKILL.md` 链接，脚本放 `scripts/`。脚本是直接 `node` 跑的 ESM，`--help` 可用；只有差分变异的 Stryker 引擎有依赖，装法见 `DEVELOPMENT.md`。
+每个技能目录一个 `SKILL.md`，模板与说明放同目录并由 `SKILL.md` 链接，脚本放 `scripts/`。脚本是直接 `node` 跑的 ESM，`--help` 可用；只有差分变异有依赖（Stryker，只支持 vitest 项目），装法见 `DEVELOPMENT.md`。
 
 ## 与 mattpocock/skills 的差别
 
