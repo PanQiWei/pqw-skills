@@ -232,3 +232,37 @@ test("基线缺省取与目标分支的合并点", { skip: TS ? false : "没有 
     assert.deepEqual(out.functions.map((f) => f.name), ["f"]);
   } finally { dispose(dir); }
 });
+
+test.skipIf(TS ? false : "没有 typescript，设 PQW_TS")("没有断言的用例：只列改动行所在的；JSON testsWithoutAssertions 与表后一节；--assert-pattern 换口径，格式错退出 2；没有时空数组且不出那一节（第九程 C1）", () => {
+  const TEST = `import { test } from "vitest";
+import assert from "node:assert/strict";
+import { f } from "../src/f";
+
+test("老的只调用", () => {
+  f(1);
+});
+
+test("有断言", () => {
+  assert.equal(f(1), 1);
+});
+`;
+  const dir = makeRepo({ "src/f.ts": "export function f(x: number) { return x; }\n", "test/f.test.ts": TEST });
+  try {
+    writeFiles(dir, { "test/f.test.ts": TEST + 'test("新的只调用", () => {\n  f(2);\n});\n\ntest("新的有断言", () => {\n  assert.ok(f(3));\n});\n\ntest("像断言的名字", () => {\n  expectation(f(4));\n});\n' });
+    const r = run(dir, ["--base", "HEAD", "--json", join(dir, "out.json")]);
+    assert.equal(r.status, 0, r.stderr);
+    const json = JSON.parse(readFileSync(join(dir, "out.json"), "utf8"));
+    assert.deepEqual(json.testsWithoutAssertions, [{ file: "test/f.test.ts", name: "新的只调用", line: 12 }, { file: "test/f.test.ts", name: "像断言的名字", line: 20 }], "老的只调用不在改动行里，不列；expectation 不是断言");
+    assert.match(r.stdout, /未覆盖的改动文件：\n- test\/f\.test\.ts：测试文件不度量\n\n没有断言的用例：\n- test\/f\.test\.ts:12 新的只调用\n- test\/f\.test\.ts:20 像断言的名字\n$/);
+    const custom = JSON.parse(run(dir, ["--base", "HEAD", "--assert-pattern", "^verify$", "--format", "json"]).stdout);
+    assert.deepEqual(custom.testsWithoutAssertions.map((t) => t.name), ["新的只调用", "新的有断言", "像断言的名字"], "只认 verify 时，assert 也不算断言；老的仍因不在改动行里不列");
+    const bad = run(dir, ["--base", "HEAD", "--assert-pattern", "("]);
+    assert.equal(bad.status, 2);
+    assert.match(bad.stderr, /--assert-pattern 不是合法正则：\(/);
+    writeFiles(dir, { "test/f.test.ts": TEST });
+    writeFiles(dir, { "src/f.ts": "export function f(x: number) { return x + 0; }\n" });
+    const none = run(dir, ["--base", "HEAD", "--format", "json"]);
+    assert.deepEqual(JSON.parse(none.stdout).testsWithoutAssertions, []);
+    assert.doesNotMatch(run(dir, ["--base", "HEAD"]).stdout, /没有断言的用例/);
+  } finally { dispose(dir); }
+});

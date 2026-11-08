@@ -121,3 +121,47 @@ export function analyze(ts, path, text) {
   if (moduleUnit.cyclomatic > 1) units.unshift(moduleUnit);
   return { sourceFile: sf, units };
 }
+
+// ---- 没有断言的用例。认法：被调用者是 test 或 it（含 .skip、.only、.skipIf(x)、.each(rows) 这类链）且有函数实参的调用是用例；
+// 回调体里任一调用的被调用者最左标识符匹配断言模式就算有断言。describe 不是用例。
+
+/** 被调用者链最左的标识符名：`test.skipIf(x)(…)` 与 `assert.deepEqual(…)` 都往左走到头；不是标识符返回 null。 */
+function calleeHead(ts, expr) {
+  let e = expr;
+  for (;;) {
+    if (ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e)) e = e.expression;
+    else if (ts.isCallExpression(e)) e = e.expression;
+    else if (ts.isParenthesizedExpression(e) || ts.isNonNullExpression(e)) e = e.expression;
+    else break;
+  }
+  return ts.isIdentifier(e) ? e.text : null;
+}
+
+const TEST_HEADS = new Set(["test", "it"]);
+const isFunctionArg = (ts, a) => ts.isArrowFunction(a) || ts.isFunctionExpression(a);
+
+/** 节点树里有没有被调用者首段匹配 pattern 的调用（递归，嵌套函数里的也算：断言常在循环与回调里）。 */
+function hasAssertion(ts, node, pattern) {
+  if (ts.isCallExpression(node)) { const head = calleeHead(ts, node.expression); if (head !== null && pattern.test(head)) return true; }
+  return ts.forEachChild(node, (child) => (hasAssertion(ts, child, pattern) ? true : undefined)) === true;
+}
+
+/** 改动的测试文件里没有断言的用例：[{ name, startLine, endLine }]。名字取第一个字符串字面量实参，没有写 <匿名>。 */
+export function testsWithoutAssertions(ts, path, text, pattern = /^(assert|expect)$/) {
+  const sf = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, scriptKind(ts, path));
+  const lineOf = (pos) => sf.getLineAndCharacterOfPosition(pos).line + 1;
+  const found = [];
+  const walk = (node) => {
+    if (ts.isCallExpression(node) && TEST_HEADS.has(calleeHead(ts, node.expression))) {
+      const fn = node.arguments.find((a) => isFunctionArg(ts, a));
+      if (fn) {
+        const literal = node.arguments.find((a) => ts.isStringLiteralLike(a));
+        if (!hasAssertion(ts, fn, pattern)) found.push({ name: literal ? literal.text : "<匿名>", startLine: lineOf(node.getStart(sf)), endLine: lineOf(node.getEnd()) });
+        return;
+      }
+    }
+    ts.forEachChild(node, walk);
+  };
+  walk(sf);
+  return found;
+}

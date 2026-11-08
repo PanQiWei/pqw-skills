@@ -3,8 +3,9 @@ import { test } from "vitest";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { makeRepo, writeFiles, dispose, tsPath } from "./fixture.mjs";
-import { byHotness, summarize, touchesOwnLines, formatMetrics, bandOf, parseThresholds, DEFAULT_THRESHOLDS, trendOf, byWorseThenHotness } from "../skills/slice-closeout/scripts/lib/metrics.mjs";
+import { byHotness, summarize, touchesOwnLines, formatMetrics, bandOf, parseThresholds, DEFAULT_THRESHOLDS, DEFAULT_ASSERT_PATTERN, trendOf, byWorseThenHotness } from "../skills/slice-closeout/scripts/lib/metrics.mjs";
 import { touches, coverageOf, selectRecord } from "../skills/slice-closeout/scripts/lib/core.mjs";
+import { loadTypescript, testsWithoutAssertions } from "../skills/slice-closeout/scripts/lib/adapter-typescript.mjs";
 
 const SCRIPT = new URL("../skills/slice-closeout/scripts/metrics.mjs", import.meta.url).pathname;
 const TS = tsPath();
@@ -162,4 +163,42 @@ test.skipIf(skip)("--scope 只收前缀内的文件；node_modules 不收；只�
     assert.equal(deleted.status, 0, deleted.stderr);
     assert.deepEqual(JSON.parse(deleted.stdout).functions.map((x) => [x.path, x.name, x.changedLines]), [["src/a.ts", "g", [[5, 6]]]]);
   } finally { dispose(dir); }
+});
+
+test.skipIf(skip)("没有断言的用例：test 与 it 的链式写法都认；assert、expect、嵌套回调里的断言都算；describe 不是用例；--assert-pattern 换口径", () => {
+  const ts = loadTypescript(TS);
+  const text = `import { test, it, describe, expect } from "vitest";
+import assert from "node:assert/strict";
+import { f, check } from "./f";
+
+test("只调用", () => {
+  f(1);
+});
+it("有 assert", () => { assert.equal(f(1), 1); });
+test.skipIf(false)("链式有 expect", () => { expect(f(2)).toBe(2); });
+test.each([[1], [2]])("循环里的断言 %i", (n) => { for (const x of [n]) { assert.ok(x); } });
+describe("一组", () => {
+  test("组里只调用", () => { f(3); });
+  test(() => { f(4); });
+});
+test("自定义 check", () => { check(f(5)); });
+test("括号里的断言", () => { (assert).equal(f(6), 6); });
+test("像断言的名字不算", () => { expectation(f(7)); preassert(f(7)); });
+test.todo("没有回调的待办");
+`;
+  const got = testsWithoutAssertions(ts, "t/a.test.ts", text);
+  assert.deepEqual(got.map((t) => [t.name, t.startLine, t.endLine]), [["只调用", 5, 7], ["组里只调用", 12, 12], ["<匿名>", 13, 13], ["自定义 check", 15, 15], ["像断言的名字不算", 17, 17]]);
+  assert.deepEqual(testsWithoutAssertions(ts, "t/a.test.ts", text, DEFAULT_ASSERT_PATTERN).map((t) => t.name), got.map((t) => t.name), "读数层的缺省模式与适配器缺省一致，两端有锚");
+  assert.deepEqual(testsWithoutAssertions(ts, "t/a.test.ts", text, /^check$/).map((t) => t.name), ["只调用", "有 assert", "链式有 expect", "循环里的断言 %i", "组里只调用", "<匿名>", "括号里的断言", "像断言的名字不算"], "换口径后只有 check 算断言");
+});
+
+test("表格尾段：警告行在抬头之后；未覆盖清单与没有断言的用例各自有内容才出；没有改动函数写一行说明", () => {
+  const base = { functions: [], uncovered: [], base: "abcdef123456", baseGiven: null, warnings: [], summary: { coverageProvided: false }, testsWithoutAssertions: [] };
+  const plain = formatMetrics({ ...base, warnings: undefined });
+  assert.match(plain, /^结构读数：基线 abcdef123456 到工作树；改动函数 0 个；没有 lcov，CRAP 写无覆盖\n\| 函数 /);
+  assert.match(plain, /\| \| 没有改动的函数 \| /);
+  assert.doesNotMatch(plain, /警告：|未覆盖的改动文件|没有断言的用例/);
+  const full = formatMetrics({ ...base, warnings: ["w1"], uncovered: [{ path: "a.md", reason: "不是源码" }], testsWithoutAssertions: [{ file: "t/a.test.ts", name: "只调用", line: 5 }] });
+  assert.match(full, /改动函数 0 个；没有 lcov，CRAP 写无覆盖\n警告：w1\n\| 函数 /);
+  assert.match(full, /\n\n未覆盖的改动文件：\n- a\.md：不是源码\n\n没有断言的用例：\n- t\/a\.test\.ts:5 只调用$/);
 });

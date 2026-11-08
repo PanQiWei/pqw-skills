@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs, parseScope, resolveBase, parseLcov, sh } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
-import { collectMetrics, formatMetrics, parseThresholds } from "./lib/metrics.mjs";
+import { collectMetrics, formatMetrics, parseThresholds, DEFAULT_ASSERT_PATTERN } from "./lib/metrics.mjs";
 
 const USAGE = `用法：metrics.mjs [选项]
 只摘基线到工作树改动函数的圈复杂度、认知复杂度、覆盖率与 CRAP，并按线归档。
@@ -19,9 +19,10 @@ const USAGE = `用法：metrics.mjs [选项]
   --json <路径>        结果 JSON 写到这里；--format json 直接打印 JSON
   --cc <warn>,<alert>  圈复杂度两条线，缺省 10,12；严格大于才过线
   --crap <alert>       CRAP 的线，缺省 30；严格大于才过线
+  --assert-pattern <正则>  认断言的模式，匹配被调用者最左的标识符，缺省 ^(assert|expect)$；改动的测试文件里改动行所在、回调里没有这类调用的用例列在表后
 
 退出 0 正常；1 失败；2 用法错误或未提供 typescript。`;
-const { opts, error } = parseArgs(process.argv.slice(2), { repo: "value", base: "value", target: "value", lcov: "value", ts: "value", json: "value", format: "value", scope: "value", cc: "value", crap: "value" });
+const { opts, error } = parseArgs(process.argv.slice(2), { repo: "value", base: "value", target: "value", lcov: "value", ts: "value", json: "value", format: "value", scope: "value", cc: "value", crap: "value", "assert-pattern": "value" });
 if (error) { console.error(error); console.error(USAGE); process.exit(2); }
 if (opts.help) { console.log(USAGE); process.exit(0); }
 
@@ -36,7 +37,8 @@ const report = opts.lcov ? parseLcov(readFileSync(resolve(root, opts.lcov), "utf
 const reportMtimeMs = opts.lcov ? statSync(resolve(root, opts.lcov)).mtimeMs : null;
 
 const thresholds = load(() => parseThresholds(opts.cc, opts.crap));
-const result = collectMetrics({ root, base, baseGiven, head, ts, report, scope: parseScope(opts.scope), thresholds, reportMtimeMs });
+const assertPattern = load(() => (opts["assert-pattern"] === undefined ? DEFAULT_ASSERT_PATTERN : new RegExp(opts["assert-pattern"])), opts["assert-pattern"] === undefined ? undefined : `--assert-pattern 不是合法正则：${opts["assert-pattern"]}`);
+const result = collectMetrics({ root, base, baseGiven, head, ts, report, scope: parseScope(opts.scope), thresholds, reportMtimeMs, assertPattern });
 if (opts.json) writeFileSync(resolve(opts.json), JSON.stringify(result, null, 2) + "\n");
 if (opts.format === "json") console.log(JSON.stringify(result, null, 2));
 else console.log(formatMetrics(result));

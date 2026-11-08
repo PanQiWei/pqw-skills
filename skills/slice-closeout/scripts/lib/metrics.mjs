@@ -3,7 +3,7 @@
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { changedLines, inScope, touches, coverageOf, crap, nestedUnits, round, baseLabel, TEST_FILE_RE, sh } from "./core.mjs";
-import { analyze, SOURCE_RE, DECLARATION_RE } from "./adapter-typescript.mjs";
+import { analyze, testsWithoutAssertions, SOURCE_RE, DECLARATION_RE } from "./adapter-typescript.mjs";
 
 const NODE_MODULES_RE = /(^|\/)node_modules\//;
 
@@ -120,13 +120,27 @@ export function coverageWarnings(root, functions, reportMtimeMs) {
 }
 
 /** 基线到工作树的改动函数读数。scope 是路径前缀数组或 null；report 是 parseLcov 的结果或 null；reportMtimeMs 是报告文件的修改时刻（毫秒）或 null。 */
-export function collectMetrics({ root, base, baseGiven = null, head, ts, report, scope, thresholds = DEFAULT_THRESHOLDS, reportMtimeMs = null }) {
+export const DEFAULT_ASSERT_PATTERN = /^(assert|expect)$/;
+
+/** 改动的测试文件里、改动行所在、没有断言的用例：[{ file, name, line }]。解析失败记进 uncovered，不中断整轮。 */
+function unassertedTests(root, path, ranges, ts, assertPattern, uncovered) {
+  try {
+    return testsWithoutAssertions(ts, path, readFileSync(join(root, path), "utf8"), assertPattern).filter((t) => touches(ranges, t.startLine, t.endLine)).map((t) => ({ file: path, name: t.name, line: t.startLine }));
+  } catch (e) { uncovered.push({ path, reason: `解析失败：${String(e.message ?? e).split("\n")[0]}` }); return []; }
+}
+
+export function collectMetrics({ root, base, baseGiven = null, head, ts, report, scope, thresholds = DEFAULT_THRESHOLDS, reportMtimeMs = null, assertPattern = DEFAULT_ASSERT_PATTERN }) {
   const functions = [];
   const uncovered = [];
+  const unasserted = [];
   for (const [path, ranges] of changedLines(root, base)) {
     if (!inScope(path, scope) || NODE_MODULES_RE.test(path) || !existsSync(join(root, path))) continue;
     const skip = skipReason(path);
-    if (skip) { uncovered.push({ path, reason: skip }); continue; }
+    if (skip) {
+      uncovered.push({ path, reason: skip });
+      if (TEST_FILE_RE.test(path) && SOURCE_RE.test(path) && !DECLARATION_RE.test(path)) unasserted.push(...unassertedTests(root, path, ranges, ts, assertPattern, uncovered));
+      continue;
+    }
     const { units } = analyze(ts, path, readFileSync(join(root, path), "utf8"));
     const baseUnits = baselineUnits(root, base, path, ts);
     for (const unit of units) {
@@ -136,7 +150,7 @@ export function collectMetrics({ root, base, baseGiven = null, head, ts, report,
   }
   functions.sort(byWorseThenHotness);
   const warnings = report ? coverageWarnings(root, functions, reportMtimeMs) : [];
-  return { kind: "pqw-metrics", generatedAt: new Date().toISOString(), base, baseGiven, head, thresholds, warnings, functions, uncovered, summary: summarize(functions, report) };
+  return { kind: "pqw-metrics", generatedAt: new Date().toISOString(), base, baseGiven, head, thresholds, warnings, functions, uncovered, testsWithoutAssertions: unasserted, summary: summarize(functions, report) };
 }
 
 /** 「原 → 现」列：新函数写「新 → 现」；lib 直打构造的行没有趋势时写空。 */
@@ -159,6 +173,10 @@ export function formatMetrics(result) {
   if (uncovered.length) {
     lines.push("", "未覆盖的改动文件：");
     for (const u of uncovered) lines.push(`- ${u.path}：${u.reason}`);
+  }
+  if (result.testsWithoutAssertions?.length) {
+    lines.push("", "没有断言的用例：");
+    for (const t of result.testsWithoutAssertions) lines.push(`- ${t.file}:${t.line} ${t.name}`);
   }
   return lines.join("\n");
 }
