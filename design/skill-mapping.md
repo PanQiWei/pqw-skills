@@ -66,7 +66,7 @@
 | 技能 | 为什么不引用 |
 | --- | --- |
 | `mattpocock-skills:implement`、`implement-spec` | 它们是整段交付的替代流，和本流的切片推进、收口、哨兵、清理重叠。引用会出现两套交付期 |
-| `mattpocock-skills:wayfinder` | 为超过一个会话的工作设计，本流只做单会话 |
+| `mattpocock-skills:wayfinder` | 为超过一个会话的工作设计，本流至多把定义期与交付期分两个会话顺序交接，不做多会话规划 |
 | `mattpocock-skills:triage`、`setup-matt-pocock-skills`、`pr` | 绑定 issue tracker 与 PR 流程，归消费者项目的交付规则 |
 | `mattpocock-skills:grill-with-docs` | 按 Matt 的 GLOSSARY 与 ADR 布局写文档；消费者项目有自己的文档层，用 `grilling` 加本仓库的落盘环节代替 |
 | `pstack:figure-it-out` | 它是「没有 playbook 时设计 playbook」，本流就是 playbook |

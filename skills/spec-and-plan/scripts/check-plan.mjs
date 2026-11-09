@@ -13,7 +13,7 @@ const USAGE = `用法：check-plan.mjs [--plan <plan.md>] [--spec <spec.md>] [--
   --plan <路径>       交付计划；与 --handoff 至少给一个
   --spec <路径>       实施规格；给了就一起核
   --handoff <路径>    交接信息包；交付会话开工时单给它核
-  --format json    打印 { ok, defects: [{ file, line, message }] }
+  --format json       打印 { ok, defects: [{ file, line, message }] }
 
 退出 0 合模板；1 有缺陷；2 用法错误或读不到文件。`;
 
