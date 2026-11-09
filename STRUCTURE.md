@@ -29,7 +29,7 @@ pqw-skills/
 │   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、工具版本常量与 plugin.json 一致、写代码的四条只有一处正文
 ├── tests/                    仓库测试，vitest；根 package.json 钉依赖，npm ci 后直接跑
 └── skills/
-    ├── single-session-dev-flow/   总入口；handoff-checklist.md
+    ├── single-session-dev-flow/   总入口；handoff-checklist.md、handoff-pack-template.md
     ├── teach-pqw-skills/             教人用这套流；mental-models.md、who-does-what.md、prompting.md
     ├── requirement-and-invariants/   requirement-template.md
     ├── domain-impact-analysis/       impact-template.md

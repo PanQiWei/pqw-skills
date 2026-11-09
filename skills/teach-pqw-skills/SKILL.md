@@ -73,6 +73,7 @@ description: 教人用 pqw-skills：讲这条流的心智模型、哲学与协�
 | spec 与 plan 的项目模板 | `spec-and-plan` |
 | 项目专有的清理项 | `cleanup` |
 | 子代理的模型与档位政策 | `delegate-brief` |
+| 交接信息包放哪（两段分会话时；没填放项目 tmp 下本程目录 `handoff.md`） | `single-session-dev-flow` |
 
 外部依赖按 README 的依赖表装：pstack、ub-mode、mattpocock/skills。
 

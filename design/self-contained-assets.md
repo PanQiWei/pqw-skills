@@ -112,6 +112,7 @@
 | spec 与 plan 的项目模板 | `spec-and-plan` | `claim` 的 `references/`；没有时用本仓库自带的 |
 | 项目专有的清理项 | `cleanup` | 项目 tmp 里本程的过程材料 |
 | 子代理的模型与档位政策 | `delegate-brief` | `roles/dispatch-policy.json` |
+| 交接信息包放哪 | `single-session-dev-flow` | 未提供；接管方案定为交付卡的正文 |
 
 没有填的槽位，技能按「未提供」处理：跳过该步并在交付声明里写明，不猜命令。
 
