@@ -280,3 +280,29 @@ test.skipIf(TS ? false : "没有 typescript，设 PQW_TS")("只改了顶层常�
     assert.match(r.stdout, /\n\n未覆盖的改动文件：\n- src\/consts\.ts：改动行不在任何函数里（只改了顶层声明）\n$/);
   } finally { dispose(dir); }
 });
+
+test("覆盖率 HTML 报告没被忽略时也不进读数：任意层级 coverage/ 下的文件既不在函数表也不在未覆盖清单", { skip: TS ? false : "没有 typescript" }, () => {
+  const dir = makeRepo({ "src/a.ts": BASE });
+  try {
+    const report = "function prettify() {\n  return 1;\n}\n";
+    writeFiles(dir, { "src/a.ts": BASE.replace("return 0;", "return -1;"), "coverage/prettify.js": report, "coverage/lcov-report/sorter.js": report, "packages/a/coverage/prettify.js": report });
+    const out = JSON.parse(run(dir, ["--base", "HEAD", "--format", "json"]).stdout);
+    assert.deepEqual(out.functions.map((f) => f.path), ["src/a.ts"]);
+    assert.deepEqual(out.uncovered, []);
+  } finally { dispose(dir); }
+});
+
+test("改动超过 1 MB 的仓库也跑得通：不给范围时整仓取 diff 不崩，给了范围时只取范围", { skip: TS ? false : "没有 typescript" }, () => {
+  const rows = (word) => Array.from({ length: 40000 }, (_, i) => `${word} ${i} 填充填充填充填充填充填充填充填充\n`).join("");
+  const dir = makeRepo({ "src/a.ts": BASE, "data/big.txt": rows("old") });
+  try {
+    writeFiles(dir, { "src/a.ts": BASE.replace("return 0;", "return -1;"), "data/big.txt": rows("new") });
+    for (const args of [[], ["--scope", "src/"]]) {
+      const r = run(dir, ["--base", "HEAD", "--format", "json", ...args]);
+      assert.equal(r.status, 0, r.stderr);
+      const out = JSON.parse(r.stdout);
+      assert.deepEqual(out.functions.map((f) => f.path), ["src/a.ts"], args.join(" "));
+      assert.deepEqual(out.uncovered.map((u) => u.path), args.length ? [] : ["data/big.txt"], args.join(" "));
+    }
+  } finally { dispose(dir); }
+});

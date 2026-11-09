@@ -4,7 +4,7 @@
 // 用法与每个参数的含义见 --help。退出 0 正常；1 初跑不通过；2 用法错误、未提供 typescript、项目不是 vitest 或找不到 Stryker；129 收到 SIGHUP、130 被中断、143 被终止。
 import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
-import { parseArgs, parseScope, resolveBase, sh, changedLines } from "./lib/core.mjs";
+import { parseArgs, parseScope, resolveBase, sh, changedLines, changedPaths, diffPrefixes } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
 import { resolveProject, inProject, tempDirFor, projectNotes, buildEnv, failedBaseline, baselineFailure, chooseEngine, mutateEntries, unitRanges, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries, strykerFingerprint, incrementalFor, rememberFingerprint, timeoutEntries, mergeRecheck } from "./lib/stryker.mjs";
 import { parseDuration, summarize, formatMutation, capacity, plannedWorkers, niceAvailable, isMutable } from "./lib/mutation.mjs";
@@ -149,8 +149,10 @@ async function recheckTimeouts(result, report, { project, stryker, entries, rang
 }
 
 const { root, project, ts, stryker } = inputs;
-const changed = changedLines(root, inputs.base);
-const mutable = [...new Set([...changed.keys(), ...pinned])].filter((p) => isMutable(root, p, parseScope(opts.scope))).sort();
+const scope = parseScope(opts.scope);
+// 改动行只对范围与成员目录取 diff；成员外改动要计数，所以文件名另取（只取名字，不取 diff）。
+const changed = changedLines(root, inputs.base, diffPrefixes(scope, project.prefix));
+const mutable = [...new Set([...changedPaths(root, inputs.base, scope), ...pinned])].filter((p) => isMutable(root, p, scope)).sort();
 const files = mutable.filter((p) => inProject(project, p));
 const entries = fileEntries(root, ts, files);
 // 范围：改动行所在单元自己的全部行；点名的文件整份。

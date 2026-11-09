@@ -13,7 +13,10 @@ export function gitEnv(base = process.env) {
   return env;
 }
 
-export const sh = (cwd, args) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env: gitEnv() }).trimEnd();
+/** git 输出的缓冲上限：1 GiB。Node 缺省 1 MB，大仓库的 diff 一超就 ENOBUFS。 */
+export const GIT_MAX_BUFFER = 1024 * 1024 * 1024;
+
+export const sh = (cwd, args) => execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: GIT_MAX_BUFFER, stdio: ["ignore", "pipe", "pipe"], env: gitEnv() }).trimEnd();
 
 /**
  * 基线：显式 ref 取它与 HEAD 的合并点，ref 是 HEAD 的祖先时合并点就是它自己，不是（基线分支前进过）就退到共同祖先；
@@ -36,13 +39,40 @@ export function resolveBase(cwd, given, target) {
 /** 抬头里的基线：改用了合并点就写明给的是哪个。 */
 export const baseLabel = (base, baseGiven) => base.slice(0, 12) + (baseGiven && baseGiven !== base ? `（给的 ${baseGiven.slice(0, 12)} 不是 HEAD 的祖先，改用合并点）` : "");
 
-/** 基线到工作树的改动行：path → 新一侧的闭区间列表。纯删除记删除点前后两行 [max(1,c), c+1]，c 是新一侧删除点前一行。 */
-export function changedLines(cwd, base) {
-  const out = sh(cwd, ["diff", "-U0", "--no-color", "--no-ext-diff", base, "--"]);
+/** 覆盖率 HTML 报告目录（任意层级的 coverage/）：生成物，不是被测的改动；没被 .gitignore 忽略时也不算改动文件。 */
+const COVERAGE_DIR_RE = /(^|\/)coverage\//;
+
+/**
+ * 范围前缀与成员前缀合成交给 git 的前缀：null 表示不限；空数组表示两者不相交，什么路径都不在范围里。
+ * 范围是字符串前缀（`inScope` 用 startsWith），成员前缀是目录，取交时成员目录以「前缀/」参与。
+ */
+export function diffPrefixes(scope, projectPrefix = "") {
+  if (!projectPrefix) return scope;
+  const dir = `${projectPrefix}/`;
+  if (!scope) return [dir];
+  return [...new Set(scope.flatMap((s) => (s.startsWith(dir) ? [s] : dir.startsWith(s) ? [dir] : [])))];
+}
+
+/** 前缀变 git 的 pathspec：通配符按字面（反斜杠转义），末尾补 `*`，git 的默认 pathspec 里 `*` 跨目录，所以与 startsWith 同义。 */
+const pathspecOf = (prefix) => `${prefix.replace(/[\\*?[]/g, "\\$&")}*`;
+
+/** 前缀数组变 `-- <pathspec…>`；null 不限，没有参数；前缀以 : 开头会被 git 当成 pathspec 魔法，这时放弃收窄（读出之后仍按前缀过滤）。 */
+const pathspecArgs = (prefixes) => (prefixes && !prefixes.some((p) => p.startsWith(":")) ? ["--", ...prefixes.map(pathspecOf)] : ["--"]);
+
+/** 未跟踪文件（遵守 .gitignore）的相对路径。 */
+const untrackedFiles = (cwd, prefixes) => sh(cwd, ["ls-files", "--others", "--exclude-standard", ...pathspecArgs(prefixes)]).split("\n").filter((f) => f && !COVERAGE_DIR_RE.test(f));
+
+/**
+ * 基线到工作树的改动行：path → 新一侧的闭区间列表。纯删除记删除点前后两行 [max(1,c), c+1]，c 是新一侧删除点前一行。
+ * prefixes 是路径前缀数组，只对这些前缀取 diff 与未跟踪文件，null 不限，空数组什么都不取；任意层级的 coverage/ 目录不算。
+ */
+export function changedLines(cwd, base, prefixes = null) {
   const result = new Map();
+  if (prefixes?.length === 0) return result;
+  const out = sh(cwd, ["diff", "-U0", "--no-color", "--no-ext-diff", base, ...pathspecArgs(prefixes)]);
   let file = null;
   for (const line of out.split("\n")) {
-    if (line.startsWith("+++ ")) { file = line.slice(4).replace(/^b\//, "").trim(); if (file === "/dev/null") file = null; continue; }
+    if (line.startsWith("+++ ")) { file = line.slice(4).replace(/^b\//, "").trim(); if (file === "/dev/null" || COVERAGE_DIR_RE.test(file)) file = null; continue; }
     const m = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line);
     if (!m || !file) continue;
     const start = Number(m[1]); const count = m[2] === undefined ? 1 : Number(m[2]);
@@ -50,14 +80,20 @@ export function changedLines(cwd, base) {
     result.set(file, [...(result.get(file) ?? []), range]);
   }
   // 未跟踪的新文件也是工作树的改动：整份算改动行。
-  const untracked = sh(cwd, ["ls-files", "--others", "--exclude-standard"]);
-  for (const file of untracked.split("\n").filter(Boolean)) {
+  for (const file of untrackedFiles(cwd, prefixes)) {
     if (result.has(file)) continue;
     let count = 0;
     try { count = readFileSync(join(cwd, file), "utf8").split("\n").length; } catch { continue; }
     result.set(file, [[1, Math.max(1, count)]]);
   }
   return result;
+}
+
+/** 基线到工作树改动的文件名（含删除与未跟踪），只取名字不取 diff；prefixes 与 coverage/ 的规则同 changedLines。 */
+export function changedPaths(cwd, base, prefixes = null) {
+  if (prefixes?.length === 0) return [];
+  const names = sh(cwd, ["diff", "--name-only", "--no-color", "--no-ext-diff", base, ...pathspecArgs(prefixes)]).split("\n").filter((f) => f && !COVERAGE_DIR_RE.test(f));
+  return [...new Set([...names, ...untrackedFiles(cwd, prefixes)])];
 }
 
 export const touches = (ranges, start, end) => ranges.some(([a, b]) => a <= end && b >= start);

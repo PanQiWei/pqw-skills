@@ -134,7 +134,7 @@ export function collectMetrics({ root, base, baseGiven = null, head, ts, report,
   const functions = [];
   const uncovered = [];
   const unasserted = [];
-  for (const [path, ranges] of changedLines(root, base)) {
+  for (const [path, ranges] of changedLines(root, base, scope)) {
     if (!inScope(path, scope) || NODE_MODULES_RE.test(path) || !existsSync(join(root, path))) continue;
     const skip = skipReason(path);
     if (skip) {
