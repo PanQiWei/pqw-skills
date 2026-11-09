@@ -183,7 +183,7 @@ test.skipIf(skip)("多包仓库：Git 根没有 vitest 配置，不给 --project
     assert.match(none.stderr, /^项目没有 vitest 配置也没有声明 vitest/);
     const r = run(dir, ["--project", "packages/a", "--stryker-modules", fakeModules(dir)]);
     assert.equal(r.status, 0, r.stderr);
-    assert.match(r.stdout, /\n引擎：Stryker 10\.1\.1（vitest）\n成员外改动 1 个文件，不在本轮\n/);
+    assert.match(r.stdout, /\n引擎：Stryker 10\.1\.1（vitest）\n项目：packages\/a\n成员外改动 1 个文件，不在本轮\n/);
     const json = JSON.parse(run(dir, ["--project", "packages/a", "--stryker-modules", fakeModules(dir), "--format", "json"]).stdout);
     assert.equal(json.project, "packages/a");
     assert.deepEqual(json.mutate, ["packages/a/src/calc.ts:7-9"]);
@@ -229,9 +229,9 @@ test.skipIf(skipReal)("多包仓库真跑一个成员：Stryker 在成员目录�
     assert.ok(json.sites.some((s) => s.verdict === "killed"));
     const config = JSON.parse(readFileSync(join(workDir(join(dir, "packages/a")), "stryker-mutation.json"), "utf8"));
     assert.deepEqual(config.mutate, ["src/calc.ts:7-9"]);
-    assert.equal(config.tempDirName, "../../.stryker-tmp-packages-a");
+    assert.equal(config.tempDirName, "../../.stryker-tmp-packages-a-b076d3df");
     assert.equal(existsSync(join(dir, "packages/a/.stryker-tmp")), false);
-    assert.equal(existsSync(join(dir, ".stryker-tmp-packages-a")), false, "跑完删掉成员上两级的容器");
+    assert.equal(existsSync(join(dir, ".stryker-tmp-packages-a-b076d3df")), false, "跑完删掉成员上两级的容器");
     assert.deepEqual(git(dir, "status --porcelain").split("\n").map((l) => l.trim()).sort(), ["?? out.json", "M packages/a/src/calc.ts", "M packages/b/src/calc.ts"]);
   } finally { rmSync(workDir(join(dir, "packages/a")), { recursive: true, force: true }); dispose(dir); }
 });
@@ -264,7 +264,7 @@ test.skipIf(skipReal)("沙箱与成员同深度：成员用例经 ../../../ 引 
       const json = JSON.parse(r.stdout);
       assert.equal(json.summary.valid, true, json.summary.invalidReason);
       scores.push([json.summary.killed, json.summary.survived, json.summary.uncovered]);
-      assert.equal(existsSync(join(dir, ".stryker-tmp-packages-a")), false);
+      assert.equal(existsSync(join(dir, ".stryker-tmp-packages-a-b076d3df")), false);
     } finally { rmSync(workDir(join(dir, "packages/a")), { recursive: true, force: true }); dispose(dir); }
   }
   assert.deepEqual(scores[0], scores[1]);
@@ -272,7 +272,7 @@ test.skipIf(skipReal)("沙箱与成员同深度：成员用例经 ../../../ 引 
 
 test.skipIf(skipReal)("--project 被 SIGTERM 结束：退出 143，成员上两级的容器已删，项目文件不变", async () => {
   const dir = makeMonorepo(MODULES, ["packages/a"]);
-  const container = join(dir, ".stryker-tmp-packages-a");
+  const container = join(dir, ".stryker-tmp-packages-a-b076d3df");
   try {
     const mutated = VITEST_SRC.replace("  if (n < lo) return lo;", "  if (n < lo) { return lo; }");
     writeFiles(dir, { "packages/a/src/calc.ts": mutated });
@@ -318,7 +318,7 @@ test.skipIf(skipReal)("--build-command：用例导入 dist/ 时不给构建命�
     const failed = strykerRun(dist, ["--project", "packages/a", "--stryker-modules", MODULES, "--build-command", "exit 3"]);
     assert.equal(failed.status, 1, failed.stdout);
     assert.match(failed.stdout, /^差分变异：基线 [0-9a-f]{12} 到工作树；位点 0：测量无效（构建失败）\n基线不通过：\n/);
-    assert.equal(existsSync(join(dist, ".stryker-tmp-packages-a")), false);
+    assert.equal(existsSync(join(dist, ".stryker-tmp-packages-a-b076d3df")), false);
     assert.equal(git(dist, "status --porcelain"), "M packages/a/src/calc.ts");
     assert.equal(readFileSync(join(dist, "packages/a/dist/calc.ts"), "utf8"), CHANGED, "工作树里的产物没被沙箱里的构建改动");
   } finally {

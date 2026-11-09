@@ -112,18 +112,21 @@ export function mutateEntries(changed, pinned, files) {
  * Stryker 的容器目录（tempDirName，相对项目目录）。沙箱是「容器/sandbox-随机名」，比容器深一层；容器放在项目上两级、名字带项目 slug，
  * 沙箱就与项目同深度，项目配置与测试里往上走两层及以上的相对路径在沙箱里照样成立，几个项目同时跑也不撞。
  * 项目就是 Git 根时沿用 .stryker-tmp；项目只深一层时上两级出了 Git 根，容器放根下，沙箱深一层，sameDepth 为 false。
+ * 名字是成员目录（/ 换成 -）加成员目录的 8 位散列：只换字符不是一一对应（x/a-b 与 x-a/b 会撞），撞了的两个进程会互删对方的沙箱。
  * 返回 { name, path, sameDepth }：name 写进 Stryker 配置，path 是绝对路径，跑完与收到信号时删它。
  */
 export function tempDirFor({ dir, prefix }) {
   const depth = prefix ? prefix.split("/").length : 0;
-  const name = depth === 0 ? ".stryker-tmp" : `${"../".repeat(Math.min(depth, 2))}.stryker-tmp-${prefix.replaceAll("/", "-")}`;
+  const slug = `${prefix.replaceAll("/", "-")}-${createHash("sha256").update(prefix).digest("hex").slice(0, 8)}`;
+  const name = depth === 0 ? ".stryker-tmp" : `${"../".repeat(Math.min(depth, 2))}.stryker-tmp-${slug}`;
   return { name, path: resolve(dir, name), sameDepth: depth !== 1 };
 }
 
-/** 抬头里关于项目与容器的说明行：成员外改动数；沙箱与成员不同深度；容器没被项目忽略。 */
-export function projectNotes({ outside, temp, ignored }) {
+/** 抬头里关于项目与容器的说明行：给了成员时是哪个成员；成员外改动数；沙箱与成员不同深度；容器没被项目忽略。 */
+export function projectNotes({ prefix = "", outside, temp, ignored }) {
   const container = basename(temp.path);
   return [
+    ...(prefix ? [`项目：${prefix}`] : []),
     ...(outside > 0 ? [`成员外改动 ${outside} 个文件，不在本轮`] : []),
     ...(temp.sameDepth ? [] : [`沙箱比成员深一层：成员只在 Git 根下一层，容器只能放根下 ${container}，成员里往上走的相对路径在沙箱里会差一层`]),
     ...(ignored ? [] : [`\`${container}\` 没被项目忽略：跑完或被信号结束都会删，只有被强杀（SIGKILL）时留下，建议加进 .gitignore`]),

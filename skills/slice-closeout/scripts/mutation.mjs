@@ -25,7 +25,7 @@ const USAGE = `用法：mutation.mjs [选项]
   --json <路径>              结果 JSON 写到这里；--format json 直接打印 JSON
   --plan-only                只列 mutate 条目，不起 Stryker
   --timeout <时长>           Stryker 的 timeoutMS（在它按初跑估算的时限上再加的毫秒数）；缺省用 Stryker 的缺省
-  --stryker-modules <目录>   装了 @stryker-mutator/core 与 vitest-runner 的 node_modules；解析顺序是项目根 node_modules、这里（也读环境变量 PQW_STRYKER_MODULES）、本脚本目录的 node_modules（npm ci --prefix 该目录）
+  --stryker-modules <目录>   装了 @stryker-mutator/core 与 vitest-runner 的 node_modules；解析顺序是项目根 node_modules、Git 根 node_modules（给了 --project 时）、这里（也读环境变量 PQW_STRYKER_MODULES）、本脚本目录的 node_modules（npm ci --prefix 该目录）
 
 资源。算式：份额 = 1 / (--other-heavy-tasks + 1)；上限 = max(1, floor(CPU 数 × 份额))，可用内存低于阈值时减半；并行度 = 缺省等于上限，显式 --workers 超过上限按上限；写进 Stryker 配置的 concurrency，启动时定下，运行中不调。
   --other-heavy-tasks N      这台机器上除本工具外同时在跑的重型任务数，缺省 0；N=1 时本工具只拿一半 CPU
@@ -155,7 +155,7 @@ const files = mutable.filter((p) => inProject(project, p));
 const entries = fileEntries(root, ts, files);
 // 范围：改动行所在单元自己的全部行；点名的文件整份。
 const ranges = new Map(files.map((p) => [p, unitRanges(entries.get(p).units, changed.get(p) ?? [])]));
-const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), project: project.label, base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, engine: { ...inputs.engine, notes: projectNotes({ outside: mutable.length - files.length, temp: project.temp, ignored: tempDirIgnored(project.dir, project.temp.name) }) }, fingerprint: inputs.fingerprint, pinned, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, resources: inputs.resources, mutate: mutateEntries(ranges, pinned, files), sites: [], unmutated: [], summary: {}, survivors: [], recheck: null };
+const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), project: project.label, base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, engine: { ...inputs.engine, notes: projectNotes({ prefix: project.prefix, outside: mutable.length - files.length, temp: project.temp, ignored: tempDirIgnored(project.dir, project.temp.name) }) }, fingerprint: inputs.fingerprint, pinned, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, resources: inputs.resources, mutate: mutateEntries(ranges, pinned, files), sites: [], unmutated: [], summary: {}, survivors: [], recheck: null };
 let code = 0;
 if (!result.planOnly && result.mutate.length > 0) {
   const first = await execute(result, { project, stryker, entries, ranges });
