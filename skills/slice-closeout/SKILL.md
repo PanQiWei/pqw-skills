@@ -49,7 +49,7 @@ description: 交付期第 11 步，切片收口：主代理自跑类型检查与
 
 ## 常驻要求
 
-对自己和派出去的子代理同样要求代码品味、TypeScript 最佳实践、架构优雅与代码整洁。不过度设计，不过度优化。判设计与实践的依据是 ub-mode 的先做对再做好，加载技能 `ub-mode`；TypeScript 的写法加载技能 `pstack:typescript-best-practices`。
+对自己和派出去的子代理同样按[写代码的四条](../single-session-dev-flow/SKILL.md#写代码的四条)要求代码品味、架构优雅与代码整洁；判设计与实践的完整依据加载技能 `ub-mode`；TypeScript 的写法加载技能 `pstack:typescript-best-practices`。
 
 ## 外部技能
 

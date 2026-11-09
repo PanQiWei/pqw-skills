@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 仓库一致性检查。只读，纯 Node，无依赖。退出 0 全部通过；退出 1 有失败；退出 2 用法错误。
-// 核的是 AGENTS.md 布局与写作规则里能机器化的那部分：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接。
+// 核的是 AGENTS.md 布局与写作规则里能机器化的那部分：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、写代码的四条只有一处正文。
 
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
@@ -187,6 +187,26 @@ function checkToolVersion() {
   }
 }
 checkToolVersion();
+
+// ---- 8. 写代码的四条只有一处正文：入口技能那一节。别处提到这几个短语的行必须带指向它的链接，防止第二份正文长出来。
+const FOUR_RULES_ENTRY = join(config.skillsDir, "single-session-dev-flow/SKILL.md");
+const FOUR_RULES_PHRASES = ["先做对", "再做好", "找本质解"];
+const FOUR_RULES_LINK = "SKILL.md#写代码的四条";
+function checkFourRules() {
+  const entry = read(FOUR_RULES_ENTRY);
+  if (!entry.includes("\n## 写代码的四条\n")) fail("四条只有一处正文", `${rel(FOUR_RULES_ENTRY)} 缺「## 写代码的四条」一节`);
+  for (const label of ["**先做对。**", "**再做好一轮。**", "**不过度设计，不提前优化。**", "**找本质解。**"]) {
+    if (!entry.includes(label)) fail("四条只有一处正文", `${rel(FOUR_RULES_ENTRY)} 的四条缺「${label}」`);
+  }
+  if (!frontmatter(entry).description?.includes("写代码的四条")) fail("四条只有一处正文", `${rel(FOUR_RULES_ENTRY)} 的 description 没有提到「写代码的四条」`);
+  for (const file of walkMd(config.skillsDir)) {
+    if (file === FOUR_RULES_ENTRY) continue;
+    read(file).split("\n").forEach((line, i) => {
+      if (FOUR_RULES_PHRASES.some((p) => line.includes(p)) && !line.includes(FOUR_RULES_LINK)) fail("四条只有一处正文", `${rel(file)}:${i + 1} 提到四条却没有链到入口那一节`);
+    });
+  }
+}
+checkFourRules();
 
 // ---- 输出
 
