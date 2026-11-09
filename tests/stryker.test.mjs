@@ -3,7 +3,7 @@ import { test } from "vitest";
 import assert from "node:assert/strict";
 import { spawnSync, spawn } from "node:child_process";
 import { join } from "node:path";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, symlinkSync } from "node:fs";
 import { makeRepo, writeFiles, dispose, tsPath, strykerModules, git, makePnpmModules } from "./fixture.mjs";
 
 const SCRIPT = new URL("../skills/slice-closeout/scripts/mutation.mjs", import.meta.url).pathname;
@@ -190,6 +190,26 @@ test.skipIf(skipReal)("Stryker 引擎被 SIGTERM 结束：退出 143，自己留
 import { makeMonorepo } from "./fixture.mjs";
 
 const changeBoth = (dir) => writeFiles(dir, { "packages/a/src/calc.ts": VITEST_SRC.replace("return n > 0;", "return n >= 1;"), "packages/b/src/calc.ts": VITEST_SRC.replace("return a + b;", "return b + a;") });
+
+test.skipIf(skip)("不给 --ts：成员里是没有 JS 接口的 7.x，Git 根的 pnpm 存储里有 6.x，照样找到并列出 mutate 条目；存储里也没有时退出 2，消息含 7.x 的版本", () => {
+  const dir = makeMonorepo(null, ["packages/a"]);
+  const planOnly = () => spawnSync("node", [SCRIPT, "--repo", dir, "--project", "packages/a", "--base", "HEAD", "--plan-only", "--stryker-modules", fakeModules(dir)], { encoding: "utf8", env: cleanEnv });
+  try {
+    writeFiles(dir, { "packages/a/src/calc.ts": VITEST_SRC.replace("return n > 0;", "return n >= 1;") });
+    const seven = join(dir, "packages/a/node_modules/typescript");
+    mkdirSync(seven, { recursive: true });
+    writeFileSync(join(seven, "package.json"), JSON.stringify({ name: "typescript", version: "7.0.2" }));
+    const bad = planOnly();
+    assert.equal(bad.status, 2, bad.stdout);
+    assert.ok(bad.stderr.includes(`${seven}（7.0.2）`), bad.stderr);
+    const store = join(dir, "node_modules/.pnpm/typescript@6.0.3/node_modules");
+    mkdirSync(store, { recursive: true });
+    symlinkSync(realpathSync(TS), join(store, "typescript"), "dir");
+    const ok = planOnly();
+    assert.equal(ok.status, 0, ok.stderr);
+    assert.match(ok.stdout, /\nmutate 条目：\n- packages\/a\/src\/calc\.ts:\d+-\d+/);
+  } finally { dispose(dir); }
+});
 
 test.skipIf(skip)("多包仓库：Git 根没有 vitest 配置，不给 --project 退出 2；--project 成员只列它的条目（Git 根相对），抬头计成员外改动，JSON 带 project", () => {
   const dir = makeMonorepo();

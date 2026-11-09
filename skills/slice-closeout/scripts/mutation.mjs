@@ -19,7 +19,7 @@ const USAGE = `用法：mutation.mjs [选项]
                              再在沙箱里经 shell 跑这条命令（可用 && 与管道），让产物来自插桩后的源码；失败时抬头写「测量无效（构建失败）」
   --base <ref>               基线提交；缺省取与 --target 的合并点。给的 ref 不是 HEAD 的祖先（基线分支前进过）时改用两者的合并点，抬头与 JSON 的 baseGiven 写明
   --target <分支>            缺省依次试 main、master
-  --ts <目录>                typescript 包目录（要 JS 实现，6.x 可用）；缺省从仓库 node_modules 找。只用来按行找函数，不参与变异
+  --ts <目录>                typescript 包目录（要 JS 实现，6.x 可用；7 起是原生实现，npm 包里没有 JS 接口）；缺省依次找 Git 根、--project 成员目录、Git 根的 pnpm 存储（node_modules/.pnpm/typescript@*），每处只收有 JS 接口的，存储里取最高版本；都没有退出 2 并写出找到的路径与版本。只用来按行找函数，不参与变异
   --scope <前缀,前缀>        只看这些路径前缀
   --files <路径,路径>        点名文件：这些文件整份都打，不论改没改（判据、状态机所在的文件）；抬头写「（点名 N 个文件）」，位点带 pinned
   --json <路径>              结果 JSON 写到这里；--format json 直接打印 JSON
@@ -70,7 +70,7 @@ function loadInputs() {
   const repo = resolve(opts.repo ?? process.cwd());
   const root = load(() => sh(repo, ["rev-parse", "--show-toplevel"]), `不是 Git 仓库：${repo}`);
   const project = load(() => resolveProject(root, opts.project ?? null));
-  const ts = load(() => loadTypescript(opts.ts, root));
+  const ts = load(() => loadTypescript(opts.ts, root, project.dir));
   const { modules, configFile, ...engine } = load(() => chooseEngine({ root: project.dir, repoRoot: root, modulesDir: opts["stryker-modules"] }));
   const { base, baseGiven } = load(() => resolveBase(root, opts.base, opts.target));
   return { root, project: { ...project, temp: tempDirFor(project) }, ts, engine, stryker: { modules, configFile }, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources: planResources(), fingerprint: strykerFingerprint(project.dir, { ...engine, modules, configFile }), timeoutMs: duration(opts.timeout, null), recheckTimeoutMs: duration(opts["recheck-timeout"], null) };

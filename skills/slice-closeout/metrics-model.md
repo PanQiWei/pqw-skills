@@ -69,3 +69,5 @@
 | `decisions` | 集合 D 的说明，写在适配器文件头 |
 
 TypeScript 适配器：判定集合为 if、三元、for、for-in、for-of、while、do、catch、case、default、`&&`、`||`、`??`、`?.`；有名字的内层函数、对象字面量方法与类字段箭头函数各自成单元，匿名回调并入外层。
+
+TypeScript 适配器靠 typescript 的 JS 接口按行找函数。typescript 7 起是原生实现，npm 包里没有 JS 接口，要用 6.x。没给 `--ts` 时依次找 Git 根（含往上各级）的 `node_modules/typescript`、`--project` 成员目录（只有差分变异有这个选项）、Git 根的 pnpm 存储 `node_modules/.pnpm/typescript@*/node_modules/typescript`，每处只收有 JS 接口的，存储里取版本最高的；没有接口的会记下，都找不到时退出 2，消息写出找到的路径与版本并说明用 `--ts` 指到一个 6.x。

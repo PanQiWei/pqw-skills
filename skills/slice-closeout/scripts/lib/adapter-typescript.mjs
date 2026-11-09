@@ -5,23 +5,66 @@
 // 计数范围与 omne 所钉的 crapper 4909ad2 不同，两边的读数不能直接比。
 // 认知复杂度按 SonarSource 白皮书：分叉结构 +1，嵌套再加深度，逻辑运算序列每换一种 +1，else 与 else-if 各 +1 不加嵌套。
 import { createRequire } from "node:module";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join, resolve, dirname } from "node:path";
 
 export const SOURCE_RE = /\.(?:[cm]?[jt]s|[jt]sx)$/;
 export const DECLARATION_RE = /\.d\.[cm]?ts$/;
 
-/** 加载 typescript：显式路径，否则从项目目录的 node_modules 解析。找不到抛错，调用方写「未提供」。 */
-export function loadTypescript(explicit, cwd = process.cwd()) {
-  const req = createRequire(join(cwd, "noop.js"));
-  const candidate = explicit ?? "typescript";
-  try {
-    const ts = req(candidate);
-    if (typeof ts.createSourceFile !== "function") throw new Error("not a parser");
-    return ts;
-  } catch (e) {
-    throw new Error(`未提供：找不到可用的 typescript（${explicit ?? "项目 node_modules"}）。用 --ts 指定 typescript 包目录。`);
+/** 从 start 起逐级往上的 node_modules/typescript（与 Node 的查找同序）。 */
+function walkUp(start) {
+  const dirs = [];
+  for (let dir = resolve(start); ; dir = dirname(dir)) {
+    dirs.push(join(dir, "node_modules", "typescript"));
+    if (dirname(dir) === dir) return dirs;
   }
+}
+
+/** 版本分量，按数字比：6.0.10 高于 6.0.9。 */
+const versionParts = (v) => (v ?? "").split(/[.+-]/).slice(0, 3).map((n) => Number(n) || 0);
+const byVersionDesc = (a, b) => { const [x, y] = [versionParts(a.version), versionParts(b.version)]; return (y[0] - x[0]) || (y[1] - x[1]) || (y[2] - x[2]); };
+
+/** pnpm 存储里的 typescript：<根>/node_modules/.pnpm/typescript@*\/node_modules/typescript，版本取自各自的 package.json，高的在前。 */
+function pnpmStoreCandidates(root) {
+  const store = join(root, "node_modules", ".pnpm");
+  if (!existsSync(store)) return [];
+  return readdirSync(store).filter((n) => n.startsWith("typescript@")).map((n) => join(store, n, "node_modules", "typescript")).filter((d) => existsSync(join(d, "package.json")))
+    .map((dir) => ({ dir, version: versionAt(dir) })).sort(byVersionDesc).map((c) => c.dir);
+}
+
+function versionAt(dir) {
+  try { return JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).version ?? null; } catch { return null; }
+}
+
+/** 包目录里有 JS 接口（能 require 且 createSourceFile 是函数）就返回模块，否则 null。typescript 7 起是原生实现，npm 包里没有 JS 接口。 */
+function parserAt(dir) {
+  try {
+    const ts = createRequire(import.meta.url)(dir);
+    return typeof ts.createSourceFile === "function" ? ts : null;
+  } catch { return null; }
+}
+
+/**
+ * 加载 typescript：显式路径，否则按 Git 根（含往上各级）、成员目录（给了才找）、Git 根的 pnpm 存储依次找，
+ * 每处只收有 JS 接口的，没有接口的记下路径与版本继续往后找；存储里取有 JS 接口的最高版本。
+ * 找不到抛错，调用方写「未提供」：没装、或装了但都没有 JS 接口（消息写出路径与版本，说明用 --ts 指到一个 6.x）。
+ */
+export function loadTypescript(explicit, cwd = process.cwd(), projectDir = null) {
+  if (explicit !== undefined && explicit !== null) {
+    const ts = parserAt(resolve(cwd, explicit));
+    if (ts) return ts;
+    throw new Error(`未提供：找不到可用的 typescript（${explicit}）。用 --ts 指定 typescript 包目录。`);
+  }
+  const searched = [...walkUp(cwd), ...(projectDir ? walkUp(projectDir) : []), ...pnpmStoreCandidates(cwd)];
+  const found = [];
+  for (const dir of [...new Set(searched)]) {
+    if (!existsSync(join(dir, "package.json"))) continue;
+    const ts = parserAt(dir);
+    if (ts) return ts;
+    found.push(`${dir}（${versionAt(dir) ?? "版本不明"}）`);
+  }
+  if (found.length) throw new Error(`未提供：找到 typescript 但没有 JS 接口：${found.join("、")}。typescript 7 起是原生实现，npm 包里没有 JS 接口；用 --ts 指到一个 6.x 的包目录（例如 pnpm 存储里的 node_modules/.pnpm/typescript@6.*/node_modules/typescript）。`);
+  throw new Error(`未提供：找不到 typescript（找过 ${join(cwd, "node_modules")}${projectDir ? `、${join(projectDir, "node_modules")}` : ""}、${join(cwd, "node_modules", ".pnpm")}）。用 --ts 指定 typescript 包目录。`);
 }
 
 const scriptKind = (ts, path) => (/\.tsx$/.test(path) ? ts.ScriptKind.TSX : /\.jsx$/.test(path) ? ts.ScriptKind.JSX : /\.[cm]?js$/.test(path) ? ts.ScriptKind.JS : ts.ScriptKind.TS);

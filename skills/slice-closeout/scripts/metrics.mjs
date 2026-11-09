@@ -14,7 +14,7 @@ const USAGE = `用法：metrics.mjs [选项]
   --base <ref>         基线提交；缺省取与 --target 的合并点。给的 ref 不是 HEAD 的祖先时改用两者的合并点，抬头与 JSON 的 baseGiven 写明
   --target <分支>      缺省依次试 main、master
   --lcov <路径>        覆盖率文件；没有就 CRAP 记无覆盖
-  --ts <目录>          typescript 包目录；缺省从仓库 node_modules 找
+  --ts <目录>          typescript 包目录（要 JS 实现，6.x 可用；7 起是原生实现，npm 包里没有 JS 接口）；缺省依次找 Git 根、Git 根的 pnpm 存储（node_modules/.pnpm/typescript@*），每处只收有 JS 接口的，存储里取最高版本；都没有退出 2 并写出找到的路径与版本
   --scope <前缀,前缀>  只看这些路径前缀
   --json <路径>        结果 JSON 写到这里；--format json 直接打印 JSON
   --cc <warn>,<alert>  圈复杂度两条线，缺省 10,12；严格大于才过线
