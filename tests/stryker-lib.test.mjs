@@ -96,6 +96,26 @@ test("范围按单元展开：改动行在单元里就取单元自己的全部�
   assert.deepEqual(unitRanges(units, [[20, 21], [3, 3]]), [[2, 4], [8, 10], [20, 21]], "改动段倒序给也按行号排");
 });
 
+test("配置：给了 runner 入口就写 plugins（绝对路径，不靠 Stryker 在核心旁边找）；没给不写", () => {
+  const entry = "/p/node_modules/@stryker-mutator/vitest-runner/dist/src/index.js";
+  assert.deepEqual(strykerConfig({ entries: [], configFile: null, concurrency: 1, reportPath: "/r", runnerEntry: entry }).plugins, [entry]);
+  assert.equal("plugins" in strykerConfig({ entries: [], configFile: null, concurrency: 1, reportPath: "/r" }), false);
+});
+
+test("runner 入口：取包的 exports 的 . 项（字符串，或对象的 import、default），没有就取 main，再没有取 dist/src/index.js；路径是绝对路径", () => {
+  const modules = tmp();
+  try {
+    fakeModules(modules);
+    const entry = (extra) => { pkg(modules, "@stryker-mutator/vitest-runner", extra); return resolveStryker({ root: "/nonexistent-root", modulesDir: modules, env: {}, scriptsModules: NOWHERE }).runnerEntry; };
+    const dir = join(modules, "@stryker-mutator/vitest-runner");
+    assert.equal(entry({ exports: { ".": "./dist/src/index.js", "./package.json": "./package.json" } }), join(dir, "dist/src/index.js"));
+    assert.equal(entry({ exports: { ".": { import: "./esm/i.js", default: "./cjs/i.js" } } }), join(dir, "esm/i.js"));
+    assert.equal(entry({ exports: { ".": { default: "./cjs/i.js" } } }), join(dir, "cjs/i.js"));
+    assert.equal(entry({ main: "lib/main.js" }), join(dir, "lib/main.js"));
+    assert.equal(entry({}), join(dir, "dist/src/index.js"));
+  } finally { rmSync(modules, { recursive: true, force: true }); }
+});
+
 test("配置：逐项按 spec；没有配置文件就不写 configFile；--timeout 映射 timeoutMS；增量按参数", () => {
   const c = strykerConfig({ entries: ["a.ts:1-2"], configFile: "vitest.config.ts", concurrency: 3, reportPath: "/r/m.json" });
   assert.deepEqual(c, { testRunner: "vitest", vitest: { configFile: "vitest.config.ts", related: false }, coverageAnalysis: "perTest", mutate: ["a.ts:1-2"], tempDirName: ".stryker-tmp", cleanTempDir: true, concurrency: 3, incremental: false, reporters: ["json", "progress-append-only"], jsonReporter: { fileName: "/r/m.json" }, thresholds: { high: 80, low: 60, break: null } });

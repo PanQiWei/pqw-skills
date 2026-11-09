@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { spawnSync, spawn } from "node:child_process";
 import { join } from "node:path";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { makeRepo, writeFiles, dispose, tsPath, strykerModules, git } from "./fixture.mjs";
+import { makeRepo, writeFiles, dispose, tsPath, strykerModules, git, makePnpmModules } from "./fixture.mjs";
 
 const SCRIPT = new URL("../skills/slice-closeout/scripts/mutation.mjs", import.meta.url).pathname;
 const TS = tsPath();
@@ -48,7 +48,7 @@ test.skipIf(skip)("有 vitest 配置但找不到依赖：退出 2 写装法与�
   } finally { dispose(dir); }
 });
 
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, readdirSync, realpathSync } from "node:fs";
 import { makeVitestRepo, VITEST_SRC } from "./fixture.mjs";
 import { workDir } from "../skills/slice-closeout/scripts/lib/stryker.mjs";
 
@@ -118,6 +118,23 @@ test.skipIf(skipReal)("Stryker 引擎真跑一轮：四类计数与表格，存�
     assert.equal(forced.incremental.force, true, "测试文件变了指纹就变，整轮重跑");
     assert.ok(forced.engine.notes.includes("增量：指纹变了，整轮重跑"), JSON.stringify(forced.engine.notes));
   } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); }
+});
+
+test.skipIf(skipReal)("pnpm 隔离布局：核心的真实位置旁边没有 vitest runner，配置里 plugins 写 runner 的绝对路径，初跑通过", () => {
+  const modules = makePnpmModules(MODULES);
+  const dir = makeVitestRepo(modules);
+  try {
+    const core = realpathSync(join(modules, "@stryker-mutator/core"));
+    assert.equal(readdirSync(join(core, "..")).includes("vitest-runner"), false, "布局前提：Stryker 只在核心旁边找，这里找不到 runner");
+    writeFiles(dir, { "src/calc.ts": VITEST_SRC.replace("  if (n < lo) return lo;", "  if (n < lo) { return lo; }") });
+    const r = strykerRun(dir, ["--format", "json"]);
+    assert.equal(r.status, 0, r.stderr + r.stdout);
+    const json = JSON.parse(r.stdout);
+    assert.equal(json.baseline.passed, true);
+    assert.ok(json.sites.length > 0 && json.summary.valid, JSON.stringify(json.summary));
+    const config = JSON.parse(readFileSync(join(workDir(dir), "stryker-mutation.json"), "utf8"));
+    assert.deepEqual(config.plugins, [join(dir, "node_modules/@stryker-mutator/vitest-runner/dist/src/index.js")], "项目的 node_modules 先找到 runner，入口是它下面的绝对路径");
+  } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); dispose(modules); }
 });
 
 test.skipIf(skipReal)("Stryker 真跑的超时复核：死循环变异体第一轮超时，第二轮一个进程、时限按 --recheck-timeout 放宽仍超时，抬头写复核 N（仍超时 N），项目文件不变", () => {

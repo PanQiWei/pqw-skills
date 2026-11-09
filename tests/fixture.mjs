@@ -1,5 +1,5 @@
 // 测试夹具：在系统临时目录建一个小 Git 仓库，提交一版基线，再改工作树。
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, symlinkSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, symlinkSync, readdirSync, cpSync, realpathSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { execSync } from "node:child_process";
@@ -105,4 +105,29 @@ export function makeMonorepo(modulesDir = null, members = ["packages/a", "packag
   });
   if (modulesDir) for (const m of members) { mkdirSync(join(dir, m, "node_modules")); symlinkSync(join(modulesDir, "vitest"), join(dir, m, "node_modules", "vitest"), "dir"); }
   return dir;
+}
+
+/**
+ * pnpm 隔离布局的 node_modules：顶层只有指向存储的软链，Stryker 核心的真实位置在存储里，
+ * 它旁边（存储里核心自己的 node_modules/@stryker-mutator）只有核心的依赖，没有 vitest runner。
+ * 核心是复制的（真实位置才会变），其余包软链到 modules 里的真包；返回布局的根目录，可当 node_modules 用。
+ */
+export function makePnpmModules(modules) {
+  const root = mkdtempSync(join(tmpdir(), "pqw-pnpm-"));
+  const store = join(root, ".pnpm", "core", "node_modules");
+  mkdirSync(join(store, "@stryker-mutator"), { recursive: true });
+  for (const name of readdirSync(modules)) {
+    if (name === ".bin" || name === ".package-lock.json") continue;
+    if (name === "@stryker-mutator") continue;
+    symlinkSync(realpathSync(join(modules, name)), join(store, name));
+  }
+  for (const name of readdirSync(join(modules, "@stryker-mutator"))) {
+    if (name === "core") cpSync(realpathSync(join(modules, "@stryker-mutator", name)), join(store, "@stryker-mutator", name), { recursive: true });
+    else if (name !== "vitest-runner") symlinkSync(realpathSync(join(modules, "@stryker-mutator", name)), join(store, "@stryker-mutator", name));
+  }
+  mkdirSync(join(root, "@stryker-mutator"));
+  symlinkSync(join(store, "@stryker-mutator", "core"), join(root, "@stryker-mutator", "core"));
+  symlinkSync(realpathSync(join(modules, "@stryker-mutator", "vitest-runner")), join(root, "@stryker-mutator", "vitest-runner"));
+  symlinkSync(realpathSync(join(modules, "vitest")), join(root, "vitest"));
+  return root;
 }

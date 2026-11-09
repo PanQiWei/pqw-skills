@@ -110,7 +110,7 @@ async function runOnce({ project, stryker, name, config }) {
   for (const p of [reportPath, logPath, mark]) rmSync(p, { force: true });
   const hadTempDir = existsSync(tempDir);
   const cleanup = () => { if (!hadTempDir) rmSync(tempDir, { recursive: true, force: true }); };
-  writeFileSync(configPath, JSON.stringify(strykerConfig({ ...config, configFile: stryker.configFile, reportPath, prefix: project.prefix, tempDirName: project.temp.name, build: Boolean(command) }), null, 2) + "\n");
+  writeFileSync(configPath, JSON.stringify(strykerConfig({ ...config, configFile: stryker.configFile, reportPath, prefix: project.prefix, tempDirName: project.temp.name, build: Boolean(command), runnerEntry: stryker.modules.runnerEntry }), null, 2) + "\n");
   const run = runStryker({ root: project.dir, coreBin: stryker.modules.coreBin, configPath, nice: inputs.resources.nice, logPath, onProgress: (line) => console.error(line), env: buildEnv({ projectDir: project.dir, command, mark }) });
   current = { run, cleanup };
   const r = await run.done;

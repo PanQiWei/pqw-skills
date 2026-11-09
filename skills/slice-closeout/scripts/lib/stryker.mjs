@@ -19,13 +19,20 @@ const RUNNER_CONFIG_RE = /^(vitest|vite)\.config\.[cm]?[jt]s$/;
 
 const readPackage = (dir) => { const p = join(dir, "package.json"); return existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : null; };
 
-/** 一个 node_modules 目录里核心与 vitest runner 都在才算找到。 */
+/** runner 包的入口文件绝对路径：exports 的「.」项（字符串，或对象的 import、default），没有取 main，再没有取 dist/src/index.js。 */
+export function runnerEntryOf(runnerDir, pkg) {
+  const dot = pkg.exports?.["."];
+  const relative = typeof dot === "string" ? dot : dot?.import ?? dot?.default ?? pkg.main ?? "dist/src/index.js";
+  return resolve(runnerDir, relative);
+}
+
+/** 一个 node_modules 目录里核心与 vitest runner 都在才算找到。runnerEntry 是 runner 入口文件的绝对路径，写进 Stryker 配置的 plugins。 */
 function probe(modulesDir, from) {
   const core = readPackage(join(modulesDir, CORE));
   const runner = readPackage(join(modulesDir, RUNNER));
   if (!core || !runner) return null;
   const vitest = readPackage(join(modulesDir, "vitest"));
-  return { modulesDir, from, version: core.version, runnerVersion: runner.version, vitestVersion: vitest?.version ?? null, coreBin: join(modulesDir, CORE, core.bin?.stryker ?? "bin/stryker.js") };
+  return { modulesDir, from, version: core.version, runnerVersion: runner.version, vitestVersion: vitest?.version ?? null, coreBin: join(modulesDir, CORE, core.bin?.stryker ?? "bin/stryker.js"), runnerEntry: runnerEntryOf(join(modulesDir, RUNNER), runner) };
 }
 
 /**
@@ -168,12 +175,14 @@ export const failedBaseline = ({ seconds, tail, logPath, buildFailed }) => ({ pa
 export const baselineFailure = (baseline) => (baseline.buildFailed ? "构建失败" : "Stryker 初跑失败");
 
 /**
- * Stryker 配置。并行度启动时定下；--timeout 给了就映射到 timeoutMS；增量按 incremental 参数（null 不开）。
+ * Stryker 配置。并行度启动时定下；runnerEntry 是已经解析到的 vitest runner 入口的绝对路径，写成 plugins，
+ * 不靠 Stryker 在核心旁边找 @stryker-mutator/*（pnpm 的隔离布局里核心的真实位置旁边没有 runner）；--timeout 给了就映射到 timeoutMS；增量按 incremental 参数（null 不开）。
  * Stryker 在项目目录里跑，条目要相对项目目录：这里是写方向的唯一换算处，去掉 prefix（读方向在 readReport）。
  */
-export function strykerConfig({ entries, configFile, concurrency, reportPath, incremental = null, timeoutMs = null, tempDirName = ".stryker-tmp", prefix = "", build = false }) {
+export function strykerConfig({ entries, configFile, concurrency, reportPath, incremental = null, timeoutMs = null, tempDirName = ".stryker-tmp", prefix = "", build = false, runnerEntry = null }) {
   return {
     testRunner: "vitest",
+    ...(runnerEntry ? { plugins: [runnerEntry] } : {}),
     vitest: { ...(configFile ? { configFile } : {}), related: false },
     coverageAnalysis: "perTest",
     mutate: prefix ? entries.map((e) => e.slice(prefix.length + 1)) : entries,
