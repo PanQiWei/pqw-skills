@@ -1,7 +1,7 @@
 # pqw-skills
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.10.0-informational.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.11.0-informational.svg)](./CHANGELOG.md)
 [![Skills](https://img.shields.io/badge/skills-15-success.svg)](#技能)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#安装)
 [![Language](https://img.shields.io/badge/lang-%E4%B8%AD%E6%96%87%20%7C%20English-lightgrey.svg)](./README_EN.md)
@@ -175,4 +175,4 @@ bash scripts/link-skills.sh
 
 ## 状态
 
-0.10.0。入口技能开头一节「写代码的四条」，切片循环分做对与做好一轮，`check-plan` 核每片收口里的「做好一轮」，`check-repo` 守四条只有一处正文。十五个发行技能正文齐全且宿主无关，其中一个教人用这套流。十七份模板与骨架、八个脚本随技能目录发行：哨兵、汇报件目录、清理、结构读数、差分变异、网页汇报件、demo 追加、plan 结构核对；plan 模板有给人读的「一程目标与前后差别」与每片「交付这片的意义」，有「文档维护表」，结构由 `check-plan.mjs` 守，哨兵判六问，含给人看的文档有没有过期、实现是不是比本质复杂，汇报件开头讲这程为什么做；后四个工具的逻辑在 `scripts/lib/`，命令面只剩参数与退出码，并用自带的读数与变异工具量过自己。差分变异只有 Stryker 一种引擎：项目要用 vitest 并装着 Stryker（项目自己装，或 `npm ci --prefix` 装到技能目录），一次性插桩、测试进程常驻、只跑碰到变异体的用例、增量带指纹；超时的变异体一轮后单独复核，抬头写「复核 N」；别的运行器暂不支持，工具退出并说明。哨兵是便宜档的只读子代理，每 45 分钟回看一次。读数三态覆盖率、与基线比并标出变差、报告可信度警告；并行度按机器容量分配，测量无效时不出计数，`--files` 点名热点文件；读数表后列出这次改的用例里没有断言的那些（`--assert-pattern` 可换口径），只改了顶层声明的文件进未覆盖清单带原因。清理只判断还要不要：不要的直接删、要的原地留，不打包也不在文档里写中间状态。两个元技能迁自 omne-harness-lite。仓库测试 `npx vitest run`，根 `package.json` 钉依赖，`npm ci` 之后不设环境变量就能跑全部用例。
+0.11.0。定义期与交付期可以在两个会话里顺序交接：设计会话在交接点之后照模板写一份交接信息包，交付会话从包开工，`check-plan --handoff` 核包的结构；仍不做多会话并行协作。教学技能的心智模型页有一节「AI 主导研发交付的心智」十条，给项目设计自己的合入检查时当尺子。入口技能开头一节「写代码的四条」，切片循环分做对与做好一轮，`check-plan` 核每片收口里的「做好一轮」，`check-repo` 守四条只有一处正文。十五个发行技能正文齐全且宿主无关，其中一个教人用这套流。十八份模板与骨架、八个脚本随技能目录发行：哨兵、汇报件目录、清理、结构读数、差分变异、网页汇报件、demo 追加、plan 结构核对；plan 模板有给人读的「一程目标与前后差别」与每片「交付这片的意义」，有「文档维护表」，结构由 `check-plan.mjs` 守，哨兵判六问，含给人看的文档有没有过期、实现是不是比本质复杂，汇报件开头讲这程为什么做；后四个工具的逻辑在 `scripts/lib/`，命令面只剩参数与退出码，并用自带的读数与变异工具量过自己。差分变异只有 Stryker 一种引擎：项目要用 vitest 并装着 Stryker（项目自己装，或 `npm ci --prefix` 装到技能目录），一次性插桩、测试进程常驻、只跑碰到变异体的用例、增量带指纹；超时的变异体一轮后单独复核，抬头写「复核 N」；别的运行器暂不支持，工具退出并说明。哨兵是便宜档的只读子代理，每 45 分钟回看一次。读数三态覆盖率、与基线比并标出变差、报告可信度警告；并行度按机器容量分配，测量无效时不出计数，`--files` 点名热点文件；读数表后列出这次改的用例里没有断言的那些（`--assert-pattern` 可换口径），只改了顶层声明的文件进未覆盖清单带原因。清理只判断还要不要：不要的直接删、要的原地留，不打包也不在文档里写中间状态。两个元技能迁自 omne-harness-lite。仓库测试 `npx vitest run`，根 `package.json` 钉依赖，`npm ci` 之后不设环境变量就能跑全部用例。
