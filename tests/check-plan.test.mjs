@@ -63,6 +63,7 @@ const GOOD_PLAN = `# 示例 交付计划（revision 1）
 
 **收口**
 
+- [x] 做好一轮：本片不需要：示例。
 - [x] 提交
 
 ### 02：第二片
@@ -74,6 +75,7 @@ const GOOD_PLAN = `# 示例 交付计划（revision 1）
 
 **收口**
 
+- [ ] 做好一轮：
 - [ ] 提交
 
 ## 顺序与并行
@@ -175,6 +177,23 @@ test("其余缺陷：抬头没 revision、缺进度行、切片表切片号不�
   const spec = (text) => checkSpec(text).map((d) => d.message);
   assert.ok(spec(GOOD_SPEC.replace("## User Stories", "## Stories")).includes("缺节「## User Stories」"));
   assert.ok(spec(GOOD_SPEC.replace("- C1 第一条\n- C2 第二条", "- 第一条")).includes("验收标准里没有「- C<n>」条目"));
+});
+
+test("收口缺「做好一轮」报缺陷，行号指向那片的「**收口**」；勾没勾都算在", () => {
+  const noPolish = GOOD_PLAN.replace("- [ ] 做好一轮：\n", "");
+  const lines = noPolish.split("\n");
+  const closeoutOf02 = lines.findIndex((l, i) => l.startsWith("**收口**") && i > lines.indexOf("### 02：第二片"));
+  assert.deepEqual(checkPlan(noPolish).map((d) => [d.line, d.message]), [[closeoutOf02 + 1, "切片 02 收口缺「做好一轮」"]]);
+  assert.deepEqual(checkPlan(GOOD_PLAN.replace("- [ ] 做好一轮：", "- [x] 做好一轮：只改了命名")), [], "勾上也合格");
+  assert.ok(checkPlan(GOOD_PLAN.replace("- [x] 做好一轮：本片不需要：示例。\n", "做好一轮写在收口外\n- [x] 提交\n")).some((d) => d.message === "切片 01 收口缺「做好一轮」"), "不是勾选项的同名文字不算");
+
+  const only01 = (text) => checkPlan(text).filter((d) => d.message.startsWith("切片 01")).map((d) => d.message);
+  assert.deepEqual(only01(GOOD_PLAN.replace("- [x] 做好一轮：本片不需要：示例。", "x - [x] 做好一轮：本片不需要：示例。")), ["切片 01 收口缺「做好一轮」"], "勾选项要在行首");
+  assert.deepEqual(only01(GOOD_PLAN.replace("**开工包**\n\n- 上下文增量：无", "**开工包**\n\n- [x] 做好一轮：写在开工包里").replace("- [x] 做好一轮：本片不需要：示例。\n", "")), ["切片 01 收口缺「做好一轮」"], "收口之前的同名勾选项不算");
+  assert.deepEqual(only01(GOOD_PLAN.replace("**收口**\n\n- [x] 做好一轮", "**收口**（2026-11-08T10:00Z）\n\n- [x] 做好一轮")), [], "收口标题后面可以跟时刻");
+  assert.deepEqual(only01(GOOD_PLAN.replace("**收口**\n\n- [x] 做好一轮：本片不需要：示例。\n- [x] 提交\n", "")), ["切片 01 缺「**收口**」"], "整个收口都没有时只报缺收口");
+  assert.deepEqual(only01(GOOD_PLAN.replace("**开工包**\n\n- 上下文增量：无\n\n", "")), ["切片 01 缺「**开工包**」"]);
+  assert.deepEqual(checkPlan(GOOD_PLAN.replace("### 02：第二片", "见 ### 02：第二片")).map((d) => d.message), ["切片表里的切片 02 没有自己的「### 02：」节"], "切片标题要在行首");
 });
 
 test("命令面：好文件退出 0 并说合模板；坏文件退出 1 逐条列「文件:行 缺陷」；--format json 结构稳定；缺 --plan 或读不到退出 2", () => {

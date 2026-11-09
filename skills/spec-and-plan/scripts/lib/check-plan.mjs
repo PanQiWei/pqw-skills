@@ -8,6 +8,8 @@ export const SPEC_SECTIONS = ["Problem Statement", "Solution", "依据与已定�
 export const SLICE_TABLE_HEADER = "| 切片 | 交付的行为 | 对应验收 | 状态 |";
 export const DOCS_TABLE_HEADER = "| 文档 | 给谁看 | 什么时候更新 | 只动哪一节 | 怎么判断过期 | 最近更新 |";
 export const MEANING_ITEM = "- **交付这片的意义：**";
+/** 收口里「做好一轮」那一项：写代码的四条的第二条在切片循环里的位置，核它在不在。 */
+export const POLISH_ITEM_RE = /^- \[[ x]\] 做好一轮/;
 export const PROGRESS_RE = /^进度：\[[■□]{10}\] \d+\/\d+ 切片已完成.* · 更新 \d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z · head [0-9a-f]{7,40}$/;
 export const DISPOSAL_RE = /^处置 (\d+)（/;
 
@@ -93,17 +95,25 @@ function checkDocsTable(file, sec) {
   return defects;
 }
 
-/** 切片节：每个 ### NN： 都有意义段、开工包、收口；切片号与切片表一致。 */
+/** 一个切片节自己的结构缺陷：意义段、开工包、收口，收口里有「做好一轮」。at 是切片标题的行号。 */
+function sliceDefects(file, id, body, at) {
+  const defects = [];
+  if (!body.some((l) => l.startsWith(MEANING_ITEM))) defects.push({ file, line: at, message: `切片 ${id} 缺「${MEANING_ITEM}」` });
+  if (!body.some((l) => l.startsWith("**开工包**"))) defects.push({ file, line: at, message: `切片 ${id} 缺「**开工包**」` });
+  const closeout = body.findIndex((l) => l.startsWith("**收口**"));
+  if (closeout < 0) defects.push({ file, line: at, message: `切片 ${id} 缺「**收口**」` });
+  else if (!body.slice(closeout).some((l) => POLISH_ITEM_RE.test(l))) defects.push({ file, line: at + closeout, message: `切片 ${id} 收口缺「做好一轮」` });
+  return defects;
+}
+
+/** 切片节：每个 ### NN： 的结构缺陷，加上切片号与切片表一致。 */
 function checkSlices(file, sec, tableIds) {
   const defects = [];
   const blocks = [];
   sec.lines.forEach((l, i) => { const m = /^### (\d+)：/.exec(l); if (m) blocks.push({ id: m[1], at: i }); });
   blocks.forEach((b, k) => {
-    const body = sec.lines.slice(b.at, blocks[k + 1]?.at ?? sec.lines.length);
     const line = sec.start + b.at;
-    if (!body.some((l) => l.startsWith(MEANING_ITEM))) defects.push({ file, line, message: `切片 ${b.id} 缺「${MEANING_ITEM}」` });
-    if (!body.some((l) => l.startsWith("**开工包**"))) defects.push({ file, line, message: `切片 ${b.id} 缺「**开工包**」` });
-    if (!body.some((l) => l.startsWith("**收口**"))) defects.push({ file, line, message: `切片 ${b.id} 缺「**收口**」` });
+    defects.push(...sliceDefects(file, b.id, sec.lines.slice(b.at, blocks[k + 1]?.at ?? sec.lines.length), line));
     if (!tableIds.includes(b.id)) defects.push({ file, line, message: `切片 ${b.id} 不在切片表里` });
   });
   for (const id of tableIds) if (!blocks.some((b) => b.id === id)) defects.push({ file, line: null, message: `切片表里的切片 ${id} 没有自己的「### ${id}：」节` });
