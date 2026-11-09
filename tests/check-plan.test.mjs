@@ -204,7 +204,7 @@ const GOOD_HANDOFF = readFileSync(HANDOFF_TEMPLATE, "utf8").split("\n---\n").sli
 test("交接信息包：模板实例化后通过，把模板与核对器钉在一起；没填的模板报起点与四问", () => {
   assert.deepEqual(checkHandoff(GOOD_HANDOFF).map((d) => d.message), []);
   const raw = readFileSync(HANDOFF_TEMPLATE, "utf8").split("\n---\n").slice(1).join("\n---\n");
-  assert.deepEqual(checkHandoff(raw).map((d) => d.message), ["起点一行应为「- 起点：<分支>@<提交号>」，提交号至少 7 位十六进制", "四问第 1 条没有答案", "四问第 2 条没有答案", "四问第 3 条没有答案", "四问第 4 条没有答案"]);
+  assert.deepEqual(checkHandoff(raw).map((d) => d.message), ["起点一行应为「- 起点：<分支>@<提交号>」，提交号至少 7 位十六进制；分支与提交号可各自带反引号，例如「- 起点：main@0123abc」", "四问第 1 条没有答案", "四问第 2 条没有答案", "四问第 3 条没有答案", "四问第 4 条没有答案"]);
 });
 
 test("交接信息包的四种坏法各报对应缺陷，行号指到出事的那一行", () => {
@@ -213,20 +213,37 @@ test("交接信息包的四种坏法各报对应缺陷，行号指到出事的�
   assert.deepEqual(messages(GOOD_HANDOFF.replace("## 边界\n", "## 范围\n")), ["缺节「## 边界」"]);
   assert.deepEqual(messages(GOOD_HANDOFF.slice(0, GOOD_HANDOFF.indexOf("## 四问"))), ["缺节「## 四问」"], "整节四问都没有时只报缺节");
   assert.ok(messages(GOOD_HANDOFF.replace("## 目标\n", "## 临时\n").replace("## 依据\n", "## 目标\n").replace("## 临时\n", "## 依据\n")).includes("节「## 依据」应在「## 目标」之后"), "节顺序错");
-  assert.deepEqual(checkHandoff(GOOD_HANDOFF.replace("main@0123abc", "main@最新")).map((d) => [d.line, d.message]), [[lines.indexOf("## 起点与风险") + 1, "起点一行应为「- 起点：<分支>@<提交号>」，提交号至少 7 位十六进制"]]);
-  assert.deepEqual(messages(GOOD_HANDOFF.replace("main@0123abc", "main@0123ab")), ["起点一行应为「- 起点：<分支>@<提交号>」，提交号至少 7 位十六进制"], "提交号少于 7 位");
+  assert.deepEqual(checkHandoff(GOOD_HANDOFF.replace("main@0123abc", "main@最新")).map((d) => [d.line, d.message]), [[lines.indexOf("## 起点与风险") + 1, "起点一行应为「- 起点：<分支>@<提交号>」，提交号至少 7 位十六进制；分支与提交号可各自带反引号，例如「- 起点：main@0123abc」"]]);
+  assert.deepEqual(messages(GOOD_HANDOFF.replace("main@0123abc", "main@0123ab")), ["起点一行应为「- 起点：<分支>@<提交号>」，提交号至少 7 位十六进制；分支与提交号可各自带反引号，例如「- 起点：main@0123abc」"], "提交号少于 7 位");
   const third = lines.findIndex((l) => l.startsWith("3. "));
   assert.deepEqual(checkHandoff(lines.filter((_, i) => i !== third).join("\n")).map((d) => [d.line, d.message]), [[lines.indexOf("## 四问") + 1, "四问第 3 条没有答案"]], "缺一条时行号指到四问标题");
   assert.deepEqual(checkHandoff(lines.map((l, i) => (i === third ? l.replace("？答。", "？") : l)).join("\n")).map((d) => [d.line, d.message]), [[third + 1, "四问第 3 条没有答案"]], "有题没答时行号指到那一条");
   assert.deepEqual(messages(GOOD_HANDOFF.replace("# 交接信息包：", "# 包：")), ["抬头应为「# 交接信息包：<一程名>」"]);
   assert.deepEqual(messages(GOOD_HANDOFF.replace("# 交接信息包：", "x # 交接信息包：")), ["抬头应为「# 交接信息包：<一程名>」"], "抬头要在行首");
-  const START = "起点一行应为「- 起点：<分支>@<提交号>」，提交号至少 7 位十六进制";
+  const START = "起点一行应为「- 起点：<分支>@<提交号>」，提交号至少 7 位十六进制；分支与提交号可各自带反引号，例如「- 起点：main@0123abc」";
   assert.deepEqual(messages(GOOD_HANDOFF.replace("- 起点：main@0123abc", "- 起点：main@0123abc（最新）")), [START], "提交号后不跟别的");
   assert.deepEqual(messages(GOOD_HANDOFF.replace("- 起点：main@0123abc", "x - 起点：main@0123abc")), [START], "起点要在行首");
   assert.deepEqual(messages(GOOD_HANDOFF.replace("- 起点：main@0123abc", "- 起点：main@0123abc  ")), [], "行尾空白不算");
   assert.deepEqual(messages(lines.map((l, i) => (i === third ? l.replace("？答。", "？  ") : l)).join("\n")), ["四问第 3 条没有答案"], "只有空白也算没答");
   assert.deepEqual(messages(lines.map((l, i) => (i === third ? l.replace("？答。", "？要不要？要。") : l)).join("\n")), [], "答案里可以再有问号");
   assert.equal(checkHandoff(GOOD_HANDOFF.replace("main@0123abc", "main@最新"))[0].file, "handoff.md", "不给文件名时记 handoff.md");
+});
+
+test("交接信息包：整条答案是尖括号占位都算没答，答案里夹着尖括号不算占位", () => {
+  const lines = GOOD_HANDOFF.split("\n");
+  const third = lines.findIndex((l) => l.startsWith("3. "));
+  const withAnswer = (answer) => checkHandoff(lines.map((l, i) => (i === third ? l.replace("？答。", `？${answer}`) : l)).join("\n")).map((d) => [d.line, d.message]);
+  for (const placeholder of ["<待只读核对后填>", "<待补>", "  <待只读核对后填>  ", "<a b>"]) assert.deepEqual(withAnswer(placeholder), [[third + 1, "四问第 3 条没有答案"]], placeholder);
+  for (const answer of ["见 <spec> 第 3 节", "<待补>，已核对", "<a>和<b>"]) assert.deepEqual(withAnswer(answer), [], answer);
+});
+
+test("交接信息包：起点一行容许分支与提交号各自带反引号，报错消息给出正确写法", () => {
+  const messages = (start) => checkHandoff(GOOD_HANDOFF.replace("- 起点：main@0123abc", start)).map((d) => d.message);
+  for (const start of ["- 起点：`main`@`0123abc`", "- 起点：`main`@0123abc", "- 起点：main@`0123abc`", "- 起点：`feat/x`@`0123abcdef`  "]) assert.deepEqual(messages(start), [], start);
+  for (const start of ["- 起点：`main@0123abc", "- 起点：`main`@`0123ab`", "- 起点：`main @ 0123abc`", "- 起点：`main`@`0123abc`（最新）"]) {
+    const [message] = messages(start);
+    assert.match(message, /^起点一行应为「- 起点：<分支>@<提交号>」，提交号至少 7 位十六进制；分支与提交号可各自带反引号，例如「- 起点：main@0123abc」$/, start);
+  }
 });
 
 test("checkFiles 给了哪几份就核哪几份，按 plan、spec、交接信息包的顺序", () => {
@@ -267,7 +284,7 @@ test("命令面：好文件退出 0 并说合模板；坏文件退出 1 逐条�
     assert.equal(handoff.stdout.trim(), "check-plan：结构合模板");
     const badHandoff = run(["--handoff", join(dir, "bad-handoff.md"), "--format", "json"]);
     assert.equal(badHandoff.status, 1);
-    assert.deepEqual(JSON.parse(badHandoff.stdout).defects.map((d) => d.message), ["起点一行应为「- 起点：<分支>@<提交号>」，提交号至少 7 位十六进制"]);
+    assert.deepEqual(JSON.parse(badHandoff.stdout).defects.map((d) => d.message), ["起点一行应为「- 起点：<分支>@<提交号>」，提交号至少 7 位十六进制；分支与提交号可各自带反引号，例如「- 起点：main@0123abc」"]);
     assert.equal(run(["--plan", join(dir, "plan.md"), "--handoff", join(dir, "bad-handoff.md")]).status, 1, "与 --plan 同给时一起核");
     assert.equal(run(["--spec", join(dir, "spec.md")]).status, 2, "只给 --spec 仍是用法错误");
   } finally { rmSync(dir, { recursive: true, force: true }); }
