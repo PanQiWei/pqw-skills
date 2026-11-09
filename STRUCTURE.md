@@ -26,7 +26,7 @@ pqw-skills/
 │   └── write-agents-md/
 ├── scripts/
 │   ├── link-skills.sh        本机开发：把每个技能与元技能软链进 ~/.claude/skills 与 ~/.agents/skills
-│   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、工具版本常量与 plugin.json 一致
+│   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、工具版本常量与 plugin.json 一致、写代码的四条只有一处正文
 ├── tests/                    仓库测试，node:test，无依赖；需要 typescript 的用例从 PQW_TS 取
 └── skills/
     ├── single-session-dev-flow/   总入口；handoff-checklist.md
@@ -82,7 +82,7 @@ pqw-skills/
 
 ## 现在的状态
 
-0.9.0：十五个发行技能正文齐全且宿主无关，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。plan 模板有给人读的两层叙述与文档维护表，`spec-and-plan/scripts/check-plan.mjs` 守结构，哨兵判六问（含文档陈旧与实现是否比本质复杂），汇报件开头讲这程为什么做。结构读数、差分变异、HTML 汇报件与 demo 追加四个工具随技能发行，逻辑在 `scripts/lib/`；差分变异只有 Stryker 引擎，适配在 `slice-closeout/scripts/lib/stryker.mjs`，超时的变异体单独复核，依赖钉在 `slice-closeout/scripts/package.json`；清理只判断还要不要。读数多列没有断言的用例与没有函数的改动文件。本仓库测试迁 vitest，根 `package.json` 钉测试链依赖，`tests/` 97 个用例。`node scripts/check-repo.mjs` 退出 0。
+0.10.0：入口技能开头是「写代码的四条」（唯一正文，`check-repo` 第 8 段守），切片循环分做对与做好一轮，`check-plan` 核收口里的「做好一轮」。十五个发行技能正文齐全且宿主无关，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。plan 模板有给人读的两层叙述与文档维护表，`spec-and-plan/scripts/check-plan.mjs` 守结构，哨兵判六问（含文档陈旧与实现是否比本质复杂），汇报件开头讲这程为什么做。结构读数、差分变异、HTML 汇报件与 demo 追加四个工具随技能发行，逻辑在 `scripts/lib/`；差分变异只有 Stryker 引擎，适配在 `slice-closeout/scripts/lib/stryker.mjs`，超时的变异体单独复核，依赖钉在 `slice-closeout/scripts/package.json`；清理只判断还要不要。读数多列没有断言的用例与没有函数的改动文件。本仓库测试迁 vitest，根 `package.json` 钉测试链依赖，`tests/` 98 个用例。`node scripts/check-repo.mjs` 退出 0。
 
 ## 校验
 
