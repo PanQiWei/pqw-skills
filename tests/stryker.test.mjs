@@ -169,3 +169,67 @@ test.skipIf(skipReal)("Stryker 引擎被 SIGTERM 结束：退出 143，自己留
     assert.equal(readFileSync(join(dir, "src/calc.ts"), "utf8"), mutated);
   } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); }
 });
+
+import { makeMonorepo } from "./fixture.mjs";
+
+const changeBoth = (dir) => writeFiles(dir, { "packages/a/src/calc.ts": VITEST_SRC.replace("return n > 0;", "return n >= 1;"), "packages/b/src/calc.ts": VITEST_SRC.replace("return a + b;", "return b + a;") });
+
+test.skipIf(skip)("多包仓库：Git 根没有 vitest 配置，不给 --project 退出 2；--project 成员只列它的条目（Git 根相对），抬头计成员外改动，JSON 带 project", () => {
+  const dir = makeMonorepo();
+  try {
+    changeBoth(dir);
+    const none = run(dir, ["--stryker-modules", fakeModules(dir)]);
+    assert.equal(none.status, 2, none.stdout);
+    assert.match(none.stderr, /^项目没有 vitest 配置也没有声明 vitest/);
+    const r = run(dir, ["--project", "packages/a", "--stryker-modules", fakeModules(dir)]);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /\n引擎：Stryker 10\.1\.1（vitest）\n成员外改动 1 个文件，不在本轮\n/);
+    const json = JSON.parse(run(dir, ["--project", "packages/a", "--stryker-modules", fakeModules(dir), "--format", "json"]).stdout);
+    assert.equal(json.project, "packages/a");
+    assert.deepEqual(json.mutate, ["packages/a/src/calc.ts:7-9"]);
+    assert.equal(json.engine.reason, "项目根有 vitest.config.ts；Stryker 10.1.1 取自指定目录");
+  } finally { dispose(dir); }
+});
+
+test.skipIf(skip)("--project 不存在、在 Git 根之外、不是目录：各退出 2 写原因", () => {
+  const dir = makeMonorepo();
+  try {
+    for (const [value, message] of [["packages/zz", "--project 不存在：packages/zz"], ["..", "--project 在 Git 根之外：.."], ["packages/a/package.json", "--project 不是目录：packages/a/package.json"]]) {
+      const r = run(dir, ["--project", value, "--stryker-modules", fakeModules(dir)]);
+      assert.equal(r.status, 2, value);
+      assert.equal(r.stderr.trim(), message);
+    }
+  } finally { dispose(dir); }
+});
+
+test.skipIf(skip)("单项目仓库上 --project . 与不给等价：JSON 除 project、生成时刻与资源读数外逐字段相等", () => {
+  const dir = makeVitestRepo();
+  try {
+    writeFiles(dir, { "src/calc.ts": VITEST_SRC.replace("return n > 0;", "return n >= 1;") });
+    const fake = fakeModules(dir);
+    const strip = ({ project, generatedAt, resources, ...rest }) => ({ project, rest });
+    const given = strip(JSON.parse(run(dir, ["--project", ".", "--stryker-modules", fake, "--format", "json"]).stdout));
+    const plain = strip(JSON.parse(run(dir, ["--stryker-modules", fake, "--format", "json"]).stdout));
+    assert.equal(given.project, ".");
+    assert.equal(plain.project, null);
+    assert.deepEqual(given.rest, plain.rest);
+  } finally { dispose(dir); }
+});
+
+test.skipIf(skipReal)("多包仓库真跑一个成员：Stryker 在成员目录里跑，表格与位点路径相对 Git 根，分数有效，成员下没有留 .stryker-tmp，项目文件不变", () => {
+  const dir = makeMonorepo(MODULES);
+  try {
+    changeBoth(dir);
+    const r = strykerRun(dir, ["--project", "packages/a", "--json", join(dir, "out.json")]);
+    assert.equal(r.status, 0, r.stderr + r.stdout);
+    assert.match(r.stdout, /\| packages\/a\/src\/calc\.ts \| isPos \| [789] \|/);
+    const json = JSON.parse(readFileSync(join(dir, "out.json"), "utf8"));
+    assert.equal(json.summary.valid, true);
+    assert.ok(json.sites.length > 0 && json.sites.every((s) => s.file === "packages/a/src/calc.ts" && s.unit === "isPos"), JSON.stringify(json.sites.map((s) => s.file + ":" + s.unit)));
+    assert.ok(json.sites.some((s) => s.verdict === "killed"));
+    const config = JSON.parse(readFileSync(join(workDir(join(dir, "packages/a")), "stryker-mutation.json"), "utf8"));
+    assert.deepEqual(config.mutate, ["src/calc.ts:7-9"]);
+    assert.equal(existsSync(join(dir, "packages/a/.stryker-tmp")), false);
+    assert.deepEqual(git(dir, "status --porcelain").split("\n").map((l) => l.trim()).sort(), ["?? out.json", "M packages/a/src/calc.ts", "M packages/b/src/calc.ts"]);
+  } finally { rmSync(workDir(join(dir, "packages/a")), { recursive: true, force: true }); dispose(dir); }
+});

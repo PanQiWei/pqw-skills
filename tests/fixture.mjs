@@ -82,3 +82,22 @@ export function makeVitestRepo(modulesDir = null) {
   if (modulesDir) symlinkSync(modulesDir, join(dir, "node_modules"), "dir");
   return dir;
 }
+
+/** 一个成员的文件：package.json、vitest 配置、源码与用例，路径前面带成员目录。 */
+const memberFiles = (member) => ({
+  [`${member}/package.json`]: JSON.stringify({ name: member.split("/").pop(), private: true, type: "module", devDependencies: { vitest: "4.1.11" } }) + "\n",
+  [`${member}/vitest.config.ts`]: 'import { defineConfig } from "vitest/config";\nexport default defineConfig({ test: { include: ["test/**/*.test.ts"] } });\n',
+  [`${member}/src/calc.ts`]: VITEST_SRC,
+  [`${member}/test/calc.test.ts`]: VITEST_TEST,
+});
+
+/** 多包仓库：Git 根没有 vitest 配置，members 里每个成员各有一份；modulesDir 给了就把每个成员的 node_modules 软链过去。 */
+export function makeMonorepo(modulesDir = null, members = ["packages/a", "packages/b"]) {
+  const dir = makeRepo({
+    "package.json": JSON.stringify({ name: "mono", private: true, type: "module" }) + "\n",
+    ".gitignore": "node_modules\n.stryker-tmp*\n",
+    ...Object.assign({}, ...members.map(memberFiles)),
+  });
+  if (modulesDir) for (const m of members) symlinkSync(modulesDir, join(dir, m, "node_modules"), "dir");
+  return dir;
+}

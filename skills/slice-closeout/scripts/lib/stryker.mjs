@@ -1,7 +1,7 @@
 // Stryker 引擎的适配层：找依赖、认运行器、选引擎；范围变 mutate 条目与配置、起进程；读报告、映射回位点模型。
 // 核心层 core.mjs 与适配器 adapter-typescript.mjs 不知道引擎；mutation.mjs 只在这里拿引擎的决定。
-import { existsSync, readFileSync, readdirSync, createWriteStream, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, readFileSync, readdirSync, createWriteStream, writeFileSync, realpathSync, statSync } from "node:fs";
+import { join, resolve, relative, isAbsolute, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
@@ -28,9 +28,28 @@ function probe(modulesDir, from) {
   return { modulesDir, from, version: core.version, runnerVersion: runner.version, vitestVersion: vitest?.version ?? null, coreBin: join(modulesDir, CORE, core.bin?.stryker ?? "bin/stryker.js") };
 }
 
-/** 查找的目录，按顺序：项目根 node_modules → 指定目录（--stryker-modules 或 PQW_STRYKER_MODULES）→ 脚本目录。 */
-export const searchDirs = ({ root, modulesDir = null, env = process.env, scriptsModules = SCRIPTS_MODULES }) =>
-  [[join(root, "node_modules"), "项目 node_modules"], [modulesDir ?? env.PQW_STRYKER_MODULES ?? null, "指定目录"], [scriptsModules, "脚本目录 node_modules"]].filter(([dir]) => dir).map(([dir, from]) => [resolve(dir), from]);
+/**
+ * 项目目录：不给是 Git 根，前缀为空；给了按 Git 根解析相对路径，须在根内、存在、是目录，否则抛错（命令面退出 2）。
+ * 返回 { dir, prefix, label }：dir 是绝对路径，prefix 是 Git 根相对、以 / 分隔的成员目录，Stryker 边界上靠它换算路径；label 进 JSON 的 project，不给为 null，给的是 Git 根为「.」。
+ */
+export function resolveProject(root, value = null) {
+  if (value === null) return { dir: root, prefix: "", label: null };
+  const abs = isAbsolute(value) ? value : resolve(root, value);
+  if (!existsSync(abs)) throw new Error(`--project 不存在：${value}`);
+  const dir = realpathSync(abs);
+  const rel = relative(realpathSync(root), dir);
+  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new Error(`--project 在 Git 根之外：${value}`);
+  if (!statSync(dir).isDirectory()) throw new Error(`--project 不是目录：${value}`);
+  const prefix = rel.split(sep).join("/");
+  return { dir, prefix, label: prefix || "." };
+}
+
+/** Git 根相对路径在不在项目目录下；前缀为空（项目就是 Git 根）时都在。 */
+export const inProject = ({ prefix }, path) => !prefix || path.startsWith(`${prefix}/`);
+
+/** 查找的目录，按顺序：项目根 node_modules → Git 根 node_modules（项目不是 Git 根时）→ 指定目录（--stryker-modules 或 PQW_STRYKER_MODULES）→ 脚本目录。 */
+export const searchDirs = ({ root, repoRoot = root, modulesDir = null, env = process.env, scriptsModules = SCRIPTS_MODULES }) =>
+  [[join(root, "node_modules"), "项目 node_modules"], [repoRoot === root ? null : join(repoRoot, "node_modules"), "Git 根 node_modules"], [modulesDir ?? env.PQW_STRYKER_MODULES ?? null, "指定目录"], [scriptsModules, "脚本目录 node_modules"]].filter(([dir]) => dir).map(([dir, from]) => [resolve(dir), from]);
 
 /** 按 searchDirs 的顺序找，返回第一处找到的 { modulesDir, from, version, runnerVersion, vitestVersion, coreBin }；都没有返回 null。 */
 export function resolveStryker(where) {
@@ -51,8 +70,8 @@ export function detectRunner(root) {
 const installHint = (dirs) => `找不到 Stryker：${dirs.map(([d]) => d).join("、")} 里都没有 ${CORE} 与 ${RUNNER}；装法：项目里 npm i -D @stryker-mutator/core @stryker-mutator/vitest-runner，或 npm ci --prefix ${SCRIPTS_DIR}，或用 --stryker-modules / PQW_STRYKER_MODULES 指向装好的 node_modules`;
 
 /** 选引擎：只有 Stryker。返回 { name, version, runner, reason, modules, configFile }，前四项进抬头与 JSON；项目不是 vitest 或找不到依赖抛错（.code = "unavailable"），命令面退出 2。 */
-export function chooseEngine({ root, modulesDir = null, env = process.env, scriptsModules = SCRIPTS_MODULES }) {
-  const where = { root, modulesDir, env, scriptsModules };
+export function chooseEngine({ root, repoRoot = root, modulesDir = null, env = process.env, scriptsModules = SCRIPTS_MODULES }) {
+  const where = { root, repoRoot, modulesDir, env, scriptsModules };
   const runner = detectRunner(root);
   if (!runner) { const e = new Error("项目没有 vitest 配置也没有声明 vitest：本工具只支持 vitest 项目（jest、node:test 等暂不支持）"); e.code = "unavailable"; throw e; }
   const found = resolveStryker(where);
@@ -92,13 +111,16 @@ export function mutateEntries(changed, pinned, files) {
 /** 本仓库在系统临时目录下的工作目录：配置、报告、日志、增量文件都放这里，不进项目。 */
 export const workDir = (root) => join(tmpdir(), "pqw-mutation", createHash("sha256").update(root).digest("hex").slice(0, 16) + "-stryker");
 
-/** Stryker 配置。并行度启动时定下；--timeout 给了就映射到 timeoutMS；增量按 incremental 参数（null 不开）。 */
-export function strykerConfig({ entries, configFile, concurrency, reportPath, incremental = null, timeoutMs = null, tempDirName = ".stryker-tmp" }) {
+/**
+ * Stryker 配置。并行度启动时定下；--timeout 给了就映射到 timeoutMS；增量按 incremental 参数（null 不开）。
+ * Stryker 在项目目录里跑，条目要相对项目目录：这里是写方向的唯一换算处，去掉 prefix（读方向在 readReport）。
+ */
+export function strykerConfig({ entries, configFile, concurrency, reportPath, incremental = null, timeoutMs = null, tempDirName = ".stryker-tmp", prefix = "" }) {
   return {
     testRunner: "vitest",
     vitest: { ...(configFile ? { configFile } : {}), related: false },
     coverageAnalysis: "perTest",
-    mutate: entries,
+    mutate: prefix ? entries.map((e) => e.slice(prefix.length + 1)) : entries,
     tempDirName,
     cleanTempDir: true,
     concurrency,
@@ -151,8 +173,13 @@ export function tempDirIgnored(root, tempDirName = ".stryker-tmp") {
   return r.status === 0;
 }
 
-/** 读 JSON 报告；文件不在返回 null。 */
-export const readReport = (path) => (existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : null);
+/** 读 JSON 报告；文件不在返回 null。报告的文件键相对 Stryker 的 cwd（项目目录）：这里是读方向的唯一换算处，加回 prefix 成 Git 根相对。 */
+export function readReport(path, prefix = "") {
+  if (!existsSync(path)) return null;
+  const report = JSON.parse(readFileSync(path, "utf8"));
+  if (prefix && report.files) report.files = Object.fromEntries(Object.entries(report.files).map(([k, v]) => [`${prefix}/${k}`, v]));
+  return report;
+}
 
 /** Stryker 状态到四类裁定；reason 记原因（超时记 timeout）。 */
 const STATUS = {

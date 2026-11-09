@@ -289,3 +289,48 @@ test("mapReport：行同时在外层与内层单元里时挂到更小的那个",
   const { sites } = mapReport({ report, files: new Map([["a.ts", entry]]), ranges: new Map([["a.ts", [[9, 9]]]]) });
   assert.deepEqual(sites.map((s) => [s.unit, s.original]), [["outer.inner", "line9"]]);
 });
+
+import { resolveProject, inProject, readReport } from "../skills/slice-closeout/scripts/lib/stryker.mjs";
+import { makeMonorepo } from "./fixture.mjs";
+
+test("项目目录：不给是 Git 根与空前缀；Git 根相对或绝对路径都解析成成员目录与 / 分隔的前缀；不存在、根外、不是目录各抛错", () => {
+  const repo = makeMonorepo();
+  try {
+    assert.deepEqual(resolveProject(repo), { dir: repo, prefix: "", label: null });
+    assert.deepEqual(resolveProject(repo, "."), { dir: repo, prefix: "", label: "." });
+    assert.deepEqual(resolveProject(repo, "packages/a"), { dir: join(repo, "packages/a"), prefix: "packages/a", label: "packages/a" });
+    assert.deepEqual(resolveProject(repo, join(repo, "packages/b/")), { dir: join(repo, "packages/b"), prefix: "packages/b", label: "packages/b" });
+    assert.throws(() => resolveProject(repo, "packages/zz"), /^Error: --project 不存在：packages\/zz$/);
+    assert.throws(() => resolveProject(repo, ".."), /^Error: --project 在 Git 根之外：\.\.$/);
+    const sibling = tmp();
+    try { assert.throws(() => resolveProject(repo, sibling), /^Error: --project 在 Git 根之外：/); } finally { rmSync(sibling, { recursive: true, force: true }); }
+    mkdirSync(join(repo, "..dots"));
+    assert.deepEqual(resolveProject(repo, "..dots"), { dir: join(repo, "..dots"), prefix: "..dots", label: "..dots" }, "名字以 .. 开头的成员不算根外");
+    assert.throws(() => resolveProject(repo, "packages/a/package.json"), /^Error: --project 不是目录：packages\/a\/package\.json$/);
+  } finally { dispose(repo); }
+});
+
+test("在不在项目里：前缀为空都在；否则按「前缀/」开头判，名字只是前缀相同的不算", () => {
+  assert.equal(inProject({ prefix: "" }, "x/y.ts"), true);
+  assert.equal(inProject({ prefix: "packages/a" }, "packages/a/src/x.ts"), true);
+  assert.equal(inProject({ prefix: "packages/a" }, "packages/ab/src/x.ts"), false);
+  assert.equal(inProject({ prefix: "packages/a" }, "packages/b/src/x.ts"), false);
+});
+
+test("查找顺序：项目不是 Git 根时，项目 node_modules 之后多一处 Git 根 node_modules", () => {
+  assert.deepEqual(searchDirs({ root: "/r/p", repoRoot: "/r", env: {}, scriptsModules: "/s" }).map(([d, from]) => [d, from]), [["/r/p/node_modules", "项目 node_modules"], ["/r/node_modules", "Git 根 node_modules"], ["/s", "脚本目录 node_modules"]]);
+  assert.deepEqual(searchDirs({ root: "/r", repoRoot: "/r", env: {}, scriptsModules: "/s" }).map(([d]) => d), ["/r/node_modules", "/s"]);
+});
+
+test("Stryker 边界：写配置时条目去掉成员前缀，读报告时文件键加回前缀；前缀为空两边原样", () => {
+  assert.deepEqual(strykerConfig({ entries: ["packages/a/src/x.ts:1-2", "packages/a/src/y.ts"], configFile: null, concurrency: 1, reportPath: "/r", prefix: "packages/a" }).mutate, ["src/x.ts:1-2", "src/y.ts"]);
+  assert.deepEqual(strykerConfig({ entries: ["src/x.ts:1-2"], configFile: null, concurrency: 1, reportPath: "/r" }).mutate, ["src/x.ts:1-2"]);
+  const dir = tmp();
+  try {
+    const path = join(dir, "r.json");
+    writeFileSync(path, JSON.stringify({ schemaVersion: "2", files: { "src/x.ts": { mutants: [{ id: "1" }] } } }));
+    assert.deepEqual(readReport(path, "packages/a"), { schemaVersion: "2", files: { "packages/a/src/x.ts": { mutants: [{ id: "1" }] } } });
+    assert.deepEqual(readReport(path), { schemaVersion: "2", files: { "src/x.ts": { mutants: [{ id: "1" }] } } });
+    assert.equal(readReport(join(dir, "none.json"), "packages/a"), null);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
