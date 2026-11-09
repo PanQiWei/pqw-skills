@@ -220,7 +220,7 @@ test.skipIf(skipReal)("多包仓库真跑一个成员：Stryker 在成员目录�
   const dir = makeMonorepo(MODULES);
   try {
     changeBoth(dir);
-    const r = strykerRun(dir, ["--project", "packages/a", "--json", join(dir, "out.json")]);
+    const r = strykerRun(dir, ["--project", "packages/a", "--stryker-modules", MODULES, "--json", join(dir, "out.json")]);
     assert.equal(r.status, 0, r.stderr + r.stdout);
     assert.match(r.stdout, /\| packages\/a\/src\/calc\.ts \| isPos \| [789] \|/);
     const json = JSON.parse(readFileSync(join(dir, "out.json"), "utf8"));
@@ -229,7 +229,61 @@ test.skipIf(skipReal)("多包仓库真跑一个成员：Stryker 在成员目录�
     assert.ok(json.sites.some((s) => s.verdict === "killed"));
     const config = JSON.parse(readFileSync(join(workDir(join(dir, "packages/a")), "stryker-mutation.json"), "utf8"));
     assert.deepEqual(config.mutate, ["src/calc.ts:7-9"]);
+    assert.equal(config.tempDirName, "../../.stryker-tmp-packages-a");
     assert.equal(existsSync(join(dir, "packages/a/.stryker-tmp")), false);
+    assert.equal(existsSync(join(dir, ".stryker-tmp-packages-a")), false, "跑完删掉成员上两级的容器");
     assert.deepEqual(git(dir, "status --porcelain").split("\n").map((l) => l.trim()).sort(), ["?? out.json", "M packages/a/src/calc.ts", "M packages/b/src/calc.ts"]);
+  } finally { rmSync(workDir(join(dir, "packages/a")), { recursive: true, force: true }); dispose(dir); }
+});
+
+/** 成员的用例从 Git 根下的 shared/ 取常量：沙箱比成员深时这条相对路径会指错，初跑就失败。 */
+const SHARED_TEST = `import { test, expect } from "vitest";
+import { ONE } from "../../../shared/one";
+import { clamp, isPos } from "../src/calc";
+
+test("clamp keeps inside", () => {
+  expect(clamp(5, 0, 10)).toBe(5);
+  expect(clamp(-1, 0, 10)).toBe(0);
+  expect(clamp(11, 0, 10)).toBe(10);
+});
+
+test("isPos", () => {
+  expect(isPos(ONE)).toBe(true);
+  expect(isPos(-ONE)).toBe(false);
+});
+`;
+
+test.skipIf(skipReal)("沙箱与成员同深度：成员用例经 ../../../ 引 Git 根下的文件照样跑通，分数与常量内联时一致，跑完没有容器残留", () => {
+  const scores = [];
+  for (const shared of [true, false]) {
+    const dir = makeMonorepo(MODULES, ["packages/a"], shared ? { "shared/one.ts": "export const ONE = 1;\n", "packages/a/test/calc.test.ts": SHARED_TEST } : {});
+    try {
+      writeFiles(dir, { "packages/a/src/calc.ts": VITEST_SRC.replace("return n > 0;", "return n >= 1;") });
+      const r = strykerRun(dir, ["--project", "packages/a", "--stryker-modules", MODULES, "--format", "json"]);
+      assert.equal(r.status, 0, r.stderr + r.stdout);
+      const json = JSON.parse(r.stdout);
+      assert.equal(json.summary.valid, true, json.summary.invalidReason);
+      scores.push([json.summary.killed, json.summary.survived, json.summary.uncovered]);
+      assert.equal(existsSync(join(dir, ".stryker-tmp-packages-a")), false);
+    } finally { rmSync(workDir(join(dir, "packages/a")), { recursive: true, force: true }); dispose(dir); }
+  }
+  assert.deepEqual(scores[0], scores[1]);
+});
+
+test.skipIf(skipReal)("--project 被 SIGTERM 结束：退出 143，成员上两级的容器已删，项目文件不变", async () => {
+  const dir = makeMonorepo(MODULES, ["packages/a"]);
+  const container = join(dir, ".stryker-tmp-packages-a");
+  try {
+    const mutated = VITEST_SRC.replace("  if (n < lo) return lo;", "  if (n < lo) { return lo; }");
+    writeFiles(dir, { "packages/a/src/calc.ts": mutated });
+    const child = spawn("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--project", "packages/a", "--stryker-modules", MODULES], { env: cleanEnv, stdio: ["ignore", "pipe", "pipe"] });
+    const started = Date.now();
+    while (!existsSync(container) && Date.now() - started < 20000) await new Promise((r) => setTimeout(r, 100));
+    assert.ok(existsSync(container), "Stryker 已开始建容器");
+    child.kill("SIGTERM");
+    const code = await new Promise((r) => child.on("close", (c) => r(c)));
+    assert.equal(code, 143);
+    assert.equal(existsSync(container), false, "被信号结束后自己删掉容器");
+    assert.equal(readFileSync(join(dir, "packages/a/src/calc.ts"), "utf8"), mutated);
   } finally { rmSync(workDir(join(dir, "packages/a")), { recursive: true, force: true }); dispose(dir); }
 });

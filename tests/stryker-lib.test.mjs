@@ -334,3 +334,26 @@ test("Stryker 边界：写配置时条目去掉成员前缀，读报告时文件
     assert.equal(readReport(join(dir, "none.json"), "packages/a"), null);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+import { tempDirFor, projectNotes } from "../skills/slice-closeout/scripts/lib/stryker.mjs";
+
+test("容器：项目是 Git 根沿用 .stryker-tmp；深两层及以上放项目上两级、名字带 slug，沙箱与项目同深度；只深一层时放根下，不同深度", () => {
+  assert.deepEqual(tempDirFor({ dir: "/r", prefix: "" }), { name: ".stryker-tmp", path: "/r/.stryker-tmp", sameDepth: true });
+  assert.deepEqual(tempDirFor({ dir: "/r/packages/a", prefix: "packages/a" }), { name: "../../.stryker-tmp-packages-a", path: "/r/.stryker-tmp-packages-a", sameDepth: true });
+  assert.deepEqual(tempDirFor({ dir: "/r/packages/common/json", prefix: "packages/common/json" }), { name: "../../.stryker-tmp-packages-common-json", path: "/r/packages/.stryker-tmp-packages-common-json", sameDepth: true });
+  assert.deepEqual(tempDirFor({ dir: "/r/a", prefix: "a" }), { name: "../.stryker-tmp-a", path: "/r/.stryker-tmp-a", sameDepth: false });
+  assert.deepEqual(tempDirFor({ dir: "/r/pkg", prefix: "pkg" }), { name: "../.stryker-tmp-pkg", path: "/r/.stryker-tmp-pkg", sameDepth: false }, "深度按目录层数算，不按字符");
+  const sandboxDepth = (t) => t.path.split("/").length - "/r".split("/").length + 1;
+  for (const prefix of ["packages/a", "packages/common/json", "x/y/z/w"]) assert.equal(sandboxDepth(tempDirFor({ dir: `/r/${prefix}`, prefix })), prefix.split("/").length, prefix);
+});
+
+test("说明行：成员外改动数、沙箱不同深度、容器没被忽略各一行，按这个顺序；都没有时为空", () => {
+  const same = { path: "/r/.stryker-tmp-packages-a", sameDepth: true };
+  assert.deepEqual(projectNotes({ outside: 0, temp: same, ignored: true }), []);
+  assert.deepEqual(projectNotes({ outside: 2, temp: { path: "/r/.stryker-tmp-a", sameDepth: false }, ignored: false }), [
+    "成员外改动 2 个文件，不在本轮",
+    "沙箱比成员深一层：成员只在 Git 根下一层，容器只能放根下 .stryker-tmp-a，成员里往上走的相对路径在沙箱里会差一层",
+    "`.stryker-tmp-a` 没被项目忽略：跑完或被信号结束都会删，只有被强杀（SIGKILL）时留下，建议加进 .gitignore",
+  ]);
+  assert.deepEqual(projectNotes({ outside: 0, temp: { path: "/r/.stryker-tmp", sameDepth: true }, ignored: false }), ["`.stryker-tmp` 没被项目忽略：跑完或被信号结束都会删，只有被强杀（SIGKILL）时留下，建议加进 .gitignore"]);
+});

@@ -6,7 +6,7 @@ import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from "node
 import { resolve, join } from "node:path";
 import { parseArgs, parseScope, resolveBase, sh, changedLines } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
-import { resolveProject, inProject, chooseEngine, mutateEntries, unitRanges, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries, strykerFingerprint, incrementalFor, rememberFingerprint, timeoutEntries, mergeRecheck } from "./lib/stryker.mjs";
+import { resolveProject, inProject, tempDirFor, projectNotes, chooseEngine, mutateEntries, unitRanges, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries, strykerFingerprint, incrementalFor, rememberFingerprint, timeoutEntries, mergeRecheck } from "./lib/stryker.mjs";
 import { parseDuration, summarize, formatMutation, capacity, plannedWorkers, niceAvailable, isMutable } from "./lib/mutation.mjs";
 
 const USAGE = `用法：mutation.mjs [选项]
@@ -71,7 +71,7 @@ function loadInputs() {
   const ts = load(() => loadTypescript(opts.ts, root));
   const { modules, configFile, ...engine } = load(() => chooseEngine({ root: project.dir, repoRoot: root, modulesDir: opts["stryker-modules"] }));
   const { base, baseGiven } = load(() => resolveBase(root, opts.base, opts.target));
-  return { root, project, ts, engine, stryker: { modules, configFile }, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources: planResources(), fingerprint: strykerFingerprint(project.dir, { ...engine, modules, configFile }), timeoutMs: duration(opts.timeout, null), recheckTimeoutMs: duration(opts["recheck-timeout"], null) };
+  return { root, project: { ...project, temp: tempDirFor(project) }, ts, engine, stryker: { modules, configFile }, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources: planResources(), fingerprint: strykerFingerprint(project.dir, { ...engine, modules, configFile }), timeoutMs: duration(opts.timeout, null), recheckTimeoutMs: duration(opts["recheck-timeout"], null) };
 }
 
 /** 写 JSON 文件与打印。 */
@@ -84,14 +84,6 @@ function emit(result) {
 const inputs = loadInputs();
 const pinned = parseScope(opts.files) ?? [];
 
-/** 抬头的说明行：成员外改动数；.stryker-tmp 没被忽略。 */
-function engineNotes(dir, outside) {
-  return [
-    ...(outside > 0 ? [`成员外改动 ${outside} 个文件，不在本轮`] : []),
-    ...(tempDirIgnored(dir) ? [] : ["`.stryker-tmp` 没被项目忽略：跑完或被信号结束都会删，只有被强杀（SIGKILL）时留下，建议加进 .gitignore"]),
-  ];
-}
-
 /** 跑完之后的汇总：无效原因（初跑失败、未知状态）与沿用数。 */
 function finish(result) {
   Object.assign(result, summarize(result.sites, { planOnly: result.planOnly, baselinePassed: result.baseline.passed !== false }));
@@ -100,7 +92,7 @@ function finish(result) {
   if (result.reused !== undefined) result.summary.carried = result.reused;
 }
 
-/** 正在跑的那轮：收到信号时先结束它、删自己建的 .stryker-tmp，再按信号退出。 */
+/** 正在跑的那轮：收到信号时先结束它、删自己建的容器，再按信号退出。 */
 let current = null;
 const interrupted = (code) => { const c = current; if (!c) process.exit(code); c.run.kill(); c.run.done.then(() => { c.cleanup(); process.exit(code); }); };
 process.on("SIGHUP", () => interrupted(129));
@@ -111,11 +103,11 @@ process.on("SIGTERM", () => interrupted(143));
 async function runOnce({ project, stryker, name, config }) {
   const dir = workDir(project.dir);
   mkdirSync(dir, { recursive: true });
-  const reportPath = join(dir, `${name}.json`), configPath = join(dir, `stryker-${name}.json`), logPath = join(dir, `${name}.log`), tempDir = join(project.dir, ".stryker-tmp");
+  const reportPath = join(dir, `${name}.json`), configPath = join(dir, `stryker-${name}.json`), logPath = join(dir, `${name}.log`), tempDir = project.temp.path;
   rmSync(reportPath, { force: true }); rmSync(logPath, { force: true });
   const hadTempDir = existsSync(tempDir);
   const cleanup = () => { if (!hadTempDir) rmSync(tempDir, { recursive: true, force: true }); };
-  writeFileSync(configPath, JSON.stringify(strykerConfig({ ...config, configFile: stryker.configFile, reportPath, prefix: project.prefix }), null, 2) + "\n");
+  writeFileSync(configPath, JSON.stringify(strykerConfig({ ...config, configFile: stryker.configFile, reportPath, prefix: project.prefix, tempDirName: project.temp.name }), null, 2) + "\n");
   const run = runStryker({ root: project.dir, coreBin: stryker.modules.coreBin, configPath, nice: inputs.resources.nice, logPath, onProgress: (line) => console.error(line) });
   current = { run, cleanup };
   const r = await run.done;
@@ -160,7 +152,7 @@ const files = mutable.filter((p) => inProject(project, p));
 const entries = fileEntries(root, ts, files);
 // 范围：改动行所在单元自己的全部行；点名的文件整份。
 const ranges = new Map(files.map((p) => [p, unitRanges(entries.get(p).units, changed.get(p) ?? [])]));
-const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), project: project.label, base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, engine: { ...inputs.engine, notes: engineNotes(project.dir, mutable.length - files.length) }, fingerprint: inputs.fingerprint, pinned, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, resources: inputs.resources, mutate: mutateEntries(ranges, pinned, files), sites: [], unmutated: [], summary: {}, survivors: [], recheck: null };
+const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), project: project.label, base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, engine: { ...inputs.engine, notes: projectNotes({ outside: mutable.length - files.length, temp: project.temp, ignored: tempDirIgnored(project.dir, project.temp.name) }) }, fingerprint: inputs.fingerprint, pinned, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, resources: inputs.resources, mutate: mutateEntries(ranges, pinned, files), sites: [], unmutated: [], summary: {}, survivors: [], recheck: null };
 let code = 0;
 if (!result.planOnly && result.mutate.length > 0) {
   const first = await execute(result, { project, stryker, entries, ranges });

@@ -1,7 +1,7 @@
 // Stryker 引擎的适配层：找依赖、认运行器、选引擎；范围变 mutate 条目与配置、起进程；读报告、映射回位点模型。
 // 核心层 core.mjs 与适配器 adapter-typescript.mjs 不知道引擎；mutation.mjs 只在这里拿引擎的决定。
 import { existsSync, readFileSync, readdirSync, createWriteStream, writeFileSync, realpathSync, statSync } from "node:fs";
-import { join, resolve, relative, isAbsolute, sep } from "node:path";
+import { join, resolve, relative, isAbsolute, sep, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
@@ -106,6 +106,28 @@ export function mutateEntries(changed, pinned, files) {
     for (const [a, b] of changed.get(path) ?? []) entries.push(`${path}:${a}-${b}`);
   }
   return entries;
+}
+
+/**
+ * Stryker 的容器目录（tempDirName，相对项目目录）。沙箱是「容器/sandbox-随机名」，比容器深一层；容器放在项目上两级、名字带项目 slug，
+ * 沙箱就与项目同深度，项目配置与测试里往上走两层及以上的相对路径在沙箱里照样成立，几个项目同时跑也不撞。
+ * 项目就是 Git 根时沿用 .stryker-tmp；项目只深一层时上两级出了 Git 根，容器放根下，沙箱深一层，sameDepth 为 false。
+ * 返回 { name, path, sameDepth }：name 写进 Stryker 配置，path 是绝对路径，跑完与收到信号时删它。
+ */
+export function tempDirFor({ dir, prefix }) {
+  const depth = prefix ? prefix.split("/").length : 0;
+  const name = depth === 0 ? ".stryker-tmp" : `${"../".repeat(Math.min(depth, 2))}.stryker-tmp-${prefix.replaceAll("/", "-")}`;
+  return { name, path: resolve(dir, name), sameDepth: depth !== 1 };
+}
+
+/** 抬头里关于项目与容器的说明行：成员外改动数；沙箱与成员不同深度；容器没被项目忽略。 */
+export function projectNotes({ outside, temp, ignored }) {
+  const container = basename(temp.path);
+  return [
+    ...(outside > 0 ? [`成员外改动 ${outside} 个文件，不在本轮`] : []),
+    ...(temp.sameDepth ? [] : [`沙箱比成员深一层：成员只在 Git 根下一层，容器只能放根下 ${container}，成员里往上走的相对路径在沙箱里会差一层`]),
+    ...(ignored ? [] : [`\`${container}\` 没被项目忽略：跑完或被信号结束都会删，只有被强杀（SIGKILL）时留下，建议加进 .gitignore`]),
+  ];
 }
 
 /** 本仓库在系统临时目录下的工作目录：配置、报告、日志、增量文件都放这里，不进项目。 */

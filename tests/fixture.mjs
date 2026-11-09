@@ -91,13 +91,18 @@ const memberFiles = (member) => ({
   [`${member}/test/calc.test.ts`]: VITEST_TEST,
 });
 
-/** 多包仓库：Git 根没有 vitest 配置，members 里每个成员各有一份；modulesDir 给了就把每个成员的 node_modules 软链过去。 */
-export function makeMonorepo(modulesDir = null, members = ["packages/a", "packages/b"]) {
+/**
+ * 多包仓库：Git 根没有 vitest 配置，members 里每个成员各有一份；extra 是另加的文件。
+ * modulesDir 给了就照 pnpm 的布局给每个成员建一个实目录 node_modules，里面只把 vitest 软链过去：
+ * Stryker 建沙箱时只把实目录的 node_modules 链进去，整个 node_modules 是软链时它找不到。
+ */
+export function makeMonorepo(modulesDir = null, members = ["packages/a", "packages/b"], extra = {}) {
   const dir = makeRepo({
     "package.json": JSON.stringify({ name: "mono", private: true, type: "module" }) + "\n",
     ".gitignore": "node_modules\n.stryker-tmp*\n",
     ...Object.assign({}, ...members.map(memberFiles)),
+    ...extra,
   });
-  if (modulesDir) for (const m of members) symlinkSync(modulesDir, join(dir, m, "node_modules"), "dir");
+  if (modulesDir) for (const m of members) { mkdirSync(join(dir, m, "node_modules")); symlinkSync(join(modulesDir, "vitest"), join(dir, m, "node_modules", "vitest"), "dir"); }
   return dir;
 }
