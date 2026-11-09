@@ -3,7 +3,7 @@ import { test } from "vitest";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { tmpdir, getPriority } from "node:os";
 import { searchDirs, resolveStryker, detectRunner, chooseEngine, SCRIPTS_MODULES, timeoutEntries, mergeRecheck, mapReport } from "../skills/slice-closeout/scripts/lib/stryker.mjs";
 
 const tmp = () => mkdtempSync(join(tmpdir(), "pqw-stryker-"));
@@ -356,4 +356,71 @@ test("说明行：成员外改动数、沙箱不同深度、容器没被忽略�
     "`.stryker-tmp-a` 没被项目忽略：跑完或被信号结束都会删，只有被强杀（SIGKILL）时留下，建议加进 .gitignore",
   ]);
   assert.deepEqual(projectNotes({ outside: 0, temp: { path: "/r/.stryker-tmp", sameDepth: true }, ignored: false }), ["`.stryker-tmp` 没被项目忽略：跑完或被信号结束都会删，只有被强杀（SIGKILL）时留下，建议加进 .gitignore"]);
+});
+
+import { sandboxBuild, buildEnv, BUILD_ENV, SANDBOX_BUILD, buildCommandFor, failedBaseline, baselineFailure } from "../skills/slice-closeout/scripts/lib/stryker.mjs";
+
+test("起进程：给 nice 时降优先级；并入给的环境变量并关颜色；日志追加写；tail 恰是末 20 行、末行没有换行也收进来", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "pqw-stryker-run-"));
+  try {
+    const fake = join(dir, "fake.js");
+    writeFileSync(fake, 'const os = require("node:os");\nfor (let i = 1; i <= 24; i++) console.log(`line ${i}`);\nprocess.stdout.write(`prio=${os.getPriority()} color=${process.env.FORCE_COLOR}/${process.env.NO_COLOR} x=${process.env.PQW_X}`);\n');
+    const logPath = join(dir, "log.txt");
+    writeFileSync(logPath, "old\n");
+    const r = await runStryker({ root: dir, coreBin: fake, configPath: "c.json", logPath, nice: 7, env: { PQW_X: "y" } }).done;
+    assert.equal(r.status, 0);
+    const prio = Math.min(19, getPriority() + 7);
+    const expected = [...Array.from({ length: 19 }, (_, i) => `line ${i + 6}`), `prio=${prio} color=0/1 x=y`];
+    assert.equal(r.tail, expected.join("\n"));
+    assert.ok(readFileSync(logPath, "utf8").startsWith("old\nline 1\n"), "日志是追加写");
+    writeFileSync(fake, 'process.stdout.write("only");\n');
+    assert.equal((await runStryker({ root: dir, coreBin: fake, configPath: "c.json", logPath }).done).tail, "only");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("失败基线：日志尾带完整日志路径；构建失败多 buildFailed，否则字段与以前一致；原因按它分构建失败与初跑失败", () => {
+  const plain = failedBaseline({ seconds: 1.5, tail: "boom", logPath: "/w/m.log", buildFailed: false });
+  assert.deepEqual(plain, { passed: false, seconds: 1.5, tail: "boom\n（完整日志 /w/m.log）" });
+  assert.equal(baselineFailure(plain), "Stryker 初跑失败");
+  const build = failedBaseline({ seconds: 2, tail: "x", logPath: "/w/m.log", buildFailed: true });
+  assert.deepEqual(build, { passed: false, seconds: 2, tail: "x\n（完整日志 /w/m.log）", buildFailed: true });
+  assert.equal(baselineFailure(build), "构建失败");
+});
+import { existsSync, lstatSync, readlinkSync, readFileSync } from "node:fs";
+
+test("构建配置：给了构建就关掉 Stryker 的链接、buildCommand 是 node 加包装脚本（空格转义）；没给不出这两项", () => {
+  const on = strykerConfig({ entries: [], configFile: null, concurrency: 1, reportPath: "/r", build: true });
+  assert.equal(on.buildCommand, buildCommandFor(SANDBOX_BUILD));
+  assert.equal(buildCommandFor("/a b/c d.mjs"), "node /a\\ b/c\\ d.mjs", "Stryker 按空格切词，路径里的空格用反斜杠转义");
+  assert.deepEqual(BUILD_ENV, { project: "PQW_PROJECT_DIR", command: "PQW_BUILD_COMMAND", mark: "PQW_BUILD_FAILED_MARK" }, "包装脚本在另一个进程里按这三个名字读");
+  assert.ok(SANDBOX_BUILD.endsWith("/skills/slice-closeout/scripts/sandbox-build.mjs") && existsSync(SANDBOX_BUILD), SANDBOX_BUILD);
+  assert.equal(on.symlinkNodeModules, false);
+  const off = strykerConfig({ entries: [], configFile: null, concurrency: 1, reportPath: "/r" });
+  assert.equal("buildCommand" in off || "symlinkNodeModules" in off, false);
+  assert.deepEqual(buildEnv({ projectDir: "/p", command: null, mark: "/m" }), {});
+  assert.deepEqual(buildEnv({ projectDir: "/p", command: undefined, mark: "/m" }), {});
+  assert.deepEqual(buildEnv({ projectDir: "/p", command: "npm run build", mark: "/m" }), { [BUILD_ENV.project]: "/p", [BUILD_ENV.command]: "npm run build", [BUILD_ENV.mark]: "/m" });
+});
+
+test("包装脚本：先把项目的 node_modules 链进沙箱再经 shell 跑命令；成功不留标记；失败返回退出码并写标记；沙箱里已有 node_modules 不动", () => {
+  const dir = tmp();
+  try {
+    const project = join(dir, "project"), sandbox = join(dir, "sandbox"), mark = join(dir, "mark");
+    mkdirSync(join(project, "node_modules"), { recursive: true }); mkdirSync(sandbox);
+    const env = (command) => ({ ...process.env, ...buildEnv({ projectDir: project, command, mark }) });
+    assert.equal(sandboxBuild({ cwd: sandbox, env: env("test -d node_modules && echo built > out.txt"), stdio: "ignore" }), 0);
+    assert.equal(readlinkSync(join(sandbox, "node_modules")), join(project, "node_modules"));
+    assert.equal(readFileSync(join(sandbox, "out.txt"), "utf8"), "built\n");
+    assert.equal(existsSync(mark), false);
+    assert.equal(sandboxBuild({ cwd: sandbox, env: env("exit 3"), stdio: "ignore" }), 3);
+    assert.equal(readFileSync(mark, "utf8"), "构建命令退出 3：exit 3\n");
+    const other = join(dir, "other");
+    mkdirSync(join(other, "node_modules"), { recursive: true });
+    assert.equal(sandboxBuild({ cwd: other, env: env("true"), stdio: "ignore" }), 0);
+    assert.equal(lstatSync(join(other, "node_modules")).isSymbolicLink(), false, "沙箱里已有的 node_modules 不换成链接");
+    const bare = join(dir, "bare"), noModules = join(dir, "no-modules");
+    mkdirSync(bare); mkdirSync(noModules);
+    assert.equal(sandboxBuild({ cwd: bare, env: { ...process.env, ...buildEnv({ projectDir: noModules, command: "true", mark }) }, stdio: "ignore" }), 0);
+    assert.equal(existsSync(join(bare, "node_modules")), false, "项目没有 node_modules 时不建链接");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

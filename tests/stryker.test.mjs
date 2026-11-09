@@ -287,3 +287,41 @@ test.skipIf(skipReal)("--project 被 SIGTERM 结束：退出 143，成员上两�
     assert.equal(readFileSync(join(dir, "packages/a/src/calc.ts"), "utf8"), mutated);
   } finally { rmSync(workDir(join(dir, "packages/a")), { recursive: true, force: true }); dispose(dir); }
 });
+
+/** 用例导入构建产物 dist/（被忽略、只在工作树里）；构建脚本要能解析到 vitest（证明构建时沙箱里已有 node_modules），再把 src 拷成 dist。 */
+const DIST_FILES = {
+  "packages/a/.gitignore": "dist\n",
+  "packages/a/test/calc.test.ts": VITEST_TEST_SOURCE().replace('from "../src/calc"', 'from "../dist/calc"'),
+  "packages/a/build.mjs": 'import { mkdirSync, copyFileSync } from "node:fs";\nimport.meta.resolve("vitest");\nmkdirSync("dist", { recursive: true });\ncopyFileSync("src/calc.ts", "dist/calc.ts");\n',
+};
+function VITEST_TEST_SOURCE() { return readFileSync(new URL("./fixture.mjs", import.meta.url), "utf8").match(/const VITEST_TEST = `([\s\S]*?)`;/)[1]; }
+const CHANGED = VITEST_SRC.replace("return n > 0;", "return n >= 1;");
+const tally = (json) => [json.summary.killed, json.summary.survived, json.summary.uncovered];
+
+test.skipIf(skipReal)("--build-command：用例导入 dist/ 时不给构建命令没有变异体被杀死；给了之后与导入 src/ 时计数一致；构建失败退出 1、抬头写测量无效（构建失败）", () => {
+  const runA = (dir, extra) => strykerRun(dir, ["--project", "packages/a", "--stryker-modules", MODULES, "--format", "json", ...extra]);
+  const control = makeMonorepo(MODULES, ["packages/a"]);
+  const dist = makeMonorepo(MODULES, ["packages/a"], DIST_FILES);
+  try {
+    writeFiles(control, { "packages/a/src/calc.ts": CHANGED });
+    writeFiles(dist, { "packages/a/src/calc.ts": CHANGED, "packages/a/dist/calc.ts": CHANGED });
+    const expected = JSON.parse(runA(control, []).stdout);
+    assert.ok(expected.summary.killed > 0);
+    const stale = JSON.parse(runA(dist, []).stdout);
+    assert.equal(stale.summary.killed, 0, "用例跑的是没插桩的 dist，碰不到变异体");
+    const r = runA(dist, ["--build-command", "node build.mjs && test -f dist/calc.ts"]);
+    assert.equal(r.status, 0, r.stderr);
+    const built = JSON.parse(r.stdout);
+    assert.deepEqual(tally(built), tally(expected));
+    const config = JSON.parse(readFileSync(join(workDir(join(dist, "packages/a")), "stryker-mutation.json"), "utf8"));
+    assert.equal(config.symlinkNodeModules, false);
+    const failed = strykerRun(dist, ["--project", "packages/a", "--stryker-modules", MODULES, "--build-command", "exit 3"]);
+    assert.equal(failed.status, 1, failed.stdout);
+    assert.match(failed.stdout, /^差分变异：基线 [0-9a-f]{12} 到工作树；位点 0：测量无效（构建失败）\n基线不通过：\n/);
+    assert.equal(existsSync(join(dist, ".stryker-tmp-packages-a")), false);
+    assert.equal(git(dist, "status --porcelain"), "M packages/a/src/calc.ts");
+    assert.equal(readFileSync(join(dist, "packages/a/dist/calc.ts"), "utf8"), CHANGED, "工作树里的产物没被沙箱里的构建改动");
+  } finally {
+    for (const d of [control, dist]) { rmSync(workDir(join(d, "packages/a")), { recursive: true, force: true }); dispose(d); }
+  }
+});

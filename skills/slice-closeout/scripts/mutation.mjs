@@ -6,7 +6,7 @@ import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from "node
 import { resolve, join } from "node:path";
 import { parseArgs, parseScope, resolveBase, sh, changedLines } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
-import { resolveProject, inProject, tempDirFor, projectNotes, chooseEngine, mutateEntries, unitRanges, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries, strykerFingerprint, incrementalFor, rememberFingerprint, timeoutEntries, mergeRecheck } from "./lib/stryker.mjs";
+import { resolveProject, inProject, tempDirFor, projectNotes, buildEnv, failedBaseline, baselineFailure, chooseEngine, mutateEntries, unitRanges, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries, strykerFingerprint, incrementalFor, rememberFingerprint, timeoutEntries, mergeRecheck } from "./lib/stryker.mjs";
 import { parseDuration, summarize, formatMutation, capacity, plannedWorkers, niceAvailable, isMutable } from "./lib/mutation.mjs";
 
 const USAGE = `用法：mutation.mjs [选项]
@@ -15,6 +15,8 @@ const USAGE = `用法：mutation.mjs [选项]
   --repo <目录>              仓库里任一目录，缺省当前目录
   --project <目录>           多包仓库的一个成员目录（Git 根相对或绝对路径）：在那里认 vitest、找 Stryker、起 Stryker，只取它下面的改动文件；
                              输出里的路径仍相对 Git 根，成员外的改动在抬头计数。改动跨几个成员时按成员各调一次。缺省是 Git 根
+  --build-command <命令>     测试导入构建产物（如 dist/）时给：Stryker 建好沙箱后、跑测试前，先把项目的 node_modules 链进沙箱，
+                             再在沙箱里经 shell 跑这条命令（可用 && 与管道），让产物来自插桩后的源码；失败时抬头写「测量无效（构建失败）」
   --base <ref>               基线提交；缺省取与 --target 的合并点。给的 ref 不是 HEAD 的祖先（基线分支前进过）时改用两者的合并点，抬头与 JSON 的 baseGiven 写明
   --target <分支>            缺省依次试 main、master
   --ts <目录>                typescript 包目录（要 JS 实现，6.x 可用）；缺省从仓库 node_modules 找。只用来按行找函数，不参与变异
@@ -38,7 +40,7 @@ const USAGE = `用法：mutation.mjs [选项]
   --recheck-timeout <时长>   第二轮的 timeoutMS；缺省是第一轮 --timeout（没给按 Stryker 缺省 5000 毫秒）的 4 倍且至少 60 秒
 0.8.0 起退役的参数：--test、--engine、--lcov、--budget、--history、--no-tests-pattern、--load-ceiling（内建引擎及它的预算、覆盖门控、历史沿用、运行中自适应随之删除）；给了退出 2。
 退出 0 正常；1 初跑不通过；2 用法错误、未提供 typescript、项目不是 vitest 或找不到 Stryker；129 收到 SIGHUP、130 被中断、143 被终止。`;
-const SPEC = { repo: "value", project: "value", base: "value", target: "value", ts: "value", scope: "value", files: "value", json: "value", format: "value", "plan-only": "flag", timeout: "value", "no-recheck": "flag", "recheck-timeout": "value", "stryker-modules": "value", workers: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "no-nice": "flag" };
+const SPEC = { repo: "value", project: "value", "build-command": "value", base: "value", target: "value", ts: "value", scope: "value", files: "value", json: "value", format: "value", "plan-only": "flag", timeout: "value", "no-recheck": "flag", "recheck-timeout": "value", "stryker-modules": "value", workers: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "no-nice": "flag" };
 const RETIRED = { test: "测试命令由 Stryker 起 vitest，不再需要", engine: "内建引擎已删，只有 Stryker 一种", lcov: "覆盖由 Stryker 按用例记，不读 lcov", budget: "Stryker 没有整轮预算，超时的变异体改为单独复核", history: "增量由 Stryker 的 incremental 文件负责", "no-tests-pattern": "「没跑测试」是内建引擎跑整套命令时的问题，Stryker 按用例跑", "load-ceiling": "并行度启动时定下，运行中不调" };
 const retired = process.argv.slice(2).map((a) => /^--([a-z-]+)/.exec(a)?.[1]).find((k) => k && k in RETIRED);
 if (retired) { console.error(`--${retired} 0.8.0 起退役：${RETIRED[retired]}`); process.exit(2); }
@@ -87,7 +89,7 @@ const pinned = parseScope(opts.files) ?? [];
 /** 跑完之后的汇总：无效原因（初跑失败、未知状态）与沿用数。 */
 function finish(result) {
   Object.assign(result, summarize(result.sites, { planOnly: result.planOnly, baselinePassed: result.baseline.passed !== false }));
-  if (result.baseline.passed === false) result.summary.invalidReason = "Stryker 初跑失败";
+  if (result.baseline.passed === false) result.summary.invalidReason = baselineFailure(result.baseline);
   if (result.unknown?.length) { result.summary.invalidReason = `报告里有映射表没有的状态：${result.unknown.join("、")}`; result.summary.valid = false; result.summary.score = null; }
   if (result.reused !== undefined) result.summary.carried = result.reused;
 }
@@ -104,25 +106,26 @@ async function runOnce({ project, stryker, name, config }) {
   const dir = workDir(project.dir);
   mkdirSync(dir, { recursive: true });
   const reportPath = join(dir, `${name}.json`), configPath = join(dir, `stryker-${name}.json`), logPath = join(dir, `${name}.log`), tempDir = project.temp.path;
-  rmSync(reportPath, { force: true }); rmSync(logPath, { force: true });
+  const mark = join(dir, `${name}.build-failed`), command = opts["build-command"];
+  for (const p of [reportPath, logPath, mark]) rmSync(p, { force: true });
   const hadTempDir = existsSync(tempDir);
   const cleanup = () => { if (!hadTempDir) rmSync(tempDir, { recursive: true, force: true }); };
-  writeFileSync(configPath, JSON.stringify(strykerConfig({ ...config, configFile: stryker.configFile, reportPath, prefix: project.prefix, tempDirName: project.temp.name }), null, 2) + "\n");
-  const run = runStryker({ root: project.dir, coreBin: stryker.modules.coreBin, configPath, nice: inputs.resources.nice, logPath, onProgress: (line) => console.error(line) });
+  writeFileSync(configPath, JSON.stringify(strykerConfig({ ...config, configFile: stryker.configFile, reportPath, prefix: project.prefix, tempDirName: project.temp.name, build: Boolean(command) }), null, 2) + "\n");
+  const run = runStryker({ root: project.dir, coreBin: stryker.modules.coreBin, configPath, nice: inputs.resources.nice, logPath, onProgress: (line) => console.error(line), env: buildEnv({ projectDir: project.dir, command, mark }) });
   current = { run, cleanup };
   const r = await run.done;
   current = null;
   cleanup();
-  return { r, report: readReport(reportPath, project.prefix), logPath };
+  return { r, report: readReport(reportPath, project.prefix), logPath, buildFailed: existsSync(mark) };
 }
 
 /** 第一轮：全部范围，带增量。初跑失败（退出非零且无报告）记基线不通过，code 为 1；返回报告给复核用。 */
 async function execute(result, { project, stryker, entries, ranges }) {
   const incremental = incrementalFor(workDir(project.dir), inputs.fingerprint);
   result.incremental = { file: incremental.file, force: incremental.force };
-  const { r, report, logPath } = await runOnce({ project, stryker, name: "mutation", config: { entries: result.mutate, concurrency: inputs.resources.workers, timeoutMs: inputs.timeoutMs, incremental } });
+  const { r, report, logPath, buildFailed } = await runOnce({ project, stryker, name: "mutation", config: { entries: result.mutate, concurrency: inputs.resources.workers, timeoutMs: inputs.timeoutMs, incremental } });
   result.resources.timing = { totalSeconds: r.seconds };
-  if (!report) { result.baseline = { passed: false, seconds: r.seconds, tail: `${r.tail}\n（完整日志 ${logPath}）` }; return { code: 1, report }; }
+  if (!report) { result.baseline = failedBaseline({ seconds: r.seconds, tail: r.tail, logPath, buildFailed }); return { code: 1, report }; }
   result.baseline = { passed: true, seconds: r.dryRunSeconds };
   rememberFingerprint(workDir(project.dir), inputs.fingerprint);
   result.reused = r.reused ?? 0;

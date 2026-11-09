@@ -1,6 +1,6 @@
 // Stryker 引擎的适配层：找依赖、认运行器、选引擎；范围变 mutate 条目与配置、起进程；读报告、映射回位点模型。
 // 核心层 core.mjs 与适配器 adapter-typescript.mjs 不知道引擎；mutation.mjs 只在这里拿引擎的决定。
-import { existsSync, readFileSync, readdirSync, createWriteStream, writeFileSync, realpathSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, createWriteStream, writeFileSync, realpathSync, statSync, symlinkSync } from "node:fs";
 import { join, resolve, relative, isAbsolute, sep, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -133,11 +133,42 @@ export function projectNotes({ outside, temp, ignored }) {
 /** 本仓库在系统临时目录下的工作目录：配置、报告、日志、增量文件都放这里，不进项目。 */
 export const workDir = (root) => join(tmpdir(), "pqw-mutation", createHash("sha256").update(root).digest("hex").slice(0, 16) + "-stryker");
 
+// ---- 沙箱里构建：Stryker 10.1.1 建沙箱是复制文件、跑 buildCommand、再链 node_modules（core/dist/src/sandbox/sandbox.js 的 init），
+// 构建时沙箱里还没有依赖。给了 --build-command 时关掉 Stryker 的链接，buildCommand 换成自带的包装脚本：先链 node_modules，再经 shell 跑用户的命令。
+
+/** 包装脚本与它读的环境变量。Stryker 用 execaCommand 按空格切 buildCommand，路径里的空格要用反斜杠转义。 */
+export const SANDBOX_BUILD = join(SCRIPTS_DIR, "sandbox-build.mjs");
+export const buildCommandFor = (script) => `node ${script.replaceAll(" ", "\\ ")}`;
+const SANDBOX_BUILD_COMMAND = buildCommandFor(SANDBOX_BUILD);
+export const BUILD_ENV = { project: "PQW_PROJECT_DIR", command: "PQW_BUILD_COMMAND", mark: "PQW_BUILD_FAILED_MARK" };
+
+/** 给 Stryker 进程的环境变量，包装脚本在沙箱里读它们；没给构建命令（undefined 或 null）时为空。 */
+export const buildEnv = ({ projectDir, command, mark }) => (command == null ? {} : { [BUILD_ENV.project]: projectDir, [BUILD_ENV.command]: command, [BUILD_ENV.mark]: mark });
+
+/**
+ * 包装脚本的全部逻辑，在沙箱（cwd）里跑：项目目录有 node_modules 而沙箱里没有时链过去；经 shell 跑用户命令，输出照传；
+ * 退出非零（或被信号结束）时写标记文件，命令面据此把「构建失败」与「初跑失败」分开。返回退出码。
+ */
+export function sandboxBuild({ cwd = process.cwd(), env = process.env, stdio = "inherit" } = {}) {
+  const source = join(env[BUILD_ENV.project], "node_modules"), target = join(cwd, "node_modules");
+  if (existsSync(source) && !existsSync(target)) symlinkSync(source, target, "junction");
+  const r = spawnSync(env[BUILD_ENV.command], { cwd, env, shell: true, stdio });
+  const code = r.status ?? 1;
+  if (code !== 0) writeFileSync(env[BUILD_ENV.mark], `构建命令退出 ${r.status ?? r.signal}：${env[BUILD_ENV.command]}\n`);
+  return code;
+}
+
+/** 没有报告时的基线：初跑不通过，带日志尾；构建失败（包装脚本留了标记）时多 buildFailed，没有构建失败时字段与 0.11.0 一致。 */
+export const failedBaseline = ({ seconds, tail, logPath, buildFailed }) => ({ passed: false, seconds, tail: `${tail}\n（完整日志 ${logPath}）`, ...(buildFailed ? { buildFailed: true } : {}) });
+
+/** 基线不通过时抬头写的原因。 */
+export const baselineFailure = (baseline) => (baseline.buildFailed ? "构建失败" : "Stryker 初跑失败");
+
 /**
  * Stryker 配置。并行度启动时定下；--timeout 给了就映射到 timeoutMS；增量按 incremental 参数（null 不开）。
  * Stryker 在项目目录里跑，条目要相对项目目录：这里是写方向的唯一换算处，去掉 prefix（读方向在 readReport）。
  */
-export function strykerConfig({ entries, configFile, concurrency, reportPath, incremental = null, timeoutMs = null, tempDirName = ".stryker-tmp", prefix = "" }) {
+export function strykerConfig({ entries, configFile, concurrency, reportPath, incremental = null, timeoutMs = null, tempDirName = ".stryker-tmp", prefix = "", build = false }) {
   return {
     testRunner: "vitest",
     vitest: { ...(configFile ? { configFile } : {}), related: false },
@@ -145,6 +176,7 @@ export function strykerConfig({ entries, configFile, concurrency, reportPath, in
     mutate: prefix ? entries.map((e) => e.slice(prefix.length + 1)) : entries,
     tempDirName,
     cleanTempDir: true,
+    ...(build ? { buildCommand: SANDBOX_BUILD_COMMAND, symlinkNodeModules: false } : {}),
     concurrency,
     ...(timeoutMs === null ? {} : { timeoutMS: timeoutMs }),
     ...(incremental ? { incremental: true, incrementalFile: incremental.file, force: incremental.force } : { incremental: false }),
@@ -163,12 +195,12 @@ const DRY_RUN_RE = /Initial test run succeeded\..*net ([\d.]+) ms, overhead ([\d
  * 返回 { status, signal, seconds, dryRunSeconds, reused, tail }；reused 从日志的增量摘要行取，没有为 null；dryRunSeconds 是初跑（未变异的一轮）用时，从日志取，没有为 null；tail 是日志末 20 行。
  * 返回的 kill() 给调用方转发信号。
  */
-export function runStryker({ root, coreBin, configPath, nice = null, logPath, onProgress = () => {} }) {
+export function runStryker({ root, coreBin, configPath, nice = null, logPath, onProgress = () => {}, env = {} }) {
   const args = ["node", coreBin, "run", configPath];
   const cmd = nice === null ? args : ["nice", "-n", String(nice), ...args];
   const t0 = Date.now();
   const lines = [];
-  const child = spawn(cmd[0], cmd.slice(1), { cwd: root, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1" } });
+  const child = spawn(cmd[0], cmd.slice(1), { cwd: root, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, ...env, FORCE_COLOR: "0", NO_COLOR: "1" } });
   const log = createWriteStream(logPath, { flags: "a" });
   let rest = "";
   const onData = (chunk) => {
