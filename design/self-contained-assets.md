@@ -104,7 +104,7 @@
 | --- | --- | --- |
 | 类型检查与 lint 命令 | `slice-closeout` | `pnpm run typecheck`、`lint:rules`、`lint:oxlint`、`lint:deps` |
 | 结构读数的覆盖率文件、范围与带位线（工具自带） | `slice-closeout` | 工具由本仓库带；omne 填范围与 lcov 路径。现在是 `pnpm run metrics --coverage`，不量 `tools/` 与 `scripts/` |
-| 差分变异的测试命令、范围与点名文件（工具自带） | `slice-closeout` | 工具由本仓库带；omne 填 vitest 命令与范围。现在是 `pnpm run mutation`，基线由 dev-flow `status` 判定 |
+| 差分变异的范围与点名文件（工具自带；多包仓库按成员 `--project`，用例导入构建产物的成员加 `--build-command`） | `slice-closeout` | 工具由本仓库带；omne 的根下没有 vitest 配置，按改动的成员各调一次 `--project`，成员有 `build` 脚本的加 `--build-command`。现在是 `pnpm run mutation`，基线由 dev-flow `status` 判定 |
 | 文档检查命令 | `formal-docs-landing` | `pnpm run check:docs`、`check:design` |
 | 三层正式文档的位置 | `formal-docs-landing` | 产品正文、`docs/`、各包 |
 | 统一语言与领域对象的位置 | `requirement-and-invariants`、`domain-impact-analysis` | `.meta_harness/design/ubiquitous_language`、`domain_objects` |

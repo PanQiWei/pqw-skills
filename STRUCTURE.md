@@ -41,7 +41,7 @@ pqw-skills/
     ├── context-pack/                 run-pack-template.md、slice-kickoff-template.md
     ├── delegate-brief/               brief-template.md
     ├── one-lesson-rule/              review-record-template.md、hosts.md、scripts/sentinel.mjs
-    ├── slice-closeout/               closeout-checklist.md、metrics-model.md、scripts/{metrics,mutation}.mjs 命令面、scripts/lib/{core,adapter-typescript,metrics,mutation,stryker,version}.mjs 逻辑、scripts/package.json 钉 Stryker 引擎的依赖
+    ├── slice-closeout/               closeout-checklist.md、metrics-model.md、scripts/{metrics,mutation}.mjs 命令面、scripts/sandbox-build.mjs（`--build-command` 时 Stryker 在沙箱里执行的包装）、scripts/lib/{core,adapter-typescript,metrics,mutation,stryker,version}.mjs 逻辑、scripts/package.json 钉 Stryker 引擎的依赖
     ├── progress-artifacts/           report-skeleton.md、report-template.html、demo-skeleton.html、scripts/{artifacts-dir,build-report,demo-append}.mjs 命令面、scripts/lib/{args,report,demo}.mjs 逻辑
     └── cleanup/                      checklist-template.md、scripts/cleanup.mjs
 ```
@@ -82,7 +82,7 @@ pqw-skills/
 
 ## 现在的状态
 
-0.11.0：定义期与交付期可以分两个会话顺序交接，交接信息包模板在 `single-session-dev-flow/handoff-pack-template.md`，`check-plan --handoff` 核它的结构；`teach-pqw-skills/mental-models.md` 末节是「AI 主导研发交付的心智」十条。入口技能开头是「写代码的四条」（唯一正文，`check-repo` 第 8 段守），切片循环分做对与做好一轮，`check-plan` 核收口里的「做好一轮」。十五个发行技能正文齐全且宿主无关，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。plan 模板有给人读的两层叙述与文档维护表，`spec-and-plan/scripts/check-plan.mjs` 守结构，哨兵判六问（含文档陈旧与实现是否比本质复杂），汇报件开头讲这程为什么做。结构读数、差分变异、HTML 汇报件与 demo 追加四个工具随技能发行，逻辑在 `scripts/lib/`；差分变异只有 Stryker 引擎，适配在 `slice-closeout/scripts/lib/stryker.mjs`，超时的变异体单独复核，依赖钉在 `slice-closeout/scripts/package.json`；清理只判断还要不要。读数多列没有断言的用例与没有函数的改动文件。本仓库测试迁 vitest，根 `package.json` 钉测试链依赖，`tests/` 101 个用例。`node scripts/check-repo.mjs` 退出 0。
+0.12.0：差分变异支持多包仓库，`mutation.mjs --project <成员目录>` 在成员里跑 Stryker，容器放成员上两级、沙箱与成员同深度，`--build-command` 经 `scripts/sandbox-build.mjs` 在沙箱里先链依赖再构建。定义期与交付期可以分两个会话顺序交接，交接信息包模板在 `single-session-dev-flow/handoff-pack-template.md`，`check-plan --handoff` 核它的结构；`teach-pqw-skills/mental-models.md` 末节是「AI 主导研发交付的心智」十条。入口技能开头是「写代码的四条」（唯一正文，`check-repo` 第 8 段守），切片循环分做对与做好一轮，`check-plan` 核收口里的「做好一轮」。十五个发行技能正文齐全且宿主无关，模板与脚本随技能目录发行，两个元技能迁自 omne-harness-lite。plan 模板有给人读的两层叙述与文档维护表，`spec-and-plan/scripts/check-plan.mjs` 守结构，哨兵判六问（含文档陈旧与实现是否比本质复杂），汇报件开头讲这程为什么做。结构读数、差分变异、HTML 汇报件与 demo 追加四个工具随技能发行，逻辑在 `scripts/lib/`；差分变异只有 Stryker 引擎，适配在 `slice-closeout/scripts/lib/stryker.mjs`，超时的变异体单独复核，依赖钉在 `slice-closeout/scripts/package.json`；清理只判断还要不要。读数多列没有断言的用例与没有函数的改动文件。本仓库测试迁 vitest，根 `package.json` 钉测试链依赖，`tests/` 118 个用例。`node scripts/check-repo.mjs` 退出 0。
 
 ## 校验
 

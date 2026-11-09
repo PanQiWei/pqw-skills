@@ -4,7 +4,7 @@
 
 ## 前提
 
-- Node 20 以上。脚本是直接 `node` 跑的 ESM；结构读数没有依赖。差分变异由 Stryker 执行，要 `@stryker-mutator/core` 与 `@stryker-mutator/vitest-runner`，优先用被测项目自己 `node_modules` 里的，没有就 `npm ci --prefix skills/slice-closeout/scripts` 装到技能目录（版本钉在那里的 `package.json`，`node_modules` 已忽略）。本仓库自己是 vitest 项目，根 `package.json` 装着同样的包，自跑走 Stryker。
+- Node 20 以上。脚本是直接 `node` 跑的 ESM；结构读数没有依赖。差分变异由 Stryker 执行，要 `@stryker-mutator/core` 与 `@stryker-mutator/vitest-runner`，优先用被测项目自己 `node_modules` 里的（给了 `--project` 时先找成员的，再找 Git 根的），没有就 `npm ci --prefix skills/slice-closeout/scripts` 装到技能目录（版本钉在那里的 `package.json`，`node_modules` 已忽略）。本仓库自己是 vitest 项目，根 `package.json` 装着同样的包，自跑走 Stryker。
 - 至少一个宿主：Claude Code、Codex 或 Cursor。校验插件清单需要 Claude Code 的 `claude` 命令。
 - 外部技能已按各自说明装好：pstack、ub-mode、mattpocock/skills。版本见 `README.md` 的依赖表。`scripts/check-repo.mjs` 会读本机安装目录核对引用，没装会报「无法核对」。
 
@@ -38,7 +38,7 @@ node skills/slice-closeout/scripts/metrics.mjs --base <起点提交> --lcov cove
 node skills/slice-closeout/scripts/mutation.mjs --base <起点提交> --scope skills/slice-closeout/scripts --json tmp/mutation.json
 ```
 
-命令面的用例只从 CLI 进，摸不到排序、汇总、边界这些分支；变异分数低时补直打 lib 函数的用例（`tests/*-lib.test.mjs`），不改命令面用例。
+命令面的用例只从 CLI 进，摸不到排序、汇总、边界这些分支；变异分数低时补直打 lib 函数的用例（`tests/*-lib.test.mjs`），不改命令面用例。模块级常量上的变异体 Stryker 测不出是哪些用例碰到它，只能跑全部用例，其中十来条会真起 Stryker，一轮就从一两分钟拉长到十几分钟：要测的值写成函数，或在直打用例里钉住原值。
 
 第一条核：`skills/` 扁平布局、frontmatter、无「待写」、三处同步、外部引用在钉定版本里存在、DMI 技能的措辞、发行技能、模板、脚本与网页里无项目概念禁词、全仓散文与脚本无破折号（`tests/` 与 `check-repo.mjs` 自身免检）、模板被 `SKILL.md` 链接、工具版本常量与 `plugin.json` 一致。退出 0 通过，1 列出失败，2 用法错误。
 
