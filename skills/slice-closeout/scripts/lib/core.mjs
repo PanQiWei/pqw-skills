@@ -39,7 +39,7 @@ export function resolveBase(cwd, given, target) {
 /** 抬头里的基线：改用了合并点就写明给的是哪个。 */
 export const baseLabel = (base, baseGiven) => base.slice(0, 12) + (baseGiven && baseGiven !== base ? `（给的 ${baseGiven.slice(0, 12)} 不是 HEAD 的祖先，改用合并点）` : "");
 
-/** 覆盖率 HTML 报告目录（任意层级的 coverage/）：生成物，不是被测的改动；没被 .gitignore 忽略时也不算改动文件。 */
+/** 覆盖率报告目录（任意层级的 coverage/）：未跟踪且没被 .gitignore 忽略时是生成物，不算改动文件；已跟踪的照常算，那是源码。 */
 const COVERAGE_DIR_RE = /(^|\/)coverage\//;
 
 /**
@@ -72,7 +72,7 @@ export function changedLines(cwd, base, prefixes = null) {
   const out = sh(cwd, ["diff", "-U0", "--no-color", "--no-ext-diff", base, ...pathspecArgs(prefixes)]);
   let file = null;
   for (const line of out.split("\n")) {
-    if (line.startsWith("+++ ")) { file = line.slice(4).replace(/^b\//, "").trim(); if (file === "/dev/null" || COVERAGE_DIR_RE.test(file)) file = null; continue; }
+    if (line.startsWith("+++ ")) { file = line.slice(4).replace(/^b\//, "").trim(); if (file === "/dev/null") file = null; continue; }
     const m = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line);
     if (!m || !file) continue;
     const start = Number(m[1]); const count = m[2] === undefined ? 1 : Number(m[2]);
@@ -92,7 +92,7 @@ export function changedLines(cwd, base, prefixes = null) {
 /** 基线到工作树改动的文件名（含删除与未跟踪），只取名字不取 diff；prefixes 与 coverage/ 的规则同 changedLines。 */
 export function changedPaths(cwd, base, prefixes = null) {
   if (prefixes?.length === 0) return [];
-  const names = sh(cwd, ["diff", "--name-only", "--no-color", "--no-ext-diff", base, ...pathspecArgs(prefixes)]).split("\n").filter((f) => f && !COVERAGE_DIR_RE.test(f));
+  const names = sh(cwd, ["diff", "--name-only", "--no-color", "--no-ext-diff", base, ...pathspecArgs(prefixes)]).split("\n").filter(Boolean);
   return [...new Set([...names, ...untrackedFiles(cwd, prefixes)])];
 }
 

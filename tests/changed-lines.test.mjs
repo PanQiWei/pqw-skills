@@ -55,7 +55,7 @@ test("范围是字符串前缀而不是目录：半截名照样命中，通配�
   } finally { dispose(dir); }
 });
 
-test("覆盖率报告目录不算改动文件：任意层级的 coverage/ 下，未跟踪与已跟踪的都排除；名字里只带 coverage 的不排除", () => {
+test("覆盖率报告目录不算改动文件：任意层级的 coverage/ 下未跟踪的排除；已跟踪的是源码，照常算；名字里只带 coverage 的不排除", () => {
   const dir = makeRepo({ "src/a.ts": SMALL, "packages/a/coverage/tracked.js": "var a = 1;\n" });
   try {
     writeFiles(dir, {
@@ -66,8 +66,9 @@ test("覆盖率报告目录不算改动文件：任意层级的 coverage/ 下，
       "src/coverage-tools/x.ts": SMALL,
       "src/a.ts": SMALL.replace("1", "2"),
     });
-    assert.deepEqual([...changedLines(dir, "HEAD").keys()].sort(), ["src/a.ts", "src/coverage-tools/x.ts", "src/coverage.ts"]);
-    assert.deepEqual(changedPaths(dir, "HEAD").sort(), ["src/a.ts", "src/coverage-tools/x.ts", "src/coverage.ts"]);
+    const expected = ["packages/a/coverage/tracked.js", "src/a.ts", "src/coverage-tools/x.ts", "src/coverage.ts"];
+    assert.deepEqual([...changedLines(dir, "HEAD").keys()].sort(), expected);
+    assert.deepEqual(changedPaths(dir, "HEAD").sort(), expected);
   } finally { dispose(dir); }
 });
 
