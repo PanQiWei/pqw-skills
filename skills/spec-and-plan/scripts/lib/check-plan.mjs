@@ -5,6 +5,10 @@
 export const PLAN_SECTIONS = ["进度总览", "一程目标与前后差别", "预算与回看", "文档维护表", "切片", "顺序与并行", "一程交付声明"];
 /** spec 必需的二级节，按顺序。 */
 export const SPEC_SECTIONS = ["Problem Statement", "Solution", "依据与已定事项", "验收标准", "不变式对照", "原则与约束", "User Stories", "Implementation Decisions", "Testing Decisions"];
+/** 交接信息包必需的二级节，按顺序。字面与 ../../single-session-dev-flow/handoff-pack-template.md 是同一份契约，用例把两处钉在一起。 */
+export const HANDOFF_SECTIONS = ["目标", "依据", "不变式", "验收标准", "边界", "起点与风险", "已定事项", "只有人能定的待决", "四问"];
+/** 起点一行：分支或引用、@、至少 7 位十六进制的提交号。 */
+export const HANDOFF_START_RE = /^- 起点：\S+@[0-9a-f]{7,40}\s*$/;
 export const SLICE_TABLE_HEADER = "| 切片 | 交付的行为 | 对应验收 | 状态 |";
 export const DOCS_TABLE_HEADER = "| 文档 | 给谁看 | 什么时候更新 | 只动哪一节 | 怎么判断过期 | 最近更新 |";
 export const MEANING_ITEM = "- **交付这片的意义：**";
@@ -160,6 +164,37 @@ export function checkSpec(text, file = "spec.md") {
   const criteria = byTitle(secs, "验收标准");
   if (criteria && !hasLine(criteria, (l) => /^- C\d+/.test(l))) defects.push({ file, line: criteria.start, message: "验收标准里没有「- C<n>」条目" });
   return defects;
+}
+
+/** 四问的第 n 条：「n. 问题？答案」，答案不是空也不是模板占位「<>」。 */
+function fourQuestionDefects(file, sec) {
+  return [1, 2, 3, 4].flatMap((n) => {
+    const at = sec.lines.findIndex((l) => l.startsWith(`${n}. `));
+    const answer = at < 0 ? "" : (sec.lines[at].split("？").slice(1).join("？").trim());
+    return answer === "" || answer === "<>" ? [{ file, line: at < 0 ? sec.start : sec.start + at, message: `四问第 ${n} 条没有答案` }] : [];
+  });
+}
+
+/** 交接信息包：抬头、九节齐且顺序对、起点一行带提交号、四问四条都有答案。 */
+export function checkHandoff(text, file = "handoff.md") {
+  const defects = [];
+  if (!/^# 交接信息包：.+$/m.test(text)) defects.push({ file, line: 1, message: "抬头应为「# 交接信息包：<一程名>」" });
+  const secs = sections(text);
+  defects.push(...checkSectionOrder(file, secs, HANDOFF_SECTIONS));
+  const start = byTitle(secs, "起点与风险");
+  if (start && !hasLine(start, (l) => HANDOFF_START_RE.test(l))) defects.push({ file, line: start.start, message: "起点一行应为「- 起点：<分支>@<提交号>」，提交号至少 7 位十六进制" });
+  const four = byTitle(secs, "四问");
+  if (four) defects.push(...fourQuestionDefects(file, four));
+  return defects;
+}
+
+/** 命令面给了哪几份就核哪几份：{ plan, spec, handoff } 是路径，read 把路径读成文本。 */
+export function checkFiles({ plan, spec, handoff }, read) {
+  return [
+    ...(plan ? checkPlan(read(plan), plan) : []),
+    ...(spec ? checkSpec(read(spec), spec) : []),
+    ...(handoff ? checkHandoff(read(handoff), handoff) : []),
+  ];
 }
 
 /** 文本输出：每条「文件:行 缺陷」，末尾一行汇总。 */
