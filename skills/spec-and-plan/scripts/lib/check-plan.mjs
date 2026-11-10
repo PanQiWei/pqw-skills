@@ -25,8 +25,20 @@ export const DOCS_TABLE_HEADER = "| 文档 | 给谁看 | 什么时候更新 | �
 export const MEANING_ITEM = "- **交付这片的意义：**";
 /** 收口里「做好一轮」那一项：写代码的四条的第二条在切片循环里的位置，核它在不在。 */
 export const POLISH_ITEM_RE = /^- \[[ x]\] 做好一轮/;
+/** 收口里「改动成员的合入检查」那一项：与项目合入检查同口径、只限改动成员，过了合入检查才不会成为第一道检测器。 */
+export const MERGE_CHECK_ITEM_RE = /^- \[[ x]\] 改动成员的合入检查/;
 export const PROGRESS_RE = /^进度：\[[■□]{10}\] \d+\/\d+ 切片已完成.* · 更新 \d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z · head [0-9a-f]{7,40}$/;
+/** 预计收尾一行：人打开 plan 就能看到还要多久。它是将来的时刻，不受「不晚于时钟」约束。 */
+export const ETA_RE = /^预计收尾：\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z · 依据：\S.*$/;
 export const DISPOSAL_RE = /^处置 (\d+)（/;
+export const AGENTS_TABLE_HEADER = "| 子代理 | 用途 | 派发理由（派发门三条之一） | 模型与档位 | 开始 | 状态 |";
+/** 子代理表的状态以状态词开头，说明写在后面的括号或冒号里。哨兵只按状态词判「在跑」，说明里出现「第 n/N 轮」不会被误读。 */
+export const AGENT_STATUS_RE = /^(进行中|待验收|已合回|已丢弃|停下|已结束|第 \d+\/\d+ 轮)(?=$|[ ：（])/;
+const AGENT_STATUS_WORDS = "进行中、待验收、已合回、已丢弃、停下、已结束、第 n/N 轮";
+/** 文中的 UTC 时刻（到分或到秒）。 */
+const TIME_RE = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?Z/g;
+/** 时刻比时钟晚多少才算估出来的：时刻只写到分，一分钟以内是读数的舍入。 */
+const CLOCK_SLACK_MS = 60_000;
 
 /** 把 Markdown 切成二级节：[{ title, start, end, lines }]，start 与 end 是 1 起的行号（含）。标题前的内容归 title 为 null 的首节。 */
 export function sections(text) {
@@ -73,9 +85,38 @@ function checkOverview(file, sec) {
   if (!progress) defects.push({ file, line: sec.start, message: "进度总览缺进度行" });
   else if (!PROGRESS_RE.test(progress)) defects.push({ file, line: lineNo(sec, (l) => l === progress), message: "进度行格式错：应为「进度：[十格] n/N 切片已完成 · 更新 <UTC> · head <sha>」" });
   if (!hasLine(sec, (l) => /^当前：.+/.test(l))) defects.push({ file, line: sec.start, message: "进度总览缺当前行" });
+  const eta = sec.lines.find((l) => l.startsWith("预计收尾："));
+  if (!eta) defects.push({ file, line: sec.start, message: "进度总览缺预计收尾行：在当前行下面加「预计收尾：<UTC 时刻> · 依据：<剩余切片的预算，或最近的实测>」" });
+  else if (!ETA_RE.test(eta)) defects.push({ file, line: lineNo(sec, (l) => l === eta), message: "预计收尾行格式错：应为「预计收尾：<UTC 时刻> · 依据：<一句>」" });
   if (!hasLine(sec, (l) => l.trim() === SLICE_TABLE_HEADER)) defects.push({ file, line: sec.start, message: `切片表表头应为「${SLICE_TABLE_HEADER}」` });
   const ids = sliceTableIds(sec);
   for (let i = 1; i < ids.length; i++) if (Number(ids[i]) <= Number(ids[i - 1])) defects.push({ file, line: sec.start, message: `切片表切片号不递增：${ids[i - 1]} 后是 ${ids[i]}` });
+  defects.push(...agentStatusDefects(file, sec));
+  return defects;
+}
+
+/** 子代理表每行的状态格以状态词开头。表从表头起到第一行非表格行止。 */
+function agentStatusDefects(file, sec) {
+  const at = sec.lines.findIndex((l) => l.trim() === AGENTS_TABLE_HEADER);
+  if (at < 0) return [];
+  const defects = [];
+  for (let i = at + 2; i < sec.lines.length && cellsOf(sec.lines[i]); i++) {
+    const cells = cellsOf(sec.lines[i]);
+    const status = cells[5] ?? "";
+    if (!AGENT_STATUS_RE.test(status)) defects.push({ file, line: sec.start + i, message: `子代理「${cells[0]}」的状态「${status}」不以状态词开头：状态词是 ${AGENT_STATUS_WORDS}，说明写在后面的括号或冒号里` });
+  }
+  return defects;
+}
+
+/** 晚于时钟的时刻：估出来的时刻会让哨兵与汇报件把先后读错。预计收尾一行写的是将来，除外。 */
+function futureTimeDefects(file, text, now) {
+  const defects = [];
+  text.split("\n").forEach((l, i) => {
+    if (l.startsWith("预计收尾：")) return;
+    for (const m of l.matchAll(TIME_RE)) {
+      if (Date.parse(m[0]) > now + CLOCK_SLACK_MS) defects.push({ file, line: i + 1, message: `时刻 ${m[0]} 晚于检查时的时钟 ${new Date(now).toISOString().slice(0, 16)}Z：时刻在写的那一刻读时钟，不估` });
+    }
+  });
   return defects;
 }
 
@@ -119,7 +160,10 @@ function sliceDefects(file, id, body, at) {
   if (!body.some((l) => l.startsWith("**开工包**"))) defects.push({ file, line: at, message: `切片 ${id} 缺「**开工包**」` });
   const closeout = body.findIndex((l) => l.startsWith("**收口**"));
   if (closeout < 0) defects.push({ file, line: at, message: `切片 ${id} 缺「**收口**」` });
-  else if (!body.slice(closeout).some((l) => POLISH_ITEM_RE.test(l))) defects.push({ file, line: at + closeout, message: `切片 ${id} 收口缺「做好一轮」` });
+  else {
+    if (!body.slice(closeout).some((l) => POLISH_ITEM_RE.test(l))) defects.push({ file, line: at + closeout, message: `切片 ${id} 收口缺「做好一轮」` });
+    if (!body.slice(closeout).some((l) => MERGE_CHECK_ITEM_RE.test(l))) defects.push({ file, line: at + closeout, message: `切片 ${id} 收口缺「改动成员的合入检查」` });
+  }
   return defects;
 }
 
@@ -150,8 +194,8 @@ function checkDisposals(file, text) {
   return defects;
 }
 
-/** 核一份 plan 文本，返回缺陷列表（空表示通过）。 */
-export function checkPlan(text, file = "plan.md") {
+/** 核一份 plan 文本，返回缺陷列表（空表示通过）。now 是检查时的时钟（毫秒），缺省取当前时刻。 */
+export function checkPlan(text, file = "plan.md", { now = Date.now() } = {}) {
   const defects = [];
   if (!/^# .+ 交付计划（revision \d+）\s*$/m.test(text)) defects.push({ file, line: 1, message: "抬头应为「# <一程名> 交付计划（revision <r>）」" });
   const secs = sections(text);
@@ -165,6 +209,7 @@ export function checkPlan(text, file = "plan.md") {
   const slices = byTitle(secs, "切片");
   if (slices) defects.push(...checkSlices(file, slices, overview ? sliceTableIds(overview) : []));
   defects.push(...checkDisposals(file, text));
+  defects.push(...futureTimeDefects(file, text, now));
   return defects;
 }
 
@@ -175,16 +220,55 @@ function checkScope(file, sec) {
   return keyRows.filter((r) => !/`[^`]+`/.test(r.cells[1] ?? "")).map((r) => ({ file, line: r.line, message: "责任分级「重点」行没有反引号括起的路径：把成员或目录写成 `<路径>`，可写多个" }));
 }
 
-/** 核一份 spec 文本。 */
-export function checkSpec(text, file = "spec.md") {
+/** 责任分级三级里反引号括起的路径，去掉开头的 ./ 与结尾的 /。 */
+const scopePaths = (sec) => sec.lines.map(cellsOf).filter((c) => ["重点", "次要", "连带"].includes(c?.[0]))
+  .flatMap((c) => [...(c[1] ?? "").matchAll(/`([^`]+)`/g)].map((m) => normalizePath(m[1])));
+const normalizePath = (p) => p.replace(/^\.\//, "").replace(/\/+$/, "");
+/** 路径落在某条范围路径上：就是它，或在它这个目录下。pkg/a 不盖 pkg/ab。与哨兵判圈外改动同一取法。 */
+const covered = (path, paths) => paths.some((p) => path === p || path.startsWith(`${p}/`));
+
+/** 验收标准的条目：「- C<n> …」连同其后缩进的续行，[{ id, line, text }]。 */
+function criteriaOf(sec) {
+  const out = [];
+  sec.lines.forEach((l, i) => {
+    const m = /^- (C\d+)\b/.exec(l);
+    if (m) out.push({ id: m[1], line: sec.start + i, text: l });
+    else if (out.length && /^\s+\S/.test(l)) out[out.length - 1].text += `\n${l}`;
+    else if (out.length && l.trim() !== "") out.push({ id: null, line: sec.start + i, text: "" });
+  });
+  return out.filter((c) => c.id);
+}
+
+/**
+ * 每条验收写明经过的成员（「经过：`路径`」），每个路径都在责任分级里；
+ * 写了「按范围验收：」的不核范围外的路径：这条验收依赖了范围外的工作，已经按范围收窄并写明归谁。
+ */
+function criteriaScopeDefects(file, criteria, scope) {
+  const paths = scope ? scopePaths(scope) : [];
+  return criteria.flatMap((c) => {
+    const byScope = /按范围验收：\S/.test(c.text);
+    const via = c.text.split("经过：").slice(1).join(" ");
+    const passes = [...via.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
+    if (passes.length === 0 && !byScope) return [{ file, line: c.line, message: `${c.id} 没写经过的成员：在这条里写「经过：\`<成员或目录>\`」；它经过范围外的成员时改写「按范围验收：<范围内验到哪>；范围外部分归<谁>」` }];
+    if (byScope || !scope) return [];
+    return passes.filter((p) => !covered(normalizePath(p), paths)).map((p) => ({ file, line: c.line, message: `${c.id} 经过的 \`${p}\` 不在责任分级里：本程改动带出的消费者就补进责任分级；否则这条写「按范围验收：<范围内验到哪>；范围外部分归<谁>」` }));
+  });
+}
+
+/** 核一份 spec 文本。now 同 checkPlan。 */
+export function checkSpec(text, file = "spec.md", { now = Date.now() } = {}) {
   const defects = [];
   if (!/^# .+ 实施规格（revision \d+[^）]*）\s*$/m.test(text)) defects.push({ file, line: 1, message: "抬头应为「# <一程名> 实施规格（revision <r>）」" });
   const secs = sections(text);
   defects.push(...checkSectionOrder(file, secs, SPEC_SECTIONS));
   const criteria = byTitle(secs, "验收标准");
-  if (criteria && !hasLine(criteria, (l) => /^- C\d+/.test(l))) defects.push({ file, line: criteria.start, message: "验收标准里没有「- C<n>」条目" });
   const scope = byTitle(secs, "责任分级");
-  if (scope) defects.push(...checkScope(file, scope));
+  const scopeDefects = scope ? checkScope(file, scope) : [];
+  if (criteria && !hasLine(criteria, (l) => /^- C\d+/.test(l))) defects.push({ file, line: criteria.start, message: "验收标准里没有「- C<n>」条目" });
+  // 责任分级本身有缺陷时只报它：路径还不全，按它核验收经过的成员只会连带出一串假缺陷。
+  else if (criteria) defects.push(...criteriaScopeDefects(file, criteriaOf(criteria), scope && scopeDefects.length === 0 ? scope : null));
+  defects.push(...scopeDefects);
+  defects.push(...futureTimeDefects(file, text, now));
   return defects;
 }
 
@@ -213,10 +297,10 @@ export function checkHandoff(text, file = "handoff.md") {
 }
 
 /** 命令面给了哪几份就核哪几份：{ plan, spec, handoff } 是路径，read 把路径读成文本。 */
-export function checkFiles({ plan, spec, handoff }, read) {
+export function checkFiles({ plan, spec, handoff, now = Date.now() }, read) {
   return [
-    ...(plan ? checkPlan(read(plan), plan) : []),
-    ...(spec ? checkSpec(read(spec), spec) : []),
+    ...(plan ? checkPlan(read(plan), plan, { now }) : []),
+    ...(spec ? checkSpec(read(spec), spec, { now }) : []),
     ...(handoff ? checkHandoff(read(handoff), handoff) : []),
   ];
 }

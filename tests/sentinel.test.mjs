@@ -139,6 +139,7 @@ const TEMPLATE_PLAN = (head, updated, extra = "", findings = "") => `# 示例 �
 
 进度：[■■■■■□□□□□] 1/2 切片已完成 · 更新 ${updated} · head ${head}
 当前：切片 02 实施
+预计收尾：2099-01-01T00:00Z · 依据：剩一片
 
 | 切片 | 交付的行为 | 对应验收 | 状态 |
 | --- | --- | --- | --- |
@@ -183,6 +184,7 @@ ${extra}
 **收口**
 
 - [x] 做好一轮：不需要；提交
+- [x] 改动成员的合入检查：退出 0
 
 ### 02：b
 
@@ -196,6 +198,7 @@ ${extra}
 **收口**
 
 - [ ] 做好一轮：；提交
+- [ ] 改动成员的合入检查：
 
 ## 圈外发现
 
@@ -235,7 +238,7 @@ test("文档陈旧：进度行 head 不是 HEAD、处置断号、汇报件早于
     assert.match(report, new RegExp(`- 文档陈旧：维护表里 docs/a\\.md 最近更新 2026-11-08T09:00Z 早于进度行更新 2026-11-08T10:00:00\\.000Z，而最近提交 ${newHead} 改了它`));
     assert.match(report, /## 文档\n\n- check-plan：1 处缺陷\n  - .*plan\.md:\d+ 处置编号断号：应为 2，写的是 3\n- 维护表：5 行\n/, "处置断号作为结构缺陷只报一处");
     assert.equal((report.match(/文档陈旧：维护表里/g) ?? []).length, 1, "时刻没法解析、等于进度行时刻、没有路径的行都不报");
-    assert.match(report, /里程碑：3\/5 已勾/);
+    assert.match(report, /里程碑：4\/7 已勾/);
     assert.match(report, /- 文档陈旧：plan 结构不合模板，1 处缺陷（处置编号断号：应为 2，写的是 3）/);
     assert.match(r.stdout, /信号：文档陈旧：plan 进度行写的 head/);
     assert.doesNotMatch(r.stdout, /处置编号断号，应为/);
@@ -355,5 +358,103 @@ test("圈外发现：条数与挡住验收的条数写进「进度」节，与�
     assert.match(runWake(dir, out).report, /^圈外发现：1 条（比上一轮 -3），挡住验收 1 条（比上一轮 -1）$/m);
     writeFiles(dir, { "run/plan.md": PLAN });
     assert.match(runWake(dir, out).report, /^圈外发现：plan 没有「## 圈外发现」节$/m);
+  } finally { dispose(dir); }
+});
+
+test("合入不算本程改动：只看本分支自己的提交，合进来的另一侧文件不报圈外，也不进兜圈；汇报单列合入次数", () => {
+  const dir = makeRepo({ "README.md": "x\n", ".gitignore": "tmp/\n" });
+  const out = join(dir, "tmp/run-x/sentinel");
+  try {
+    writeFiles(dir, { "tmp/run-x/plan.md": PLAN, "tmp/run-x/spec.md": SPEC("src/") });
+    wake(dir, out);
+    git(dir, "checkout -q -b side");
+    writeFiles(dir, { "other/x.ts": "export const x = 1;\n", "other/y.ts": "export const y = 1;\n" });
+    git(dir, "add other");
+    git(dir, 'commit -q -m "别人的改动"');
+    git(dir, "checkout -q main");
+    commitTo(dir, "src/a.ts", "export const a = 1;\n", "feat: 本程的改动");
+    git(dir, 'merge -q --no-ff side -m "合入轨道头"');
+    const report = wake(dir, out);
+    assert.doesNotMatch(report, /^- 圈外改动/m, "合进来的 other/ 不是本程做的");
+    assert.match(report, /- 上次唤醒以来提交 2 条/, "只列本分支第一父链上的提交：本程的改动与那次合入");
+    assert.match(report, /- 合入 1 次（合进来的文件不计入改动）/);
+    assert.doesNotMatch(report, /别人的改动/);
+  } finally { dispose(dir); }
+});
+
+test("本分支自己改到圈外仍然报，合入之外的照常", () => {
+  const dir = makeRepo({ "README.md": "x\n", ".gitignore": "tmp/\n" });
+  const out = join(dir, "tmp/run-x/sentinel");
+  try {
+    writeFiles(dir, { "tmp/run-x/plan.md": PLAN, "tmp/run-x/spec.md": SPEC("src/") });
+    wake(dir, out);
+    writeFiles(dir, { "other/w.ts": "export const w = 1;\n" });
+    git(dir, "add other");
+    git(dir, 'commit -q -m "本分支改到圈外"');
+    assert.match(wake(dir, out), /- 圈外改动：other\/w\.ts/);
+  } finally { dispose(dir); }
+});
+
+test("子代理在跑只看状态词：「停下（第 3/5 轮后限流）」与「已结束」不算在跑，「第 1/4 轮」「进行中」算", () => {
+  const dir = makeRepo({ "README.md": "x\n", ".gitignore": "tmp/\n" });
+  const out = join(dir, "tmp/run-x/sentinel");
+  const old = new Date(Date.now() - 3 * 3600_000).toISOString();
+  const plan = PLAN.replace(/\| 哨兵 \|.*\n/, [
+    `| 哨兵甲 | 哨兵，45 分钟，5 轮 | 理由二 | 便宜档 | ${old} | 停下（第 3/5 轮后限流） |`,
+    `| 哨兵乙 | 哨兵，45 分钟，4 轮 | 理由二 | 便宜档 | ${old} | 已结束 |`,
+    `| 哨兵丙 | 哨兵，45 分钟，4 轮 | 理由二 | 便宜档 | ${old} | 第 1/4 轮 |`,
+    `| 写者 | 切片 02 | 理由二 | 默认档 | ${old} | 进行中：第二轮 |`,
+    `| 旧写者 | 切片 01 | 理由二 | 默认档 | ${old} | 已合回 abc1234（含第 2/3 轮修复） |`,
+  ].join("\n") + "\n");
+  try {
+    writeFiles(dir, { "tmp/run-x/plan.md": plan, "tmp/run-x/spec.md": SPEC("src/") });
+    const report = wake(dir, out);
+    const running = report.split("## 在跑的子代理")[1].split("##")[0];
+    assert.match(running, /- 哨兵丙：/);
+    assert.match(running, /- 写者：/);
+    for (const name of ["哨兵甲", "哨兵乙", "旧写者"]) assert.doesNotMatch(running, new RegExp(`- ${name}：`), name);
+    assert.doesNotMatch(report, /子代理「哨兵甲」/);
+  } finally { dispose(dir); }
+});
+
+test("plan 不动：连续两轮都有新提交而 plan 一字没改，报一条；plan 改了就不报", () => {
+  const dir = makeRepo({ "README.md": "x\n", ".gitignore": "tmp/\n" });
+  const out = join(dir, "tmp/run-x/sentinel");
+  try {
+    writeFiles(dir, { "tmp/run-x/plan.md": PLAN, "tmp/run-x/spec.md": SPEC("src/") });
+    wake(dir, out);
+    commitTo(dir, "src/a.ts", "export const a = 1;\n", "feat: a");
+    assert.doesNotMatch(wake(dir, out), /plan 连续/, "只有一轮不报");
+    commitTo(dir, "src/b.ts", "export const b = 1;\n", "feat: b");
+    assert.match(wake(dir, out), /- 文档陈旧：plan 连续 2 轮没改，而这两轮都有新提交：主代理可能在写另一份 plan，或没有刷新进度/);
+    commitTo(dir, "src/c.ts", "export const c = 1;\n", "feat: c");
+    writeFiles(dir, { "tmp/run-x/plan.md": PLAN.replace("当前：切片 02 实施", "当前：切片 02 补用例") });
+    assert.doesNotMatch(wake(dir, out), /plan 连续/);
+  } finally { dispose(dir); }
+});
+
+test("预计收尾已过：进度总览的预计收尾早于现在，报一条", () => {
+  const dir = makeRepo({ "README.md": "x\n", ".gitignore": "tmp/\n" });
+  const out = join(dir, "tmp/run-x/sentinel");
+  try {
+    writeFiles(dir, { "tmp/run-x/plan.md": PLAN.replace("当前：切片 02 实施", "当前：切片 02 实施\n预计收尾：2026-01-01T00:00Z · 依据：剩一片"), "tmp/run-x/spec.md": SPEC("src/") });
+    assert.match(wake(dir, out), /- 文档陈旧：预计收尾 2026-01-01T00:00Z 已过，plan 里还没改/);
+    const later = new Date(Date.now() + 3600_000).toISOString().slice(0, 16) + "Z";
+    writeFiles(dir, { "tmp/run-x/plan.md": PLAN.replace("当前：切片 02 实施", `当前：切片 02 实施\n预计收尾：${later} · 依据：剩一片`) });
+    assert.doesNotMatch(wake(dir, out), /预计收尾 .* 已过/);
+  } finally { dispose(dir); }
+});
+
+test("汇报件落后于收口：两轮之间多了已完成的切片，而汇报件没有在那之后重新生成，报一条；重新生成后不报", () => {
+  const dir = makeRepo({ "README.md": "x\n", ".gitignore": "tmp/\n" });
+  const out = join(dir, "tmp/run-x/reports/sentinel");
+  try {
+    writeFiles(dir, { "tmp/run-x/plan.md": PLAN, "tmp/run-x/spec.md": SPEC("src/") });
+    wake(dir, out);
+    writeFiles(dir, { "tmp/run-x/plan.md": PLAN.replace("| 02 | b | C2 | 进行中（x） |", "| 02 | b | C2 | 已完成 def5678 |") });
+    assert.match(wake(dir, out), /- 文档陈旧：切片收口了（已完成 1 → 2）而汇报件没有在那之后生成/);
+    assert.match(wake(dir, out), /- 文档陈旧：切片收口了（已完成 1 → 2）而汇报件没有在那之后生成/, "没补上就一直报");
+    writeFileSync(join(dir, "tmp/run-x/reports/report.html"), "<p>汇报</p>\n");
+    assert.doesNotMatch(wake(dir, out), /汇报件没有在那之后生成/);
   } finally { dispose(dir); }
 });

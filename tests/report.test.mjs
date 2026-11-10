@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 const SCRIPT = new URL("../skills/progress-artifacts/scripts/build-report.mjs", import.meta.url).pathname;
-const PLAN = `# 示例 交付计划（revision 1）\n\n## 进度总览\n\n进度：[■■■■■□□□□□] 2/4 切片已完成 · 更新 2026-11-07T17:07Z · head ee96746\n当前：切片 03 开工包\n\n| 切片 | 交付的行为 | 对应验收 | 状态 |\n| --- | --- | --- | --- |\n| 01 | 结构读数工具 | C1 C2 | 已完成 7b5796a |\n| 02 | 差分变异工具 | C3 | 已完成 ee96746 |\n| 03 | HTML 汇报件 | C6 | 进行中（模板） |\n| 04 | demo 骨架 | C7 | 待做 |\n\n## 切片\n`;
+const PLAN = `# 示例 交付计划（revision 1）\n\n## 进度总览\n\n进度：[■■■■■□□□□□] 2/4 切片已完成 · 更新 2026-11-07T17:07Z · head ee96746\n当前：切片 03 开工包\n预计收尾：2099-01-01T00:00Z · 依据：剩两片\n\n| 切片 | 交付的行为 | 对应验收 | 状态 |\n| --- | --- | --- | --- |\n| 01 | 结构读数工具 | C1 C2 | 已完成 7b5796a |\n| 02 | 差分变异工具 | C3 | 已完成 ee96746 |\n| 03 | HTML 汇报件 | C6 | 进行中（模板） |\n| 04 | demo 骨架 | C7 | 待做 |\n\n## 切片\n`;
 const METRICS = { kind: "pqw-metrics", base: "abc", head: "def", functions: [{ path: "src/a.ts", name: "f", startLine: 1, endLine: 9, cyclomatic: 7, cognitive: 9, coverage: 0.5, crap: 12.1 }], uncovered: [{ path: "README.md", reason: "不是源码" }], summary: { count: 1, maxCyclomatic: 7, maxCognitive: 9, maxCrap: 12.1, coverageProvided: true } };
 const MUTATION = { kind: "pqw-mutation", summary: { total: 5, killed: 3, survived: 1, uncovered: 1, notRun: 0, score: 0.75 }, budget: { exceeded: false }, survivors: [{ file: "src/a.ts", unit: "f", line: 4, original: "<", mutant: "<=", category: "relational", suggestion: "补边界断言" }] };
 
@@ -57,7 +57,7 @@ test("缺输入：读数写未测量，等你决定写无，体验写没有", ()
 test("叙述与结构：plan 有目标节与意义段时进网页开头与切片行，顶部写结构合模板；没有时写 plan 没写；结构有缺陷时写缺陷数；找不到 check-plan 写未核结构", () => {
   const d = setup();
   try {
-    const narrated = PLAN.replace("## 切片\n", "## 一程目标与前后差别\n\n### 产品层：得到什么\n\n人读得懂。\n\n### 技术层：变了什么\n\n脚本多读两段。\n\n## 预算与回看\n\n- 预算。\n\n## 文档维护表\n\n| 文档 | 给谁看 | 什么时候更新 | 只动哪一节 | 怎么判断过期 | 最近更新 |\n| --- | --- | --- | --- | --- | --- |\n\n## 切片\n\n### 01：结构读数工具\n\n- **交付：** a。\n- **交付这片的意义：** 对用户，看到读数；对系统，先有尺子。\n\n**开工包**\n\n- 无\n\n**收口**\n\n- [x] 做好一轮：不需要\n- [x] 提交\n\n### 02：差分变异工具\n\n- **交付这片的意义：** 对用户，x；对系统，y。\n\n**开工包**\n\n**收口**\n\n- [ ] 做好一轮：\n\n### 03：HTML 汇报件\n\n- **交付这片的意义：** 对用户，x；对系统，y。\n\n**开工包**\n\n**收口**\n\n- [ ] 做好一轮：\n\n### 04：demo 骨架\n\n- **交付这片的意义：** 对用户，x；对系统，y。\n\n**开工包**\n\n**收口**\n\n- [ ] 做好一轮：\n\n## 圈外发现\n\n| 时刻 | 位置 | 现象 | 证据 | 挡住的验收（无或编号） | 处置（记录 / 绕法 / 停切片 NN） |\n| --- | --- | --- | --- | --- | --- |\n\n## 顺序与并行\n\n- 串行\n\n## 一程交付声明\n\n- [ ] 五项\n");
+    const narrated = PLAN.replace("## 切片\n", "## 一程目标与前后差别\n\n### 产品层：得到什么\n\n人读得懂。\n\n### 技术层：变了什么\n\n脚本多读两段。\n\n## 预算与回看\n\n- 预算。\n\n## 文档维护表\n\n| 文档 | 给谁看 | 什么时候更新 | 只动哪一节 | 怎么判断过期 | 最近更新 |\n| --- | --- | --- | --- | --- | --- |\n\n## 切片\n\n### 01：结构读数工具\n\n- **交付：** a。\n- **交付这片的意义：** 对用户，看到读数；对系统，先有尺子。\n\n**开工包**\n\n- 无\n\n**收口**\n\n- [x] 做好一轮：不需要\n- [x] 改动成员的合入检查：退出 0\n- [x] 提交\n\n### 02：差分变异工具\n\n- **交付这片的意义：** 对用户，x；对系统，y。\n\n**开工包**\n\n**收口**\n\n- [ ] 做好一轮：\n- [ ] 改动成员的合入检查：\n\n### 03：HTML 汇报件\n\n- **交付这片的意义：** 对用户，x；对系统，y。\n\n**开工包**\n\n**收口**\n\n- [ ] 做好一轮：\n- [ ] 改动成员的合入检查：\n\n### 04：demo 骨架\n\n- **交付这片的意义：** 对用户，x；对系统，y。\n\n**开工包**\n\n**收口**\n\n- [ ] 做好一轮：\n- [ ] 改动成员的合入检查：\n\n## 圈外发现\n\n| 时刻 | 位置 | 现象 | 证据 | 挡住的验收（无或编号） | 处置（记录 / 绕法 / 停切片 NN） |\n| --- | --- | --- | --- | --- | --- |\n\n## 顺序与并行\n\n- 串行\n\n## 一程交付声明\n\n- [ ] 五项\n");
     writeFileSync(join(d, "plan.md"), narrated);
     const r = spawnSync("node", [SCRIPT, "--plan", join(d, "plan.md"), "--out", join(d, "r.html")], { encoding: "utf8" });
     assert.equal(r.status, 0, r.stderr);

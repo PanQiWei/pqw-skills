@@ -64,6 +64,7 @@ description: 教人用 pqw-skills：讲这条流的心智模型、哲学与协�
 | 槽位 | 谁用 |
 | --- | --- |
 | 类型检查与 lint 命令 | `slice-closeout` |
+| 改动成员的合入检查（与项目合入检查同口径、只限改动成员、含全部测试层；没有写「同合入检查」） | `slice-closeout` |
 | 结构读数的覆盖率文件、范围与带位线（工具自带，`--lcov`、`--scope`、`--cc`、`--crap`） | `slice-closeout` |
 | 差分变异的范围与点名文件（工具自带，`--scope`、`--files`；修复轮 `--base` 取上一轮收口头；由 Stryker 执行，只支持 vitest 项目；多包仓库按成员 `--project`，用例导入构建产物的成员加 `--build-command`） | `slice-closeout` |
 | 项目合入检查已按整程改动跑结构读数与差分变异时的命令（没有写「无」，一程全量读数由本流跑） | `slice-closeout` |
@@ -73,6 +74,7 @@ description: 教人用 pqw-skills：讲这条流的心智模型、哲学与协�
 | 形式化工具链与声明边界 | `formal-guard` |
 | spec 与 plan 的项目模板 | `spec-and-plan` |
 | 项目专有的清理项 | `cleanup` |
+| 验收处（接受者读证据的地方，例如工单评论；没填为本程目录） | `cleanup` |
 | 子代理的模型与档位政策 | `delegate-brief` |
 | 交接信息包放哪（两段分会话时；没填放项目 tmp 下本程目录 `handoff.md`） | `single-session-dev-flow` |
 

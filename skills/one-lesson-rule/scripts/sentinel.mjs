@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 哨兵子代理取事实的工具：读 plan 的进度总览、处置记录、文档维护表、圈外发现，spec 的责任分级与工作树事实，写一份增量汇报（提交、改动统计、新交回件、圈外发现条数、文档结构与陈旧、信号），然后睡或退出。不调用模型。
 // 圈外改动信号只给事实：上次唤醒以来的提交与未提交改动里，落在责任分级所有路径之外的文件。它可能是圈外做功，也可能是本程改动带出、还没补进 spec 的消费者，由哨兵与主代理判。
-// 文档陈旧信号：进度行 head 不是 HEAD、汇报件早于最近提交、plan 结构不合模板（经 spec-and-plan 的 check-plan；它核不了时才由本脚本自己报处置断号）、维护表「最近更新」落后而最近提交改了该文档。
+// 文档陈旧信号：进度行 head 不是 HEAD、汇报件早于最近提交、切片收口了而汇报件没有在那之后生成、预计收尾已过、plan 连续两轮没改而有新提交、plan 结构不合模板（经 spec-and-plan 的 check-plan；它核不了时才由本脚本自己报处置断号）、维护表「最近更新」落后而最近提交改了该文档。
 // 退出 0 正常；1 读不到 plan 或写不了汇报；2 用法错误。
 //
 // 用法：
@@ -19,6 +19,7 @@ import { join, dirname, basename, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { execSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 
 const USAGE = "用法：sentinel.mjs --plan <plan.md> [--spec <spec.md>] [--out <目录>] [--interval 45m] [--subagent-check 30m] [--once] [--cycles N] [--session <id>] [--run <id>]";
 
@@ -170,10 +171,14 @@ const covered = (file, paths) => paths.some((p) => file === p || file.startsWith
 /** 仓库里的相对路径；不在仓库里或文件不存在返回 null。 */
 const repoRelative = (repo, path) => { try { return relative(repo, realpathSync(path)); } catch { return null; } };
 
-/** 上次唤醒以来改过的文件：按上次的 head 取提交里的文件，加上未提交与未跟踪的改动；第一次唤醒没有上次的 head，只看未提交改动。Git 忽略的不算。 */
+/**
+ * 上次唤醒以来本程自己改过的文件：按上次的 head 取本分支第一父链上的非合并提交里的文件，加上未提交与未跟踪的改动；
+ * 第一次唤醒没有上次的 head，只看未提交改动。Git 忽略的不算。合入（例如把主干的新提交合进来）带进来的是别人的工作，不算本程改动；
+ * 合并时解决冲突改的文件也因此不计入，这是为了不把合进来的整批文件当成圈外改动而做的取舍。
+ */
 const changedFiles = (repo, prevHead) => {
   const quiet = "-c core.quotepath=off";
-  const committed = prevHead ? sh(`git ${quiet} log --name-only --format= ${prevHead}..HEAD`, repo) ?? "" : "";
+  const committed = prevHead ? sh(`git ${quiet} log --first-parent --no-merges --name-only --format= ${prevHead}..HEAD`, repo) ?? "" : "";
   const worktree = [sh(`git ${quiet} diff --name-only HEAD`, repo), sh(`git ${quiet} ls-files --others --exclude-standard`, repo)].join("\n");
   const files = [...new Set(`${committed}\n${worktree}`.split("\n").filter(Boolean))];
   if (files.length === 0) return [];
@@ -274,6 +279,29 @@ const staleSignals = ({ planText, plan, head, repo, runDir, structure }) => {
   ];
 };
 
+/** 预计收尾已过：进度总览写的预计收尾早于现在，主代理还没改它。 */
+const etaSignal = (planText, now) => {
+  const eta = /^预计收尾：(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?Z)/m.exec(planText)?.[1];
+  return eta && Date.parse(eta) < now.getTime() ? [`文档陈旧：预计收尾 ${eta} 已过，plan 里还没改`] : [];
+};
+
+/**
+ * 汇报件落后于收口：两轮之间已完成的切片变多，就记下那一轮的起点；汇报件没有在那之后生成（或没有汇报件）就一直报，生成了就清掉。
+ * 返回 { signals, state }，state 存进 state.json 供下一轮接着比。
+ */
+const closeoutLag = (plan, prev, runDir) => {
+  const completed = plan.slices.filter((r) => (r[3] ?? "").startsWith("已完成")).length;
+  const grew = prev && typeof prev.completed === "number" && completed > prev.completed;
+  const since = grew ? prev.at : prev?.closeoutSince ?? null;
+  const from = grew ? prev.completed : prev?.closeoutFrom ?? null;
+  const report = reportFile(runDir);
+  const lagging = since !== null && (!report || statSync(report).mtimeMs < Date.parse(since));
+  return {
+    signals: lagging ? [`文档陈旧：切片收口了（已完成 ${from} → ${completed}）而汇报件没有在那之后生成`] : [],
+    state: { completed, closeoutSince: lagging ? since : null, closeoutFrom: lagging ? from : null },
+  };
+};
+
 /** 汇报的「文档」节：结构核对结果（最多列 10 条缺陷）与维护表行数。 */
 const docsSection = (structure, plan) => [
   "## 文档",
@@ -298,8 +326,9 @@ const wake = (n) => {
   const repo = sh("git rev-parse --show-toplevel", dirname(planPath));
   const head = repo ? sh("git rev-parse --short HEAD", repo) : null;
   const since = prev?.at ?? null;
-  // 上次唤醒以来的提交：按上次记下的 head 算，精确到提交；第一次只列最近 5 条。
-  const commits = repo ? sh(prev?.head ? `git log --oneline ${prev.head}..HEAD` : "git log --oneline -5", repo) ?? "" : "";
+  // 上次唤醒以来的提交：按上次记下的 head 算，只走本分支的第一父链，合入算一条、不展开合进来的提交；第一次只列最近 5 条。
+  const commits = repo ? sh(prev?.head ? `git log --oneline --first-parent ${prev.head}..HEAD` : "git log --oneline --first-parent -5", repo) ?? "" : "";
+  const merges = repo && prev?.head ? Number(sh(`git rev-list --count --first-parent --merges ${prev.head}..HEAD`, repo) ?? 0) : 0;
   const dirty = repo ? (sh("git status --porcelain", repo) ?? "").split("\n").filter(Boolean).length : 0;
   const diffStat = repo ? sh("git diff --stat | tail -1", repo) ?? "" : "";
   const commitLines = commits.split("\n").filter(Boolean);
@@ -319,7 +348,12 @@ const wake = (n) => {
   const repeated = (prev?.stuckFiles ?? []).filter((f) => touched.includes(f));
   if (repeated.length) signals.push(`可能兜圈：连续两轮有提交，进度标记（当前行、勾上的里程碑数、切片状态）都没动，两轮都改了 ${repeated.slice(0, 10).join("、")}${repeated.length > 10 ? `（共 ${repeated.length} 个，只列前 10 个）` : ""}`);
   if (noDispositionStreak >= 2) signals.push(`主代理连续 ${noDispositionStreak} 轮没有写处置：plan 里仍是 ${dispositions} 条`);
-  const running = plan.agents.filter((r) => /进行中|第 \d+\/\d+ 轮/.test(r[5] ?? ""));
+  // plan 不动：这一轮有新提交而 plan 一字没改。连续两轮这样，主代理可能在写另一份 plan（例如换了工作树），或没有刷新进度。
+  const planHash = createHash("sha256").update(planText).digest("hex");
+  const planStillStreak = prev && commits !== "" && prev.planHash === planHash ? (prev.planStillStreak ?? 0) + 1 : 0;
+  if (planStillStreak >= 2) signals.push(`文档陈旧：plan 连续 ${planStillStreak} 轮没改，而这两轮都有新提交：主代理可能在写另一份 plan，或没有刷新进度`);
+  // 状态格以状态词开头（plan 模板的约定，check-plan 核）。只看开头，说明里写的「第 3/5 轮后终止」不算在跑。
+  const running = plan.agents.filter((r) => /^(进行中|第 \d+\/\d+ 轮)(?=$|[ ：（])/.test(r[5] ?? ""));
   for (const r of running) {
     const start = Date.parse(r[4] ?? "");
     if (Number.isNaN(start)) continue;
@@ -334,6 +368,9 @@ const wake = (n) => {
   const findings = findingsOf(planText);
   signals.push(...scopeSignals(repo, prev?.head));
   signals.push(...staleSignals({ planText, plan, head, repo, runDir: dirname(outDir), structure }));
+  signals.push(...etaSignal(planText, now));
+  const closeout = closeoutLag(plan, prev, dirname(outDir));
+  signals.push(...closeout.signals);
 
   const report = [
     `# 哨兵汇报 ${now.toISOString()}`,
@@ -358,6 +395,7 @@ const wake = (n) => {
     "",
     `- 上次唤醒以来提交 ${commitLines.length} 条${commitLines.length > 20 ? "（只列前 20 条）" : ""}`,
     commitLines.length ? "```\n" + commitLines.slice(0, 20).join("\n") + "\n```" : "无",
+    ...(merges ? [`- 合入 ${merges} 次（合进来的文件不计入改动）`] : []),
     `- 未提交改动：${diffStat || "无"}`,
     `- 新出现的交回件：${newArtifacts.length ? "" : "无"}`,
     ...newArtifacts.slice(0, 20).map((p) => `  - ${p}`),
@@ -384,7 +422,7 @@ const wake = (n) => {
   try {
     writeFileSync(file, report);
     writeFileSync(join(outDir, "latest.md"), report);
-    writeFileSync(statePath, JSON.stringify({ at: now.toISOString(), head, dirty, current: plan.current, progress, stuckFiles: stuck ? touched : null, n, dispositions, noDispositionStreak, findings }, null, 2));
+    writeFileSync(statePath, JSON.stringify({ at: now.toISOString(), head, dirty, current: plan.current, progress, stuckFiles: stuck ? touched : null, n, dispositions, noDispositionStreak, findings, planHash, planStillStreak, ...closeout.state }, null, 2));
   } catch (e) {
     console.error(`写不了汇报：${outDir}：${e.message}`);
     process.exit(1);

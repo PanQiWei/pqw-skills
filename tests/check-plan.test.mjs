@@ -22,11 +22,17 @@ const GOOD_PLAN = `# 示例 交付计划（revision 1）
 
 进度：[■■■■■□□□□□] 1/2 切片已完成 · 更新 2026-11-08T10:00Z · head 0123abc
 当前：切片 02 开工包
+预计收尾：2026-11-08T12:00Z · 依据：剩一片，预算 2 小时
 
 | 切片 | 交付的行为 | 对应验收 | 状态 |
 | --- | --- | --- | --- |
 | 01 | 第一片 | C1 | 已完成 0123abc |
 | 02 | 第二片 | C2 | 待做 |
+
+| 子代理 | 用途 | 派发理由（派发门三条之一） | 模型与档位 | 开始 | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| 写者 | 切片 01 | 理由二 | 默认档 | 2026-11-08T08:00Z | 已合回 0123abc |
+| 哨兵 | 哨兵，45 分钟，4 轮 | 理由二 | 便宜档 | 2026-11-08T08:00Z | 第 2/4 轮 |
 
 处置 1（2026-11-08T09:00Z）：继续；无信号。
 处置 2（2026-11-08T09:45Z）：继续；无信号。
@@ -65,6 +71,7 @@ const GOOD_PLAN = `# 示例 交付计划（revision 1）
 **收口**
 
 - [x] 做好一轮：本片不需要：示例。
+- [x] 改动成员的合入检查：\`npm run check\` 退出 0
 - [x] 提交
 
 ### 02：第二片
@@ -77,6 +84,7 @@ const GOOD_PLAN = `# 示例 交付计划（revision 1）
 **收口**
 
 - [ ] 做好一轮：
+- [ ] 改动成员的合入检查：
 - [ ] 提交
 
 ## 圈外发现
@@ -110,8 +118,9 @@ const GOOD_SPEC = `# 示例 实施规格（revision 1；每加一条例外升一
 
 ## 验收标准
 
-- C1 第一条
+- C1 第一条。经过：\`pkg/a/\`、\`pkg/b/x.ts\`
 - C2 第二条
+  第二行说明。经过：\`pkg/b2\`
 
 ## 不变式对照
 
@@ -192,7 +201,7 @@ test("其余缺陷：抬头没 revision、缺进度行、切片表切片号不�
   assert.deepEqual(noBody.map((d) => [d.line, d.message]), [[GOOD_PLAN.split("\n").indexOf("### 技术层：哪一块变了") + 1, "「### 技术层：」下没有正文"]], "行号指向小标题");
   const spec = (text) => checkSpec(text).map((d) => d.message);
   assert.ok(spec(GOOD_SPEC.replace("## User Stories", "## Stories")).includes("缺节「## User Stories」"));
-  assert.ok(spec(GOOD_SPEC.replace("- C1 第一条\n- C2 第二条", "- 第一条")).includes("验收标准里没有「- C<n>」条目"));
+  assert.ok(spec(GOOD_SPEC.replace(/- C1 第一条[^]*?`pkg\/b2`\n/, "- 第一条\n")).includes("验收标准里没有「- C<n>」条目"));
 });
 
 test("责任分级：spec 缺这一节、表里没有重点行、重点行没有反引号路径，各报一处，消息写明加什么", () => {
@@ -237,7 +246,7 @@ test("收口缺「做好一轮」报缺陷，行号指向那片的「**收口**�
   assert.deepEqual(only01(GOOD_PLAN.replace("- [x] 做好一轮：本片不需要：示例。", "x - [x] 做好一轮：本片不需要：示例。")), ["切片 01 收口缺「做好一轮」"], "勾选项要在行首");
   assert.deepEqual(only01(GOOD_PLAN.replace("**开工包**\n\n- 上下文增量：无", "**开工包**\n\n- [x] 做好一轮：写在开工包里").replace("- [x] 做好一轮：本片不需要：示例。\n", "")), ["切片 01 收口缺「做好一轮」"], "收口之前的同名勾选项不算");
   assert.deepEqual(only01(GOOD_PLAN.replace("**收口**\n\n- [x] 做好一轮", "**收口**（2026-11-08T10:00Z）\n\n- [x] 做好一轮")), [], "收口标题后面可以跟时刻");
-  assert.deepEqual(only01(GOOD_PLAN.replace("**收口**\n\n- [x] 做好一轮：本片不需要：示例。\n- [x] 提交\n", "")), ["切片 01 缺「**收口**」"], "整个收口都没有时只报缺收口");
+  assert.deepEqual(only01(GOOD_PLAN.replace("**收口**\n\n- [x] 做好一轮：本片不需要：示例。\n- [x] 改动成员的合入检查：`npm run check` 退出 0\n- [x] 提交\n", "")), ["切片 01 缺「**收口**」"], "整个收口都没有时只报缺收口");
   assert.deepEqual(only01(GOOD_PLAN.replace("**开工包**\n\n- 上下文增量：无\n\n", "")), ["切片 01 缺「**开工包**」"]);
   assert.deepEqual(checkPlan(GOOD_PLAN.replace("### 02：第二片", "见 ### 02：第二片")).map((d) => d.message), ["切片表里的切片 02 没有自己的「### 02：」节"], "切片标题要在行首");
 });
@@ -311,7 +320,7 @@ test("命令面：好文件退出 0 并说合模板；坏文件退出 1 逐条�
     const bad = run(["--plan", join(dir, "bad.md")]);
     assert.equal(bad.status, 1);
     assert.match(bad.stdout, /^.*bad\.md 缺节「## 文档维护表」$/m);
-    assert.match(bad.stdout, /^.*bad\.md:14 处置编号断号：应为 2，写的是 3$/m);
+    assert.match(bad.stdout, new RegExp(`^.*bad\\.md:${GOOD_PLAN.split("\n").findIndex((l) => l.startsWith("处置 2（")) + 1} 处置编号断号：应为 2，写的是 3$`, "m"));
     assert.match(bad.stdout, /\ncheck-plan：\d+ 处缺陷\n?$/);
     const json = JSON.parse(run(["--plan", join(dir, "bad.md"), "--format", "json"]).stdout);
     assert.equal(json.ok, false);
@@ -332,5 +341,51 @@ test("命令面：好文件退出 0 并说合模板；坏文件退出 1 逐条�
     assert.deepEqual(JSON.parse(badHandoff.stdout).defects.map((d) => d.message), ["起点一行应为「- 起点：<分支>@<提交号>」，提交号至少 7 位十六进制；分支与提交号可各自带反引号，例如「- 起点：main@0123abc」"]);
     assert.equal(run(["--plan", join(dir, "plan.md"), "--handoff", join(dir, "bad-handoff.md")]).status, 1, "与 --plan 同给时一起核");
     assert.equal(run(["--spec", join(dir, "spec.md")]).status, 2, "只给 --spec 仍是用法错误");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("预计收尾：进度总览要有「预计收尾：<UTC> · 依据：<一句>」，缺或格式错各报一处", () => {
+  const messages = (text) => checkPlan(text).map((d) => d.message);
+  assert.ok(messages(GOOD_PLAN.replace(/^预计收尾：.*\n/m, "")).some((m) => m.startsWith("进度总览缺预计收尾行")));
+  assert.ok(messages(GOOD_PLAN.replace("预计收尾：2026-11-08T12:00Z · 依据：剩一片，预算 2 小时", "预计收尾：明天")).some((m) => m.startsWith("预计收尾行格式错")));
+});
+
+test("子代理表：状态以固定状态词开头，说明放在后面；「第 3/5 轮后因限流终止」这类写法报缺陷", () => {
+  const withStatus = (s) => GOOD_PLAN.replace("| 第 2/4 轮 |", `| ${s} |`);
+  for (const ok of ["进行中", "待验收", "已合回 0123abc", "已丢弃", "停下（第 3/5 轮后限流）", "已结束", "第 4/4 轮", "进行中：第二轮修复"]) assert.deepEqual(checkPlan(withStatus(ok)), [], ok);
+  for (const bad of ["第 3/5 轮后因限流终止", "运行中", "终止", ""]) {
+    const d = checkPlan(withStatus(bad));
+    assert.deepEqual(d.map((x) => x.message), [`子代理「哨兵」的状态「${bad}」不以状态词开头：状态词是 进行中、待验收、已合回、已丢弃、停下、已结束、第 n/N 轮，说明写在后面的括号或冒号里`], bad);
+    assert.equal(d[0].line, withStatus(bad).split("\n").findIndex((l) => l.startsWith("| 哨兵 |")) + 1);
+  }
+});
+
+test("收口缺「改动成员的合入检查」报缺陷；勾没勾都算在", () => {
+  const no = GOOD_PLAN.replace("- [ ] 改动成员的合入检查：\n", "");
+  assert.deepEqual(checkPlan(no).map((d) => d.message), ["切片 02 收口缺「改动成员的合入检查」"]);
+});
+
+test("验收标准：每条写明经过的成员，路径要在责任分级里；落不进的写「按范围验收」", () => {
+  const spec = (text) => checkSpec(text).map((d) => d.message);
+  assert.deepEqual(spec(GOOD_SPEC.replace("。经过：`pkg/a/`、`pkg/b/x.ts`", "")), ["C1 没写经过的成员：在这条里写「经过：`<成员或目录>`」；它经过范围外的成员时改写「按范围验收：<范围内验到哪>；范围外部分归<谁>」"]);
+  assert.deepEqual(spec(GOOD_SPEC.replace("`pkg/b/x.ts`", "`pkg/c/`")), ["C1 经过的 `pkg/c/` 不在责任分级里：本程改动带出的消费者就补进责任分级；否则这条写「按范围验收：<范围内验到哪>；范围外部分归<谁>」"]);
+  assert.deepEqual(spec(GOOD_SPEC.replace("`pkg/b/x.ts`", "`pkg/ab/`")), ["C1 经过的 `pkg/ab/` 不在责任分级里：本程改动带出的消费者就补进责任分级；否则这条写「按范围验收：<范围内验到哪>；范围外部分归<谁>」"], "pkg/a 不盖 pkg/ab");
+  assert.deepEqual(spec(GOOD_SPEC.replace("。经过：`pkg/a/`、`pkg/b/x.ts`", "。经过：`pkg/a/`、`pkg/c/`；按范围验收：pkg/a 内全部完成；范围外部分归 #2")), [], "写明按范围验收就不核范围外的路径");
+  assert.deepEqual(spec(GOOD_SPEC.replace("。经过：`pkg/a/`、`pkg/b/x.ts`", "。按范围验收：只验 pkg/a")), [], "只写按范围验收也行");
+  assert.deepEqual(spec(GOOD_SPEC.replace("。经过：`pkg/a/`、`pkg/b/x.ts`", "。经过：pkg/a")), ["C1 没写经过的成员：在这条里写「经过：`<成员或目录>`」；它经过范围外的成员时改写「按范围验收：<范围内验到哪>；范围外部分归<谁>」"], "路径要带反引号");
+});
+
+test("时刻不晚于检查时的时钟：plan 与 spec 里晚于现在的时刻报缺陷，预计收尾那一行除外", () => {
+  const now = Date.parse("2026-11-08T10:30Z");
+  assert.deepEqual(checkPlan(GOOD_PLAN, "plan.md", { now }), [], "预计收尾在将来不算");
+  const late = GOOD_PLAN.replace("处置 2（2026-11-08T09:45Z）", "处置 2（2026-11-08T10:50Z）");
+  assert.deepEqual(checkPlan(late, "plan.md", { now }).map((d) => [d.line, d.message]), [[late.split("\n").findIndex((l) => l.startsWith("处置 2")) + 1, "时刻 2026-11-08T10:50Z 晚于检查时的时钟 2026-11-08T10:30Z：时刻在写的那一刻读时钟，不估"]]);
+  assert.deepEqual(checkPlan(GOOD_PLAN.replace("处置 2（2026-11-08T09:45Z）", "处置 2（2026-11-08T10:31Z）"), "plan.md", { now }), [], "一分钟以内不算");
+  assert.deepEqual(checkSpec(GOOD_SPEC.replace("问题。", "问题，2026-11-09T00:00Z 发现。"), "spec.md", { now }).map((d) => d.message), ["时刻 2026-11-09T00:00Z 晚于检查时的时钟 2026-11-08T10:30Z：时刻在写的那一刻读时钟，不估"]);
+  const dir = mkdtempSync(join(tmpdir(), "pqw-check-plan-now-"));
+  try {
+    writeFileSync(join(dir, "plan.md"), late);
+    assert.equal(run(["--plan", join(dir, "plan.md"), "--now", "2026-11-08T10:30Z"]).status, 1, "命令面 --now 给定时钟");
+    assert.equal(run(["--plan", join(dir, "plan.md"), "--now", "2026-11-08T11:00Z"]).status, 0);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
