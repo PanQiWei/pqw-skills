@@ -76,10 +76,13 @@ export function detectRunner(root) {
 
 const installHint = (dirs) => `找不到 Stryker：${dirs.map(([d]) => d).join("、")} 里都没有 ${CORE} 与 ${RUNNER}；装法：项目里 npm i -D @stryker-mutator/core @stryker-mutator/vitest-runner，或 npm ci --prefix ${SCRIPTS_DIR}，或用 --stryker-modules / PQW_STRYKER_MODULES 指向装好的 node_modules`;
 
-/** 选引擎：只有 Stryker。返回 { name, version, runner, reason, modules, configFile }，前四项进抬头与 JSON；项目不是 vitest 或找不到依赖抛错（.code = "unavailable"），命令面退出 2。 */
-export function chooseEngine({ root, repoRoot = root, modulesDir = null, env = process.env, scriptsModules = SCRIPTS_MODULES }) {
+/**
+ * 选引擎：只有 Stryker。返回 { name, version, runner, reason, modules, configFile }，前四项进抬头与 JSON；项目不是 vitest 或找不到依赖抛错（.code = "unavailable"），命令面退出 2。
+ * configFile 是调用方指定的 vitest 配置（相对项目目录或绝对路径，例如只跑快层的那份），给了就不再自动找。
+ */
+export function chooseEngine({ root, repoRoot = root, modulesDir = null, env = process.env, scriptsModules = SCRIPTS_MODULES, configFile = null }) {
   const where = { root, repoRoot, modulesDir, env, scriptsModules };
-  const runner = detectRunner(root);
+  const runner = configFile ? { name: "vitest", configFile, evidence: `指定了 --vitest-config ${configFile}` } : detectRunner(root);
   if (!runner) { const e = new Error("项目没有 vitest 配置也没有声明 vitest：本工具只支持 vitest 项目（jest、node:test 等暂不支持）"); e.code = "unavailable"; throw e; }
   const found = resolveStryker(where);
   if (!found) { const e = new Error(installHint(searchDirs(where))); e.code = "unavailable"; throw e; }

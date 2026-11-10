@@ -25,6 +25,7 @@ const USAGE = `用法：mutation.mjs [选项]
   --json <路径>              结果 JSON 写到这里；--format json 直接打印 JSON
   --plan-only                只列 mutate 条目，不起 Stryker
   --timeout <时长>           Stryker 的 timeoutMS（在它按初跑估算的时限上再加的毫秒数）；缺省用 Stryker 的缺省
+  --vitest-config <文件>     Stryker 与沙箱预检用的 vitest 配置（相对项目目录或绝对路径），覆盖自动找到的那份；只跑快层时指到快层的配置。文件不在退出 2
   --stryker-modules <目录>   装了 @stryker-mutator/core 与 vitest-runner 的 node_modules；解析顺序是项目根 node_modules、Git 根 node_modules（给了 --project 时）、这里（也读环境变量 PQW_STRYKER_MODULES）、本脚本目录的 node_modules（npm ci --prefix 该目录）
 
 资源。算式：份额 = 1 / (--other-heavy-tasks + 1)；上限 = max(1, floor(CPU 数 × 份额))，可用内存低于阈值时减半；并行度 = 缺省等于上限，显式 --workers 超过上限按上限；写进 Stryker 配置的 concurrency，启动时定下，运行中不调。
@@ -40,7 +41,7 @@ const USAGE = `用法：mutation.mjs [选项]
   --recheck-timeout <时长>   第二轮的 timeoutMS；缺省是第一轮 --timeout（没给按 Stryker 缺省 5000 毫秒）的 4 倍且至少 60 秒
 0.8.0 起退役的参数：--test、--engine、--lcov、--budget、--history、--no-tests-pattern、--load-ceiling（内建引擎及它的预算、覆盖门控、历史沿用、运行中自适应随之删除）；给了退出 2。
 退出 0 正常；1 初跑不通过；2 用法错误、未提供 typescript、项目不是 vitest 或找不到 Stryker；129 收到 SIGHUP、130 被中断、143 被终止。`;
-const SPEC = { repo: "value", project: "value", "build-command": "value", base: "value", target: "value", ts: "value", scope: "value", files: "value", json: "value", format: "value", "plan-only": "flag", timeout: "value", "no-recheck": "flag", "recheck-timeout": "value", "stryker-modules": "value", workers: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "no-nice": "flag" };
+const SPEC = { repo: "value", project: "value", "build-command": "value", base: "value", target: "value", ts: "value", scope: "value", files: "value", json: "value", format: "value", "plan-only": "flag", timeout: "value", "no-recheck": "flag", "recheck-timeout": "value", "stryker-modules": "value", workers: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "no-nice": "flag", "vitest-config": "value" };
 const RETIRED = { test: "测试命令由 Stryker 起 vitest，不再需要", engine: "内建引擎已删，只有 Stryker 一种", lcov: "覆盖由 Stryker 按用例记，不读 lcov", budget: "Stryker 没有整轮预算，超时的变异体改为单独复核", history: "增量由 Stryker 的 incremental 文件负责", "no-tests-pattern": "「没跑测试」是内建引擎跑整套命令时的问题，Stryker 按用例跑", "load-ceiling": "并行度启动时定下，运行中不调" };
 const retired = process.argv.slice(2).map((a) => /^--([a-z-]+)/.exec(a)?.[1]).find((k) => k && k in RETIRED);
 if (retired) { console.error(`--${retired} 0.8.0 起退役：${RETIRED[retired]}`); process.exit(2); }
@@ -71,7 +72,9 @@ function loadInputs() {
   const root = load(() => sh(repo, ["rev-parse", "--show-toplevel"]), `不是 Git 仓库：${repo}`);
   const project = load(() => resolveProject(root, opts.project ?? null));
   const ts = load(() => loadTypescript(opts.ts, root, project.dir));
-  const { modules, configFile, ...engine } = load(() => chooseEngine({ root: project.dir, repoRoot: root, modulesDir: opts["stryker-modules"] }));
+  const given = opts["vitest-config"] ?? null;
+  if (given !== null && !existsSync(resolve(project.dir, given))) { console.error(`--vitest-config 不存在：${given}（相对项目目录）`); process.exit(2); }
+  const { modules, configFile, ...engine } = load(() => chooseEngine({ root: project.dir, repoRoot: root, modulesDir: opts["stryker-modules"], configFile: given }));
   const { base, baseGiven } = load(() => resolveBase(root, opts.base, opts.target));
   return { root, project: { ...project, temp: tempDirFor(project) }, ts, engine, stryker: { modules, configFile }, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources: planResources(), fingerprint: strykerFingerprint(project.dir, { ...engine, modules, configFile }), timeoutMs: duration(opts.timeout, null), recheckTimeoutMs: duration(opts["recheck-timeout"], null) };
 }
