@@ -192,12 +192,12 @@ const scopeSignals = (repo, prevHead) => {
   return [`圈外改动：${outside.slice(0, 10).join("、")}${outside.length > 10 ? `（共 ${outside.length} 个，只列前 10 个）` : ""}`];
 };
 
-/** plan「圈外发现」表：条数与挡住验收的条数（第五格写了编号，不是空也不是「无」）；没有这一节返回 null。 */
+/** plan「圈外发现」表：条数与挡住验收的条数（第五格写了编号：不是空，也不以「无」开头，「无（已绕）」不算挡住）；没有这一节返回 null。 */
 const findingsOf = (planText) => {
   const lines = sectionLines(planText, "圈外发现");
   if (!lines) return null;
   const rows = lines.map(cellsOf).filter((c) => c && c[0] !== "时刻" && !/^-+$/.test(c[0]));
-  return { total: rows.length, blocking: rows.filter((c) => !["", "无"].includes(c[4] ?? "")).length };
+  return { total: rows.length, blocking: rows.filter((c) => (c[4] ?? "") !== "" && !c[4].startsWith("无")).length };
 };
 
 /** 汇报「进度」节的圈外发现一行：与上一轮比差，上一轮没记就不比。 */

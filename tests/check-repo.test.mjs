@@ -32,16 +32,17 @@ const edit = (dir, file, from, to) => {
   writeFileSync(join(dir, file), text.replace(from, to));
 };
 
-test("圈外的问题：仓库本身不报；别处提到「圈外发现」或「圈外的问题」却没链到入口那一节的行逐行报，带链接的不报", () => {
+test("圈外的问题：仓库本身不报；别处提到「圈外发现」或「圈外的问题」却没链到入口那一节的行逐行报；带链接的、标题行与进度总览的「圈外发现：」行不报", () => {
   const dir = copyRepo();
   try {
     assert.deepEqual(reported(run(dir)), []);
-    appendFileSync(join(dir, "skills/cleanup/SKILL.md"), "\n碰到圈外的问题记一行。\n\n本程的圈外发现交给人。\n\n圈外发现按入口[圈外的问题](../single-session-dev-flow/SKILL.md#圈外的问题)记。\n");
+    appendFileSync(join(dir, "skills/cleanup/SKILL.md"), "\n碰到圈外的问题记一行。\n\n本程的圈外发现交给人。\n\n圈外发现按入口[圈外的问题](../single-session-dev-flow/SKILL.md#圈外的问题)记。\n\n## 圈外发现\n\n### 圈外的问题\n\n圈外发现：2 条，挡住验收 1 条\n\n- 圈外发现：写在列表里的不是进度行\n");
     const lines = readFileSync(join(dir, "skills/cleanup/SKILL.md"), "utf8").split("\n");
     const at = (needle) => lines.findIndex((l) => l.startsWith(needle)) + 1;
     assert.deepEqual(reported(run(dir)), [
       `skills/cleanup/SKILL.md:${at("碰到圈外的问题")} 提到圈外的问题却没有链到入口那一节`,
       `skills/cleanup/SKILL.md:${at("本程的圈外发现")} 提到圈外的问题却没有链到入口那一节`,
+      `skills/cleanup/SKILL.md:${at("- 圈外发现：写在列表里")} 提到圈外的问题却没有链到入口那一节`,
     ]);
   } finally { dispose(dir); }
 });

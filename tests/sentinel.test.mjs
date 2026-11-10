@@ -316,10 +316,10 @@ test("圈外发现：条数与挡住验收的条数写进「进度」节，与�
     const head = git(dir, "rev-parse --short HEAD");
     writeFiles(dir, { "run/spec.md": SPEC("run/"), "run/plan.md": TEMPLATE_PLAN(head, "2026-11-08T10:00Z", "", FINDING("pkg/x", "无")) });
     assert.match(runWake(dir, out).report, /## 进度\n[\s\S]*^圈外发现：1 条，挡住验收 0 条$/m, "第一轮没有上一轮，不比差");
-    writeFiles(dir, { "run/plan.md": TEMPLATE_PLAN(head, "2026-11-08T10:00Z", "", FINDING("pkg/x", "无") + FINDING("pkg/y", "C2") + FINDING("pkg/z", " C1、C3 ")) });
-    assert.match(runWake(dir, out).report, /^圈外发现：3 条（比上一轮 \+2），挡住验收 2 条（比上一轮 \+2）$/m);
+    writeFiles(dir, { "run/plan.md": TEMPLATE_PLAN(head, "2026-11-08T10:00Z", "", FINDING("pkg/x", "无") + FINDING("pkg/y", "C2") + FINDING("pkg/z", " C1、C3 ") + FINDING("pkg/w", "无（已绕）")) });
+    assert.match(runWake(dir, out).report, /^圈外发现：4 条（比上一轮 \+3），挡住验收 2 条（比上一轮 \+2）$/m, "以「无」开头的（如「无（已绕）」）不算挡住");
     writeFiles(dir, { "run/plan.md": TEMPLATE_PLAN(head, "2026-11-08T10:00Z", "", FINDING("pkg/y", "C2")) });
-    assert.match(runWake(dir, out).report, /^圈外发现：1 条（比上一轮 -2），挡住验收 1 条（比上一轮 -1）$/m);
+    assert.match(runWake(dir, out).report, /^圈外发现：1 条（比上一轮 -3），挡住验收 1 条（比上一轮 -1）$/m);
     writeFiles(dir, { "run/plan.md": PLAN });
     assert.match(runWake(dir, out).report, /^圈外发现：plan 没有「## 圈外发现」节$/m);
   } finally { dispose(dir); }

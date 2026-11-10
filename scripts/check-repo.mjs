@@ -208,7 +208,7 @@ function checkFourRules() {
 }
 checkFourRules();
 
-// ---- 9. 圈外的问题只有一处正文：入口技能那一节，带处置表。别处提到「圈外发现」或「圈外的问题」的行必须带指向它的链接，标题行也一样。
+// ---- 9. 圈外的问题只有一处正文：入口技能那一节，带处置表。别处提到「圈外发现」或「圈外的问题」的行必须带指向它的链接。标题行与 plan 进度总览的「圈外发现：」行是格式，放不下链接，豁免；链接放在那一节的说明段里。
 const OUT_OF_SCOPE_PHRASES = ["圈外发现", "圈外的问题"];
 const OUT_OF_SCOPE_LINK = "SKILL.md#圈外的问题";
 const OUT_OF_SCOPE_TABLE = "| 它在哪 | 处置 |";
@@ -224,6 +224,7 @@ function checkOutOfScope() {
   for (const file of walkMd(config.skillsDir)) {
     if (file === FOUR_RULES_ENTRY) continue;
     read(file).split("\n").forEach((line, i) => {
+      if (line.startsWith("#") || line.startsWith("圈外发现：")) return;
       if (OUT_OF_SCOPE_PHRASES.some((p) => line.includes(p)) && !line.includes(OUT_OF_SCOPE_LINK)) fail("圈外的问题只有一处正文", `${rel(file)}:${i + 1} 提到圈外的问题却没有链到入口那一节`);
     });
   }
