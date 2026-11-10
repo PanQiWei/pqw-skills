@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 差分变异：基线到工作树的改动行所在的函数，交给 Stryker 打变异体、跑碰到它的用例，裁定为杀死、存活、无覆盖、未跑四类；超时的变异体单独复核。
 // 模型见 ../metrics-model.md；位点模型与读数在 lib/mutation.mjs，Stryker 适配在 lib/stryker.mjs，本文件是命令面与进程生命周期。
-// 用法与每个参数的含义见 --help。退出 0 正常；1 初跑不通过；2 用法错误、未提供 typescript、项目不是 vitest 或找不到 Stryker；129 收到 SIGHUP、130 被中断、143 被终止。
+// 用法与每个参数的含义见 --help。退出 0 正常；1 初跑不通过（含沙箱预检没通过、构建失败）；2 用法错误、未提供 typescript、项目不是 vitest 或找不到 Stryker；129 收到 SIGHUP、130 被中断、143 被终止。
 import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { parseArgs, parseScope, resolveBase, sh, changedLines, changedPaths, diffPrefixes } from "./lib/core.mjs";
@@ -37,6 +37,9 @@ const USAGE = `用法：mutation.mjs [选项]
   --low-memory-halve <MB>    可用内存低于这个数时上限减半，缺省 2048
   --no-nice                  不降低 Stryker 进程的优先级；缺省 nice 10，Windows 不降
 
+沙箱预检：起变异前，Stryker 建好沙箱（给了 --build-command 时在构建之后）先用同一份 vitest 配置在沙箱里把测试跑一遍（threads 池、一个进程、不采覆盖、时限 5 分钟）；
+没跑通时整个成员测量无效，抬头写「测量无效（沙箱预检没通过）」并列出没跑通的测试文件，不出分数、不报存活，退出 1。用例在工作树里就不过时同样在这里拦下。
+
 增量：Stryker 的 incremental 文件在系统临时目录的工作目录里，指纹（工具版本、vitest 版本与配置文件、配置文件的内容、测试文件摘要、Stryker 版本；给了 --build-command 时再加构建产物目录的内容）变了整轮重跑，抬头写「沿用 N」。
 成员目录外被测试经相对路径读的文件不进指纹：它们变了不会触发重跑，要重跑时删掉工作目录里的 fingerprint.json。
 
@@ -45,7 +48,7 @@ const USAGE = `用法：mutation.mjs [选项]
   --recheck-timeout <时长>   第二轮的 timeoutMS；缺省是第一轮 --timeout（没给按 Stryker 缺省 5000 毫秒）的 4 倍且至少 60 秒
   --recheck-limit N          最多复核 N 个超时位点（按位点顺序取前 N 个），缺省 8；其余记「超时未复核」，该成员测量无效。0 表示一个都不复核
 0.8.0 起退役的参数：--test、--engine、--lcov、--budget、--history、--no-tests-pattern、--load-ceiling（内建引擎及它的预算、覆盖门控、历史沿用、运行中自适应随之删除）；给了退出 2。
-退出 0 正常；1 初跑不通过；2 用法错误、未提供 typescript、项目不是 vitest 或找不到 Stryker；129 收到 SIGHUP、130 被中断、143 被终止。`;
+退出 0 正常；1 初跑不通过（含沙箱预检没通过、构建失败）；2 用法错误、未提供 typescript、项目不是 vitest 或找不到 Stryker；129 收到 SIGHUP、130 被中断、143 被终止。`;
 const SPEC = { repo: "value", project: "value", "build-command": "value", base: "value", target: "value", ts: "value", scope: "value", files: "value", json: "value", format: "value", "plan-only": "flag", timeout: "value", "no-recheck": "flag", "recheck-timeout": "value", "stryker-modules": "value", workers: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "no-nice": "flag", "vitest-config": "value", "build-output": "value", "unit-max-lines": "value", "recheck-limit": "value" };
 const RETIRED = { test: "测试命令由 Stryker 起 vitest，不再需要", engine: "内建引擎已删，只有 Stryker 一种", lcov: "覆盖由 Stryker 按用例记，不读 lcov", budget: "Stryker 没有整轮预算，超时的变异体改为单独复核", history: "增量由 Stryker 的 incremental 文件负责", "no-tests-pattern": "「没跑测试」是内建引擎跑整套命令时的问题，Stryker 按用例跑", "load-ceiling": "并行度启动时定下，运行中不调" };
 const retired = process.argv.slice(2).map((a) => /^--([a-z-]+)/.exec(a)?.[1]).find((k) => k && k in RETIRED);

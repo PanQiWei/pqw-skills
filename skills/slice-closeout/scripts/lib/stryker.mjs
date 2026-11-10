@@ -174,6 +174,7 @@ export const workDir = (root) => join(tmpdir(), "pqw-mutation", createHash("sha2
 
 // ---- 沙箱里构建：Stryker 10.1.1 建沙箱是复制文件、跑 buildCommand、再链 node_modules（core/dist/src/sandbox/sandbox.js 的 init），
 // 构建时沙箱里还没有依赖。给了 --build-command 时关掉 Stryker 的链接，buildCommand 换成自带的包装脚本：先链 node_modules，再经 shell 跑用户的命令。
+// 沙箱预检也挂在这个钩子上：第一轮起变异前走包装脚本（复核那轮不再预检），没有构建命令时依赖只为预检临时链进来，跑完撤掉，仍由 Stryker 自己链。
 
 /** 包装脚本与它读的环境变量。Stryker 用 execaCommand 按空格切 buildCommand，路径里的空格要用反斜杠转义。 */
 export const SANDBOX_BUILD = join(SCRIPTS_DIR, "sandbox-build.mjs");
@@ -208,27 +209,32 @@ export function vitestBinFor(modulesDir, projectDir) {
 /**
  * 沙箱预检：在沙箱（cwd）里按 Stryker 初跑的选项（threads 池、一个工作进程、不采覆盖）用同一份配置把测试跑一遍。
  * Stryker 的 vitest runner 只看用例结果与全局错误，文件只在沙箱里加载失败时它可能仍判初跑成功；vitest 自己的退出码计入文件级失败。
+ * 时限与 Stryker 初跑的缺省时限相同（5 分钟），到时限按没跑通算，status 记「超时」。
  * 没跑通时写标记 { status, files }，files 是报告里失败的测试文件（相对沙箱，也就是相对项目目录）。返回退出码。
  */
-function preflightRun({ cwd, env, stdio }) {
+function preflightRun({ cwd, env, stdio, timeoutMs }) {
   const config = env[PREFLIGHT_ENV.config], report = env[PREFLIGHT_ENV.report];
   rmSync(report, { force: true });
   const args = [env[PREFLIGHT_ENV.vitest], "run", ...(config ? ["--config", config] : []), "--pool=threads", "--maxWorkers=1", "--coverage.enabled=false", "--reporter=json", `--outputFile=${report}`];
-  const r = spawnSync(process.execPath, args, { cwd, env, stdio });
-  const code = r.status ?? 1;
+  const r = spawnSync(process.execPath, args, { cwd, env, stdio, timeout: timeoutMs });
+  const timedOut = r.error?.code === "ETIMEDOUT";
+  const code = timedOut ? 1 : r.status ?? 1;
   if (code === 0) return 0;
   let files = [];
   try { files = JSON.parse(readFileSync(report, "utf8")).testResults.filter((t) => t.status === "failed").map((t) => relative(cwd, t.name).split(sep).join("/")).sort(); } catch { files = []; }
-  writeFileSync(env[PREFLIGHT_ENV.mark], JSON.stringify({ status: r.status ?? r.signal, files }) + "\n");
+  writeFileSync(env[PREFLIGHT_ENV.mark], JSON.stringify({ status: timedOut ? "超时" : r.status ?? r.signal, files }) + "\n");
   return code;
 }
+
+/** 沙箱预检的时限：Stryker 初跑的缺省时限。 */
+export const PREFLIGHT_TIMEOUT_MS = 5 * 60 * 1000;
 
 /**
  * 包装脚本的全部逻辑，在沙箱（cwd）里跑：项目目录有 node_modules 而沙箱里没有时链过去；给了构建命令就经 shell 跑它，输出照传，
  * 退出非零（或被信号结束）时写标记文件，命令面据此把「构建失败」与「初跑失败」分开；给了预检就再跑沙箱预检。
  * 没有构建命令时依赖只为预检而链，跑完撤掉，仍由 Stryker 自己链（它会链项目里每个实目录的 node_modules）。返回退出码。
  */
-export function sandboxBuild({ cwd = process.cwd(), env = process.env, stdio = "inherit" } = {}) {
+export function sandboxBuild({ cwd = process.cwd(), env = process.env, stdio = "inherit", preflightTimeoutMs = PREFLIGHT_TIMEOUT_MS } = {}) {
   const source = join(env[BUILD_ENV.project], "node_modules"), target = join(cwd, "node_modules");
   const linked = existsSync(source) && !existsSync(target);
   if (linked) symlinkSync(source, target, "junction");
@@ -239,7 +245,7 @@ export function sandboxBuild({ cwd = process.cwd(), env = process.env, stdio = "
     code = r.status ?? 1;
     if (code !== 0) writeFileSync(env[BUILD_ENV.mark], `构建命令退出 ${r.status ?? r.signal}：${command}\n`);
   }
-  if (code === 0 && env[PREFLIGHT_ENV.vitest]) code = preflightRun({ cwd, env, stdio });
+  if (code === 0 && env[PREFLIGHT_ENV.vitest]) code = preflightRun({ cwd, env, stdio, timeoutMs: preflightTimeoutMs });
   if (!command && linked) unlinkSync(target);
   return code;
 }

@@ -155,3 +155,17 @@ process.exit(fail ? 1 : 0);
     assert.equal(lstatSync(project).isDirectory(), true);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("沙箱预检有时限：用例挂住时到时限就算没跑通，标记写「超时」，不无限等", () => {
+  const dir = mkdtempSync(join(tmpdir(), "pqw-readings-"));
+  try {
+    const project = join(dir, "project"), sandbox = join(dir, "sandbox"), hang = join(dir, "hang.mjs");
+    mkdirSync(project); mkdirSync(sandbox);
+    writeFileSync(hang, "setTimeout(() => {}, 60000);\n");
+    const env = { ...process.env, ...buildEnv({ projectDir: project, command: null, mark: join(dir, "b"), preflight: { vitest: hang, configFile: null, report: join(dir, "p.json"), mark: join(dir, "p-failed") } }) };
+    const t0 = Date.now();
+    assert.notEqual(sandboxBuild({ cwd: sandbox, env, stdio: "ignore", preflightTimeoutMs: 500 }), 0);
+    assert.ok(Date.now() - t0 < 20000, `到时限就停：${Date.now() - t0}ms`);
+    assert.deepEqual(JSON.parse(readFileSync(join(dir, "p-failed"), "utf8")), { status: "超时", files: [] });
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
