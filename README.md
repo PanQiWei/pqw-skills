@@ -165,9 +165,12 @@ bash scripts/link-skills.sh
 
 本插件不打包 pstack、ub-mode 与 mattpocock/skills，按它们各自的说明安装。
 
-## 元技能
+## 写作技能
 
-`meta/skills/` 下的 `clear-writing` 与 `write-agents-md` 只给维护本仓库的代理用，不随插件发行。
+不属于某个环节，写文档的环节都会用到。
+
+- **[clear-writing](./skills/clear-writing/SKILL.md)**：清晰写作。英文按 ASD-STE100，中文按不依赖语言的清晰性原则；保留含义、情态与必需结构。正文取自上游 asd-ste100-skill 0.4.0（MIT）。项目有自己的文档写作规则时从接入点读，没有时用自带的缺省规则。
+- **[write-agents-md](./skills/write-agents-md/SKILL.md)**：撰写与治理 AGENTS.md：创建、修订、压缩、评审或迁移，设计继承的提示作用域，判断内容归属，协调父子文件的重叠与矛盾。
 
 ## 仓库结构
 

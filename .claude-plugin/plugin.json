@@ -32,6 +32,8 @@
     "./skills/slice-closeout",
     "./skills/progress-artifacts",
     "./skills/cleanup",
-    "./skills/teach-pqw-skills"
+    "./skills/teach-pqw-skills",
+    "./skills/clear-writing",
+    "./skills/write-agents-md"
   ]
 }

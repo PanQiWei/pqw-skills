@@ -150,11 +150,11 @@ for (const file of checkedFiles) {
   if (/`ub-mode`/.test(text) && !existsSync(config.ubMode)) fail("无法核对", `${rel(file)} 引用 ub-mode，本机没有 ${config.ubMode}`);
 }
 
-// ---- 4. 发行技能、模板、脚本与网页里的项目概念禁词、工作日志措辞。meta/skills/clear-writing 是原样引入的上游英文正文（attempt 是普通英文词），免检。
+// ---- 4. 发行技能、模板、脚本与网页里的项目概念禁词、工作日志措辞。skills/clear-writing 是原样引入的上游英文正文（attempt 是普通英文词），免检。
 const self = fileURLToPath(import.meta.url);
 const codeFiles = config.codeDirs.flatMap((d) => walkFiles(join(repo, d), config.codeExts)).filter((f) => f !== self);
 for (const file of [...walkMd(config.skillsDir), ...walkMd(config.metaSkillsDir), ...codeFiles]) {
-  if (file.includes("/meta/skills/clear-writing/")) continue;
+  if (file.includes("/skills/clear-writing/")) continue;
   const text = read(file);
   for (const w of config.forbidden) if (text.includes(w)) fail("项目概念", `${rel(file)} 含「${w}」`);
   for (const w of config.workLog) if (text.includes(w)) fail("工作日志措辞", `${rel(file)} 含「${w}」`);
@@ -167,9 +167,9 @@ for (const file of [...walkMd(config.skillsDir), ...walkMd(config.metaSkillsDir)
   for (const w of config.hostTools) if (text.includes(w)) fail("宿主无关", `${rel(file)} 含宿主工具名「${w}」`);
 }
 
-// ---- 5. 全仓散文、脚本与网页无破折号。meta/skills/clear-writing 是原样引入的上游英文正文，免检。
+// ---- 5. 全仓散文、脚本与网页无破折号。skills/clear-writing 是原样引入的上游英文正文，免检。
 for (const file of [...checkedFiles, ...codeFiles]) {
-  if (file.includes("/meta/skills/clear-writing/")) continue;
+  if (file.includes("/skills/clear-writing/")) continue;
   const lines = read(file).split("\n");
   lines.forEach((line, i) => {
     for (const d of config.dashes) if (line.includes(d)) fail("破折号", `${rel(file)}:${i + 1}`);

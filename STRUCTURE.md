@@ -21,9 +21,6 @@ pqw-skills/
 │   ├── plugin.json           插件清单：名字、版本、skills 数组逐个列出技能目录
 │   └── marketplace.json      仓库自带的单插件市场，供 claude plugin marketplace add
 ├── design/                   设计文档：环节映射、自带资产与接入点、吸收的外部经验
-├── meta/skills/              元技能，只给维护本仓库的代理用，不发行
-│   ├── clear-writing/
-│   └── write-agents-md/
 ├── scripts/
 │   ├── link-skills.sh        本机开发：把每个技能与元技能软链进 ~/.claude/skills 与 ~/.agents/skills
 │   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、工具版本常量与 plugin.json 一致、写代码的四条只有一处正文

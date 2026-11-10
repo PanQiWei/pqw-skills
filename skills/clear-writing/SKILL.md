@@ -1,6 +1,6 @@
 ---
 name: clear-writing
-description: "维护 skills 仓库的元 skill，不对外分发。规定清晰写作规则：英文按 ASD-STE100，中文按不依赖语言的清晰性原则，用于撰写或改写文档、提示词、工具描述和 agent 指令，保留含义、情态与必需结构。"
+description: "清晰写作规则：英文按 ASD-STE100，中文按不依赖语言的清晰性原则，用于撰写或改写文档、提示词、工具描述和 agent 指令，保留含义、情态与必需结构。新建或修订文档、规格、技能、提示词时加载；项目有自己的文档写作规则时从接入点读。不用于创意与营销文案。"
 metadata:
   version: "0.4.0"
 ---
@@ -12,7 +12,7 @@ metadata:
 ## Documentation in This Workspace
 
 Use this skill for every documentation task in this workspace.
-Read [the documentation rules](references/documentation.md) before you write or revise documentation.
+If the project's access point names documentation rules (the slot "文档写作规则"), read those rules. Otherwise read [the default documentation rules](references/documentation.md). Read them before you write or revise documentation.
 For English, select Strict or STE-flavored from the document type.
 For Chinese, apply the clarity rules that do not depend on English grammar.
 

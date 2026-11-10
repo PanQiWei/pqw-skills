@@ -69,6 +69,7 @@ description: 教人用 pqw-skills：讲这条流的心智模型、哲学与协�
 | 差分变异的范围与点名文件（工具自带，`--scope`、`--files`；修复轮 `--base` 取上一轮收口头；由 Stryker 执行，只支持 vitest 项目；多包仓库按成员 `--project`，用例导入构建产物的成员加 `--build-command`） | `slice-closeout` |
 | 项目合入检查已按整程改动跑结构读数与差分变异时的命令（没有写「无」，一程全量读数由本流跑） | `slice-closeout` |
 | 文档检查命令 | `formal-docs-landing` |
+| 文档写作规则（项目自己的写作规范；没填用 `clear-writing` 自带的缺省规则） | `clear-writing` |
 | 三层正式文档的位置 | `formal-docs-landing` |
 | 统一语言与领域对象的位置 | `requirement-and-invariants`、`domain-impact-analysis` |
 | 形式化工具链与声明边界 | `formal-guard` |

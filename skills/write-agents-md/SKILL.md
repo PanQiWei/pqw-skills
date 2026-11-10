@@ -1,6 +1,6 @@
 ---
 name: write-agents-md
-description: "维护 skills 仓库的元 skill，不对外分发。指导 AGENTS.md 的撰写与治理：创建、修订、压缩、评审或迁移 AGENTS.md，设计继承的提示作用域，判断内容归属，并协调父子文件的重叠与矛盾。"
+description: "指导 AGENTS.md 的撰写与治理：创建、修订、压缩、评审或迁移 AGENTS.md，设计继承的提示作用域，判断内容归属，并协调父子文件的重叠与矛盾。新建或修订任何一份 AGENTS.md（或宿主的同类入口文件）时加载。"
 ---
 
 # Write AGENTS.md

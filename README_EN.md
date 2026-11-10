@@ -167,9 +167,12 @@ bash scripts/link-skills.sh
 
 The plugin does not bundle pstack, ub-mode or mattpocock/skills. Install them by their own instructions.
 
-## Meta skills
+## Writing skills
 
-`clear-writing` and `write-agents-md` under `meta/skills/` serve only the agents that maintain this repository. They are not distributed with the plugin.
+They belong to no single stage. Every stage that writes documents uses them.
+
+- **[clear-writing](./skills/clear-writing/SKILL.md)**: clear writing. English follows ASD-STE100; Chinese follows the clarity rules that do not depend on English grammar. Meaning, modality and required structure are kept. The body comes from the upstream asd-ste100-skill 0.4.0 (MIT). A project with its own documentation rules names them at the access point; otherwise the bundled default rules apply.
+- **[write-agents-md](./skills/write-agents-md/SKILL.md)**: writing and governing AGENTS.md: create, revise, compress, review or migrate one, design inherited prompt scopes, decide where content belongs, and reconcile overlaps and conflicts between parent and child files.
 
 ## Repository layout
 
