@@ -30,22 +30,26 @@ test("大单元：自有行数超过上限时只取改动行与包住它的最�
   assert.deepEqual(unitRanges(units, [[105, 105]], { maxLines: 400, spans }), [[1, 199], [211, 300]], "上限放宽后取整个单元自己的行");
   assert.deepEqual(largeUnits(units, [[105, 105], [303, 303]], 200), [{ unit: "make", ownLines: 289 }]);
   assert.deepEqual(largeUnits(units, [[303, 303]], 200), []);
+  assert.deepEqual(unitRanges(units, [[105, 105], [303, 304]], { maxLines: 0, spans }), [[105, 105], [303, 304]], "上限 0：每个单元都算超过，只留改动行");
 });
 
 const BIG = `export function big(n: number) {\n  let t = n;\n  [1].forEach((x) => {\n    t += x;\n  });\n${"  t += 1;\n".repeat(250)}  return t;\n}\n`;
 
-test.skipIf(skip)("--unit-max-lines：缺省 200；大单元收窄后的 mutate 条目、抬头说明与 JSON narrowed；给大了照旧取整个单元", () => {
+test.skipIf(skip)("缺省只打改动行；--whole-units 扩到单元，--unit-max-lines 缺省 200 收窄大单元并写进抬头与 JSON narrowed，给大了取整个单元", () => {
   const dir = makeVitestRepo();
   try {
     writeFiles(dir, { "src/big.ts": BIG });
     spawnSync("git", ["add", "-A"], { cwd: dir }); spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "big"], { cwd: dir });
     const lines = BIG.split("\n"); lines[3] = "    t -= x;"; lines[99] = "  t += 2;";
     writeFiles(dir, { "src/big.ts": lines.join("\n") });
-    const json = planJson(dir, []);
+    const lean = planJson(dir, []);
+    assert.deepEqual([lean.mutate, lean.narrowed], [["src/big.ts:4-4", "src/big.ts:100-100"], []]);
+    assert.ok(!lean.engine.notes.some((n) => n.startsWith("大单元")), JSON.stringify(lean.engine.notes));
+    const json = planJson(dir, ["--whole-units"]);
     assert.deepEqual(json.mutate, ["src/big.ts:3-5", "src/big.ts:100-100"]);
     assert.deepEqual(json.narrowed, [{ file: "src/big.ts", unit: "big", ownLines: 257 }]);
     assert.ok(json.engine.notes.includes("大单元只变异改动行与包住它的最小嵌套函数：src/big.ts big（自有 257 行，上限 200）"), JSON.stringify(json.engine.notes));
-    const wide = planJson(dir, ["--unit-max-lines", "300"]);
+    const wide = planJson(dir, ["--whole-units", "--unit-max-lines", "300"]);
     assert.deepEqual([wide.mutate, wide.narrowed], [["src/big.ts:1-257"], []]);
   } finally { dispose(dir); }
 });

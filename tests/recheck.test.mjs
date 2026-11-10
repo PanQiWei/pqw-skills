@@ -33,7 +33,7 @@ function setup(reports) {
   const paths = reports.map((text, i) => { const p = join(side, `report-${i}.json`); writeFileSync(p, text); return p; });
   const state = join(side, "state");
   const run = (...args) => {
-    const r = spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--stryker-modules", modules, "--json", join(side, "out.json"), ...args], { encoding: "utf8", env: { ...process.env, PQW_FAKE_REPORTS: paths.join(","), PQW_FAKE_STATE: state } });
+    const r = spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--whole-units", "--stryker-modules", modules, "--json", join(side, "out.json"), ...args], { encoding: "utf8", env: { ...process.env, PQW_FAKE_REPORTS: paths.join(","), PQW_FAKE_STATE: state } });
     return { ...r, json: existsSync(join(side, "out.json")) ? JSON.parse(readFileSync(join(side, "out.json"), "utf8")) : null, calls: existsSync(state) ? Number(readFileSync(state, "utf8")) : 0, seen: (name) => JSON.parse(readFileSync(join(workDir(dir), `stryker-${name}.json.seen`), "utf8")) };
   };
   return { dir, side, run, cleanup: () => { dispose(dir); dispose(side); } };

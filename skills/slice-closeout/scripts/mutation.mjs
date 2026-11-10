@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 差分变异：基线到工作树的改动行所在的函数，交给 Stryker 打变异体、跑碰到它的用例，裁定为杀死、存活、无覆盖、未跑四类；超时的变异体单独复核。
+// 差分变异：基线到工作树的改动行（给 --whole-units 时扩到改动行所在的单元），交给 Stryker 打变异体、跑碰到它的用例，裁定为杀死、存活、无覆盖、未跑四类；超时的变异体单独复核。
 // 模型见 ../metrics-model.md；位点模型与读数在 lib/mutation.mjs，Stryker 适配在 lib/stryker.mjs，本文件是命令面与进程生命周期。
 // 用法与每个参数的含义见 --help。退出 0 正常；1 初跑不通过（含沙箱预检没通过、构建失败）；2 用法错误、未提供 typescript、项目不是 vitest 或找不到 Stryker；129 收到 SIGHUP、130 被中断、143 被终止。
 import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
@@ -10,7 +10,7 @@ import { resolveProject, inProject, tempDirFor, projectNotes, buildEnv, vitestBi
 import { parseDuration, summarize, formatMutation, capacity, plannedWorkers, niceAvailable, isMutable, UNRECHECKED } from "./lib/mutation.mjs";
 
 const USAGE = `用法：mutation.mjs [选项]
-只打基线到工作树改动行所在函数的变异体，由 Stryker 执行：一次插桩、测试进程常驻、每个变异体只跑碰到它的用例、几个进程并行、增量复用。项目要用 vitest（根下有 vitest.config.* 或 vite.config.*，或 package.json 声明了 vitest）且找得到 Stryker 与它的 vitest runner；不满足退出 2 并说明。
+只打基线到工作树改动行上的变异体（回答「这次的改动有没有被测试守住」；函数里没改的行测的是改动之前的代码，要顺手还旧账时给 --whole-units），由 Stryker 执行：一次插桩、测试进程常驻、每个变异体只跑碰到它的用例、几个进程并行、增量复用。项目要用 vitest（根下有 vitest.config.* 或 vite.config.*，或 package.json 声明了 vitest）且找得到 Stryker 与它的 vitest runner；不满足退出 2 并说明。
 
   --repo <目录>              仓库里任一目录，缺省当前目录
   --project <目录>           多包仓库的一个成员目录（Git 根相对或绝对路径）：在那里认 vitest、找 Stryker、起 Stryker，只取它下面的改动文件；
@@ -24,8 +24,9 @@ const USAGE = `用法：mutation.mjs [选项]
   --scope <前缀,前缀>        只看这些路径前缀
   --files <路径,路径>        点名文件：这些文件整份都打，不论改没改（判据、状态机所在的文件）；抬头写「（点名 N 个文件）」，位点带 pinned
   --json <路径>              结果 JSON 写到这里；--format json 直接打印 JSON
-  --unit-max-lines N         改动行所在单元的自有行数超过 N 时，只变异改动行与包住它的最小嵌套函数（匿名回调也算），不取整个单元；
-                             抬头逐个写明收窄了哪些单元，JSON 的 narrowed 列出。缺省 200
+  --whole-units              范围扩到改动行所在有名单元自己的全部行（扣掉嵌套单元），连同函数里没改的行；缺省只打改动行
+  --unit-max-lines N         给了 --whole-units 时：单元的自有行数超过 N 时只变异改动行与包住它的最小嵌套函数（匿名回调也算），不取整个单元；
+                             抬头逐个写明收窄了哪些单元，JSON 的 narrowed 列出。缺省 200；没给 --whole-units 时不起作用
   --plan-only                只列 mutate 条目，不起 Stryker
   --timeout <时长>           Stryker 的 timeoutMS（在它按初跑估算的时限上再加的毫秒数）；缺省用 Stryker 的缺省
   --vitest-config <文件>     Stryker 与沙箱预检用的 vitest 配置（相对项目目录或绝对路径），覆盖自动找到的那份；只跑快层时指到快层的配置。文件不在退出 2
@@ -49,7 +50,7 @@ const USAGE = `用法：mutation.mjs [选项]
   --recheck-limit N          最多复核 N 个超时位点（按位点顺序取前 N 个），缺省 8；其余记「超时未复核」，该成员测量无效。0 表示一个都不复核
 0.8.0 起退役的参数：--test、--engine、--lcov、--budget、--history、--no-tests-pattern、--load-ceiling（内建引擎及它的预算、覆盖门控、历史沿用、运行中自适应随之删除）；给了退出 2。
 退出 0 正常；1 初跑不通过（含沙箱预检没通过、构建失败）；2 用法错误、未提供 typescript、项目不是 vitest 或找不到 Stryker；129 收到 SIGHUP、130 被中断、143 被终止。`;
-const SPEC = { repo: "value", project: "value", "build-command": "value", base: "value", target: "value", ts: "value", scope: "value", files: "value", json: "value", format: "value", "plan-only": "flag", timeout: "value", "no-recheck": "flag", "recheck-timeout": "value", "stryker-modules": "value", workers: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "no-nice": "flag", "vitest-config": "value", "build-output": "value", "unit-max-lines": "value", "recheck-limit": "value" };
+const SPEC = { repo: "value", project: "value", "build-command": "value", base: "value", target: "value", ts: "value", scope: "value", files: "value", json: "value", format: "value", "plan-only": "flag", timeout: "value", "no-recheck": "flag", "recheck-timeout": "value", "stryker-modules": "value", workers: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "no-nice": "flag", "vitest-config": "value", "build-output": "value", "unit-max-lines": "value", "whole-units": "flag", "recheck-limit": "value" };
 const RETIRED = { test: "测试命令由 Stryker 起 vitest，不再需要", engine: "内建引擎已删，只有 Stryker 一种", lcov: "覆盖由 Stryker 按用例记，不读 lcov", budget: "Stryker 没有整轮预算，超时的变异体改为单独复核", history: "增量由 Stryker 的 incremental 文件负责", "no-tests-pattern": "「没跑测试」是内建引擎跑整套命令时的问题，Stryker 按用例跑", "load-ceiling": "并行度启动时定下，运行中不调" };
 const retired = process.argv.slice(2).map((a) => /^--([a-z-]+)/.exec(a)?.[1]).find((k) => k && k in RETIRED);
 if (retired) { console.error(`--${retired} 0.8.0 起退役：${RETIRED[retired]}`); process.exit(2); }
@@ -180,10 +181,12 @@ const changed = changedLines(root, inputs.base, diffPrefixes(scope, project.pref
 const mutable = [...new Set([...changedPaths(root, inputs.base, scope), ...pinned])].filter((p) => isMutable(root, p, scope)).sort();
 const files = mutable.filter((p) => inProject(project, p));
 const entries = fileEntries(root, ts, files);
-// 范围：改动行所在单元自己的全部行，大单元只取改动行与包住它的最小嵌套函数；点名的文件整份。
-const maxLines = number("unit-max-lines", DEFAULT_UNIT_MAX_LINES);
+// 范围：缺省只取改动行（上限 0 时每个单元都算超过，unitRanges 只留改动行）；给 --whole-units 时取改动行所在单元自己的全部行，
+// 大单元只取改动行与包住它的最小嵌套函数。点名的文件整份。
+const wholeUnits = Boolean(opts["whole-units"]);
+const maxLines = wholeUnits ? number("unit-max-lines", DEFAULT_UNIT_MAX_LINES) : 0;
 const ranges = new Map(files.map((p) => [p, unitRanges(entries.get(p).units, changed.get(p) ?? [], { maxLines, spans: entries.get(p).spans })]));
-const narrowed = files.filter((p) => !pinned.includes(p)).flatMap((p) => largeUnits(entries.get(p).units, changed.get(p) ?? [], maxLines).map((u) => ({ file: p, ...u })));
+const narrowed = wholeUnits ? files.filter((p) => !pinned.includes(p)).flatMap((p) => largeUnits(entries.get(p).units, changed.get(p) ?? [], maxLines).map((u) => ({ file: p, ...u }))) : [];
 const notes = [...projectNotes({ prefix: project.prefix, outside: mutable.length - files.length, temp: project.temp, ignored: tempDirIgnored(project.dir, project.temp.name) }), ...narrowed.map((n) => `大单元只变异改动行与包住它的最小嵌套函数：${n.file} ${n.unit}（自有 ${n.ownLines} 行，上限 ${maxLines}）`)];
 const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), project: project.label, base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, engine: { ...inputs.engine, notes }, fingerprint: inputs.fingerprint, pinned, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, resources: inputs.resources, mutate: mutateEntries(ranges, pinned, files), narrowed, sites: [], unmutated: [], summary: {}, survivors: [], recheck: null };
 let code = 0;

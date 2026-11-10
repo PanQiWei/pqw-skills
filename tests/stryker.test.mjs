@@ -11,7 +11,8 @@ const TS = tsPath();
 const skip = TS ? false : "没有 typescript，设 PQW_TS";
 const SRC = "export function isPos(x: number) {\n  return x > 0;\n}\n";
 const cleanEnv = { ...process.env, PQW_STRYKER_MODULES: "/nonexistent/modules" };
-const run = (dir, args, env = cleanEnv) => spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--plan-only", ...args], { encoding: "utf8", env });
+// 这一组的夹具按「扩到改动行所在单元」写；缺省只打改动行的范围由 readings-mutation.test.mjs 守。
+const run = (dir, args, env = cleanEnv) => spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--plan-only", "--whole-units", ...args], { encoding: "utf8", env });
 const fakeModules = (dir) => { const fake = join(dir, "fake-modules"); for (const name of ["@stryker-mutator/core", "@stryker-mutator/vitest-runner", "vitest"]) { mkdirSync(join(fake, name), { recursive: true }); writeFileSync(join(fake, name, "package.json"), JSON.stringify({ name, version: "10.1.1" })); } return fake; };
 
 test("0.8.0 退役的参数退出 2 并写原因，不需要别的输入", () => {
@@ -54,7 +55,7 @@ import { workDir } from "../skills/slice-closeout/scripts/lib/stryker.mjs";
 
 const MODULES = strykerModules();
 const skipReal = skip || (MODULES ? false : "没有 Stryker 模块，设 PQW_STRYKER_MODULES");
-const strykerRun = (dir, args) => spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", ...args], { encoding: "utf8", env: cleanEnv });
+const strykerRun = (dir, args) => spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD", "--whole-units", ...args], { encoding: "utf8", env: cleanEnv });
 
 test.skipIf(skip)("Stryker 引擎只列：写引擎行与 mutate 条目，不起 Stryker", () => {
   const dir = makeVitestRepo();
