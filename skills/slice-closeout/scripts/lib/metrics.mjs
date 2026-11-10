@@ -19,7 +19,7 @@ export function touchesOwnLines(unit, nested, ranges) {
 /** 缺省的线：函数级两条线，取 omne 的 repo-toolchain 与 crapper 的 --threshold。模型见「带位」。 */
 export const DEFAULT_THRESHOLDS = { cyclomaticWarn: 10, cyclomaticAlert: 12, crapAlert: 30 };
 
-/** 解析 `--cc <warn>,<alert>` 与 `--crap <alert>`；没给用缺省，格式错抛错。 */
+/** 解析 `--cc <warn>,<alert>` 与 `--crap [<warn>,]<alert>`；没给用缺省，格式错抛错。CRAP 只给一个数时当 alert，不设 crapWarn。 */
 export function parseThresholds(cc, crap) {
   const t = { ...DEFAULT_THRESHOLDS };
   if (cc !== undefined) {
@@ -28,16 +28,18 @@ export function parseThresholds(cc, crap) {
     t.cyclomaticWarn = Number(m[1]); t.cyclomaticAlert = Number(m[2]);
   }
   if (crap !== undefined) {
-    if (!/^\d+(\.\d+)?$/.test(crap)) throw new Error(`--crap 要是一个数：${crap}`);
-    t.crapAlert = Number(crap);
+    const m = /^(?:(\d+(?:\.\d+)?),)?(\d+(?:\.\d+)?)$/.exec(crap);
+    if (!m || (m[1] !== undefined && Number(m[1]) > Number(m[2]))) throw new Error(`--crap 要是一个数，或写成 <warn>,<alert> 且 warn 不大于 alert：${crap}`);
+    if (m[1] !== undefined) t.crapWarn = Number(m[1]);
+    t.crapAlert = Number(m[2]);
   }
   return t;
 }
 
-/** 带位：严格大于才过线。圈复杂度的线总是看；CRAP 的线只在算得出时看；都没过线而 CRAP 算不出记「无覆盖」。 */
+/** 带位：严格大于才过线。圈复杂度的线总是看；CRAP 的线只在算得出时看，提醒线给了才看；都没过线而 CRAP 算不出记「无覆盖」。 */
 export function bandOf(cyclomatic, crap, t) {
   if (cyclomatic > t.cyclomaticAlert || (crap !== null && crap > t.crapAlert)) return "alert";
-  if (cyclomatic > t.cyclomaticWarn) return "warn";
+  if (cyclomatic > t.cyclomaticWarn || (crap !== null && t.crapWarn !== undefined && crap > t.crapWarn)) return "warn";
   return crap === null ? "无覆盖" : "ok";
 }
 

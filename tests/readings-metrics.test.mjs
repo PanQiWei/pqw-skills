@@ -57,8 +57,8 @@ test("CRAP 两条线：--crap <warn>,<alert> 与 --cc 同形；只给一个数�
   assert.equal(bandOf(11, 3, t), "warn", "圈复杂度的线照旧");
   assert.deepEqual(parseThresholds(undefined, "30"), { cyclomaticWarn: 10, cyclomaticAlert: 12, crapAlert: 30 }, "一个数当 alert，没有 crapWarn");
   assert.equal(bandOf(2, 29, parseThresholds(undefined, "30")), "ok");
-  assert.throws(() => parseThresholds(undefined, "12,10"), /--crap 要写成 <alert> 或 <warn>,<alert> 且 warn 不大于 alert/);
-  assert.throws(() => parseThresholds(undefined, "a,b"), /--crap 要写成/);
+  assert.throws(() => parseThresholds(undefined, "12,10"), /--crap 要是一个数，或写成 <warn>,<alert> 且 warn 不大于 alert：12,10/);
+  assert.throws(() => parseThresholds(undefined, "a,b"), /--crap 要是一个数/);
 });
 
 // ---- 3. 断言的认法
