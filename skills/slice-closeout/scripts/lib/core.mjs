@@ -2,8 +2,8 @@
 // 定义取自 unclebob/crapper 与 unclebob/mutator（0BSD）。不认识任何语言的语法。
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, existsSync, statSync } from "node:fs";
+import { join, dirname, relative, resolve, isAbsolute, sep } from "node:path";
 
 /** 会把 git 指到别的仓库或索引的环境变量；读数只认 cwd 所在的仓库，所以剥掉。 */
 const GIT_REDIRECTS = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_COMMON_DIR", "GIT_NAMESPACE"];
@@ -111,23 +111,66 @@ export function testFilesDigest(root) {
   return hash.digest("hex");
 }
 
-/** lcov：file → { lines: Map<line,[covered,total]>, branches: Map<line,[covered,total]> }。 */
+/** 逐个分支的命中（键「行,块,分支」）按行聚合成 (covered, total)。 */
+function branchesByLine(hits) {
+  const out = new Map();
+  for (const [key, hit] of hits) { const ln = Number(key.split(",")[0]); const [c, t] = out.get(ln) ?? [0, 0]; out.set(ln, [c + hit, t + 1]); }
+  return out;
+}
+
+const emptyRecord = () => ({ lines: new Map(), branches: new Map(), branchHits: new Map() });
+
+/** lcov：file → { lines: Map<line,[covered,total]>, branches: Map<line,[covered,total]>, branchHits: Map<「行,块,分支」,0|1> }。branchHits 留着给合并取并。 */
 export function parseLcov(text) {
   const files = new Map();
   let current = null; let name = null;
+  const close = () => { current.branches = branchesByLine(current.branchHits); files.set(name, current); current = null; };
   for (const raw of text.split("\n")) {
     const line = raw.trim();
-    if (line.startsWith("SF:")) { name = normalizePath(line.slice(3)); current = { lines: new Map(), branches: new Map() }; continue; }
+    if (line.startsWith("SF:")) { name = normalizePath(line.slice(3)); current = emptyRecord(); continue; }
     if (!current) continue;
     let m;
     if ((m = /^DA:(\d+),(\d+)/.exec(line))) current.lines.set(Number(m[1]), [Number(m[2]) > 0 ? 1 : 0, 1]);
-    else if ((m = /^BRDA:(\d+),[^,]*,[^,]*,(-|\d+)$/.exec(line))) {
-      const ln = Number(m[1]); const hit = m[2] !== "-" && Number(m[2]) > 0 ? 1 : 0;
-      const [c, t] = current.branches.get(ln) ?? [0, 0]; current.branches.set(ln, [c + hit, t + 1]);
-    } else if (line === "end_of_record") { files.set(name, current); current = null; }
+    else if ((m = /^BRDA:(\d+),([^,]*),([^,]*),(-|\d+)$/.exec(line))) current.branchHits.set(`${m[1]},${m[2]},${m[3]}`, m[4] !== "-" && Number(m[4]) > 0 ? 1 : 0);
+    else if (line === "end_of_record") close();
   }
-  if (current && name) files.set(name, current);
+  if (current && name) close();
   return files;
+}
+
+/** 几份报告合成一份：同一文件取各行、各分支命中的并。 */
+export function mergeLcov(reports) {
+  const merged = new Map();
+  for (const report of reports) for (const [name, rec] of report) {
+    const into = merged.get(name) ?? emptyRecord();
+    for (const [ln, [c]] of rec.lines) into.lines.set(ln, [Math.max(c, into.lines.get(ln)?.[0] ?? 0), 1]);
+    for (const [key, hit] of rec.branchHits) into.branchHits.set(key, Math.max(hit, into.branchHits.get(key) ?? 0));
+    into.branches = branchesByLine(into.branchHits);
+    merged.set(name, into);
+  }
+  return merged;
+}
+
+/** 绝对路径在 Git 根里时的根相对路径（/ 分隔），不在根里为 null。 */
+const insideRoot = (root, p) => { const r = relative(root, p); return r === ".." || r.startsWith(`..${sep}`) || isAbsolute(r) ? null : r.split(sep).join("/"); };
+
+/**
+ * 报告里一个源码路径换成 Git 根相对路径：相对路径从报告所在目录起找，那里没有这个文件就逐级往上找到 Git 根为止
+ * （测试运行器常把报告写在项目下的 coverage/ 里，路径却相对项目目录）；绝对路径直接换。找不到或在根外原样留着，按后缀匹配。
+ */
+function locateSource(root, dir, name) {
+  if (isAbsolute(name)) return insideRoot(root, name) ?? name;
+  for (let d = dir; ; d = dirname(d)) {
+    if (existsSync(join(d, name))) return insideRoot(root, join(d, name)) ?? name;
+    if (d === root || dirname(d) === d) return name;
+  }
+}
+
+/** 读几份覆盖率报告（Git 根相对或绝对路径）：各自的源码路径按 locateSource 换算后合并。返回 { report, mtimeMs }，mtimeMs 取最早的一份。 */
+export function loadLcov(root, paths) {
+  const files = paths.map((p) => resolve(root, p));
+  const located = files.flatMap((f) => [...parseLcov(readFileSync(f, "utf8"))].map(([name, rec]) => new Map([[locateSource(root, dirname(f), name), rec]])));
+  return { report: mergeLcov(located), mtimeMs: Math.min(...files.map((f) => statSync(f).mtimeMs)) };
 }
 
 export const normalizePath = (p) => p.replace(/\\/g, "/").replace(/^file:/, "").replace(/^(\.\/)+/, "").replace(/\/{2,}/g, "/");

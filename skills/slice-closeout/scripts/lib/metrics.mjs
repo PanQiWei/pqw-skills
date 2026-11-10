@@ -149,7 +149,7 @@ function unassertedTests(root, path, ranges, ts, assertPattern, uncovered) {
   } catch (e) { uncovered.push({ path, reason: `解析失败：${String(e.message ?? e).split("\n")[0]}` }); return []; }
 }
 
-/** 基线到工作树的改动函数读数。scope 是路径前缀数组或 null；report 是 parseLcov 的结果或 null；reportMtimeMs 是报告文件的修改时刻（毫秒）或 null。；assertPattern 见 DEFAULT_ASSERT_PATTERN。 */
+/** 基线到工作树的改动函数读数。scope 是路径前缀数组或 null；report 是 loadLcov 的报告或 null；reportMtimeMs 是报告文件（几份时取最早一份）的修改时刻（毫秒）或 null；assertPattern 见 DEFAULT_ASSERT_PATTERN。 */
 export function collectMetrics({ root, base, baseGiven = null, head, ts, report, scope, thresholds = DEFAULT_THRESHOLDS, reportMtimeMs = null, assertPattern = DEFAULT_ASSERT_PATTERN }) {
   const functions = [];
   const uncovered = [];
