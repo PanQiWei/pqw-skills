@@ -6,8 +6,8 @@ import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from "node
 import { resolve, join } from "node:path";
 import { parseArgs, parseScope, resolveBase, sh, changedLines, changedPaths, diffPrefixes } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
-import { resolveProject, inProject, tempDirFor, projectNotes, buildEnv, failedBaseline, baselineFailure, chooseEngine, mutateEntries, unitRanges, largeUnits, DEFAULT_UNIT_MAX_LINES, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries, strykerFingerprint, incrementalFor, rememberFingerprint, timeoutEntries, mergeRecheck } from "./lib/stryker.mjs";
-import { parseDuration, summarize, formatMutation, capacity, plannedWorkers, niceAvailable, isMutable } from "./lib/mutation.mjs";
+import { resolveProject, inProject, tempDirFor, projectNotes, buildEnv, failedBaseline, baselineFailure, chooseEngine, mutateEntries, unitRanges, largeUnits, DEFAULT_UNIT_MAX_LINES, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries, strykerFingerprint, incrementalFor, rememberFingerprint, timeoutEntries, limitRecheck, mergeRecheck } from "./lib/stryker.mjs";
+import { parseDuration, summarize, formatMutation, capacity, plannedWorkers, niceAvailable, isMutable, UNRECHECKED } from "./lib/mutation.mjs";
 
 const USAGE = `用法：mutation.mjs [选项]
 只打基线到工作树改动行所在函数的变异体，由 Stryker 执行：一次插桩、测试进程常驻、每个变异体只跑碰到它的用例、几个进程并行、增量复用。项目要用 vitest（根下有 vitest.config.* 或 vite.config.*，或 package.json 声明了 vitest）且找得到 Stryker 与它的 vitest runner；不满足退出 2 并说明。
@@ -43,9 +43,10 @@ const USAGE = `用法：mutation.mjs [选项]
 复核：第一轮有超时的变异体时再起一轮，只打它们所在的行，一个进程、时限放宽、不进增量；结果并回位点，抬头写「复核 N（超时转杀死 a、存活 b、仍超时 c）」。超时常是机器忙而不是测试强，复核过的分数才可信。
   --no-recheck               不起第二轮
   --recheck-timeout <时长>   第二轮的 timeoutMS；缺省是第一轮 --timeout（没给按 Stryker 缺省 5000 毫秒）的 4 倍且至少 60 秒
+  --recheck-limit N          最多复核 N 个超时位点（按位点顺序取前 N 个），缺省 8；其余记「超时未复核」，该成员测量无效。0 表示一个都不复核
 0.8.0 起退役的参数：--test、--engine、--lcov、--budget、--history、--no-tests-pattern、--load-ceiling（内建引擎及它的预算、覆盖门控、历史沿用、运行中自适应随之删除）；给了退出 2。
 退出 0 正常；1 初跑不通过；2 用法错误、未提供 typescript、项目不是 vitest 或找不到 Stryker；129 收到 SIGHUP、130 被中断、143 被终止。`;
-const SPEC = { repo: "value", project: "value", "build-command": "value", base: "value", target: "value", ts: "value", scope: "value", files: "value", json: "value", format: "value", "plan-only": "flag", timeout: "value", "no-recheck": "flag", "recheck-timeout": "value", "stryker-modules": "value", workers: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "no-nice": "flag", "vitest-config": "value", "build-output": "value", "unit-max-lines": "value" };
+const SPEC = { repo: "value", project: "value", "build-command": "value", base: "value", target: "value", ts: "value", scope: "value", files: "value", json: "value", format: "value", "plan-only": "flag", timeout: "value", "no-recheck": "flag", "recheck-timeout": "value", "stryker-modules": "value", workers: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "no-nice": "flag", "vitest-config": "value", "build-output": "value", "unit-max-lines": "value", "recheck-limit": "value" };
 const RETIRED = { test: "测试命令由 Stryker 起 vitest，不再需要", engine: "内建引擎已删，只有 Stryker 一种", lcov: "覆盖由 Stryker 按用例记，不读 lcov", budget: "Stryker 没有整轮预算，超时的变异体改为单独复核", history: "增量由 Stryker 的 incremental 文件负责", "no-tests-pattern": "「没跑测试」是内建引擎跑整套命令时的问题，Stryker 按用例跑", "load-ceiling": "并行度启动时定下，运行中不调" };
 const retired = process.argv.slice(2).map((a) => /^--([a-z-]+)/.exec(a)?.[1]).find((k) => k && k in RETIRED);
 if (retired) { console.error(`--${retired} 0.8.0 起退役：${RETIRED[retired]}`); process.exit(2); }
@@ -92,6 +93,7 @@ function emit(result) {
 
 const inputs = loadInputs();
 const pinned = parseScope(opts.files) ?? [];
+const recheckLimit = number("recheck-limit", 8);
 
 /** 跑完之后的汇总：无效原因（初跑失败、未知状态）与沿用数。 */
 function finish(result) {
@@ -142,15 +144,22 @@ async function execute(result, { project, stryker, entries, ranges }) {
   return { code: r.status === 0 ? 0 : 1, report };
 }
 
-/** 第二轮：第一轮超时的变异体所在的整行，一个进程、时限放宽、不进增量；结果并入位点。第二轮没有报告时全部记未复核，第一轮裁定不动，退出码不变。 */
+/**
+ * 第二轮：第一轮超时的变异体所在的整行，一个进程、时限放宽、不进增量；结果并入位点。第二轮没有报告时全部记未复核，第一轮裁定不动，退出码不变。
+ * 超时位点多于 --recheck-limit 时只复核前面的那些，其余记「超时未复核」，成员测量无效。
+ */
 async function recheckTimeouts(result, report, { project, stryker, entries, ranges }) {
-  const mutate = timeoutEntries(report, entries, ranges, pinned);
-  if (mutate.length === 0) return;
+  const limit = recheckLimit;
+  const kept = limitRecheck(result.sites, limit);
+  const skipped = result.sites.filter((s) => s.reason === UNRECHECKED).length;
+  if (skipped) result.engine.notes.push(`超时位点 ${kept.size + skipped} 个，超过复核上限 ${limit}，${skipped} 个超时未复核；--recheck-limit 可调`);
+  const mutate = timeoutEntries(report, entries, ranges, pinned, kept);
+  if (mutate.length === 0) { if (skipped) result.recheck = { limit, skipped, total: 0, killed: 0, survived: 0, timedOut: 0, notRun: 0, seconds: null }; return; }
   const timeoutMs = inputs.recheckTimeoutMs ?? Math.max(4 * (inputs.timeoutMs ?? 5000), 60000);
   const { r, report: second, logPath } = await runOnce({ project, stryker, name: "recheck", config: { entries: mutate, concurrency: 1, timeoutMs, incremental: null } });
   result.resources.timing.recheckSeconds = r.seconds;
   const { unknown, ...counts } = mergeRecheck(result.sites, second, entries);
-  result.recheck = { ...counts, seconds: r.seconds };
+  result.recheck = { ...(skipped ? { limit, skipped } : {}), ...counts, seconds: r.seconds };
   result.unknown = [...new Set([...(result.unknown ?? []), ...unknown])];
   if (!second) result.engine.notes.push(`复核未完成：第二轮 Stryker 退出 ${r.status ?? r.signal} 且没有报告，${r.tail.trim().split("\n").pop()}（日志 ${logPath}），${result.recheck.total} 个超时位点保持第一轮裁定`);
 }

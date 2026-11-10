@@ -9,6 +9,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { unitDigests, testFilesDigest, ownLines, nestedUnits } from "./core.mjs";
 import { TOOL_VERSION } from "./version.mjs";
 import { analyze } from "./adapter-typescript.mjs";
+import { UNRECHECKED } from "./mutation.mjs";
 
 /** 脚本目录自带的 node_modules：`scripts/package.json` 钉版本，`npm ci --prefix <脚本目录>` 装到这里。 */
 export const SCRIPTS_DIR = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -385,16 +386,28 @@ export function fileEntries(root, ts, files) {
 /**
  * 第一轮报告里超时变异体所在的整行范围，作第二轮的 mutate 条目 `路径:起行-止行`，相邻行合并；只看 files 里的文件、本轮范围内（或点名文件）的变异体：
  * 开着增量时 Stryker 会把上一轮范围外的结果也写进报告，它们不是本轮的位点。用整行而不是行列，避开列号基数的歧义；同行别的变异体顺带再跑，并入时只认超时的那些。
+ * only 是要复核的变异体 id（limitRecheck 的结果），null 不限。
  */
-export function timeoutEntries(report, files, ranges = new Map(), pinned = []) {
+export function timeoutEntries(report, files, ranges = new Map(), pinned = [], only = null) {
   const entries = [];
   for (const path of files.keys()) {
     const inRange = (line) => pinned.includes(path) || (ranges.get(path) ?? []).some(([a, b]) => a <= line && line <= b);
     const lines = new Set();
-    for (const m of report?.files?.[path]?.mutants ?? []) if (m.status === "Timeout" && inRange(m.location.start.line)) for (let l = m.location.start.line; l <= m.location.end.line; l++) lines.add(l);
+    for (const m of report?.files?.[path]?.mutants ?? []) if (m.status === "Timeout" && inRange(m.location.start.line) && (only === null || only.has(m.id))) for (let l = m.location.start.line; l <= m.location.end.line; l++) lines.add(l);
     for (const [a, b] of segments([...lines].sort((x, y) => x - y))) entries.push(`${path}:${a}-${b}`);
   }
   return entries;
+}
+
+/** 超时复核的上限：按位点顺序取前 limit 个超时位点去复核，返回它们的变异体 id；其余记未跑「超时未复核」，使成员测量无效。 */
+export function limitRecheck(sites, limit) {
+  const kept = new Set();
+  for (const s of sites) {
+    if (s.reason !== "timeout") continue;
+    if (kept.size < limit) kept.add(s.strykerId);
+    else [s.verdict, s.reason] = ["notRun", UNRECHECKED];
+  }
+  return kept;
 }
 
 const RECHECK = { Killed: ["killed", "recheck"], Survived: ["survived", "recheck"], Timeout: ["killed", "timeout"] };
