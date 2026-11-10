@@ -6,7 +6,7 @@ import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from "node
 import { resolve, join } from "node:path";
 import { parseArgs, parseScope, resolveBase, sh, changedLines, changedPaths, diffPrefixes } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
-import { resolveProject, inProject, tempDirFor, projectNotes, buildEnv, failedBaseline, baselineFailure, chooseEngine, mutateEntries, unitRanges, largeUnits, DEFAULT_UNIT_MAX_LINES, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries, strykerFingerprint, incrementalFor, rememberFingerprint, timeoutEntries, limitRecheck, mergeRecheck } from "./lib/stryker.mjs";
+import { resolveProject, inProject, tempDirFor, projectNotes, buildEnv, vitestBinFor, failedBaseline, baselineFailure, chooseEngine, mutateEntries, unitRanges, largeUnits, DEFAULT_UNIT_MAX_LINES, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries, strykerFingerprint, incrementalFor, rememberFingerprint, timeoutEntries, limitRecheck, mergeRecheck } from "./lib/stryker.mjs";
 import { parseDuration, summarize, formatMutation, capacity, plannedWorkers, niceAvailable, isMutable, UNRECHECKED } from "./lib/mutation.mjs";
 
 const USAGE = `用法：mutation.mjs [选项]
@@ -110,31 +110,37 @@ process.on("SIGHUP", () => interrupted(129));
 process.on("SIGINT", () => interrupted(130));
 process.on("SIGTERM", () => interrupted(143));
 
-/** 起一轮 Stryker：配置、报告、日志都以 name 命名放在工作目录；返回运行结果、报告（没有为 null）与日志路径。 */
-async function runOnce({ project, stryker, name, config }) {
+/**
+ * 起一轮 Stryker：配置、报告、日志都以 name 命名放在工作目录；返回运行结果、报告（没有为 null）、日志路径、是否构建失败，
+ * 以及沙箱预检没跑通时的 { status, files }（files 相对 Git 根；没预检或跑通了为 null）。preflight 为真时 Stryker 建好沙箱、构建之后先跑沙箱预检。
+ */
+async function runOnce({ project, stryker, name, config, preflight = false }) {
   const dir = workDir(project.dir);
   mkdirSync(dir, { recursive: true });
   const reportPath = join(dir, `${name}.json`), configPath = join(dir, `stryker-${name}.json`), logPath = join(dir, `${name}.log`), tempDir = project.temp.path;
   const mark = join(dir, `${name}.build-failed`), command = opts["build-command"];
-  for (const p of [reportPath, logPath, mark]) rmSync(p, { force: true });
+  const check = preflight ? { vitest: load(() => vitestBinFor(stryker.modules.modulesDir, project.dir)), configFile: stryker.configFile, report: join(dir, `${name}.preflight.json`), mark: join(dir, `${name}.preflight-failed`) } : null;
+  for (const p of [reportPath, logPath, mark, ...(check ? [check.mark] : [])]) rmSync(p, { force: true });
   const hadTempDir = existsSync(tempDir);
   const cleanup = () => { if (!hadTempDir) rmSync(tempDir, { recursive: true, force: true }); };
-  writeFileSync(configPath, JSON.stringify(strykerConfig({ ...config, configFile: stryker.configFile, reportPath, prefix: project.prefix, tempDirName: project.temp.name, build: Boolean(command), runnerEntry: stryker.modules.runnerEntry }), null, 2) + "\n");
-  const run = runStryker({ root: project.dir, coreBin: stryker.modules.coreBin, configPath, nice: inputs.resources.nice, logPath, onProgress: (line) => console.error(line), env: buildEnv({ projectDir: project.dir, command, mark }) });
+  writeFileSync(configPath, JSON.stringify(strykerConfig({ ...config, configFile: stryker.configFile, reportPath, prefix: project.prefix, tempDirName: project.temp.name, build: Boolean(command), preflight, runnerEntry: stryker.modules.runnerEntry }), null, 2) + "\n");
+  const run = runStryker({ root: project.dir, coreBin: stryker.modules.coreBin, configPath, nice: inputs.resources.nice, logPath, onProgress: (line) => console.error(line), env: buildEnv({ projectDir: project.dir, command, mark, preflight: check }) });
   current = { run, cleanup };
   const r = await run.done;
   current = null;
   cleanup();
-  return { r, report: readReport(reportPath, project.prefix), logPath, buildFailed: existsSync(mark) };
+  const failed = check && existsSync(check.mark) ? JSON.parse(readFileSync(check.mark, "utf8")) : null;
+  const preflightFailed = failed && { status: failed.status, files: failed.files.map((f) => (project.prefix ? `${project.prefix}/${f}` : f)) };
+  return { r, report: readReport(reportPath, project.prefix), logPath, buildFailed: existsSync(mark), preflight: preflightFailed };
 }
 
 /** 第一轮：全部范围，带增量。初跑失败（退出非零且无报告）记基线不通过，code 为 1；返回报告给复核用。 */
 async function execute(result, { project, stryker, entries, ranges }) {
   const incremental = incrementalFor(workDir(project.dir), inputs.fingerprint);
   result.incremental = { file: incremental.file, force: incremental.force };
-  const { r, report, logPath, buildFailed } = await runOnce({ project, stryker, name: "mutation", config: { entries: result.mutate, concurrency: inputs.resources.workers, timeoutMs: inputs.timeoutMs, incremental } });
+  const { r, report, logPath, buildFailed, preflight } = await runOnce({ project, stryker, name: "mutation", config: { entries: result.mutate, concurrency: inputs.resources.workers, timeoutMs: inputs.timeoutMs, incremental }, preflight: true });
   result.resources.timing = { totalSeconds: r.seconds };
-  if (!report) { result.baseline = failedBaseline({ seconds: r.seconds, tail: r.tail, logPath, buildFailed }); return { code: 1, report }; }
+  if (!report) { result.baseline = failedBaseline({ seconds: r.seconds, tail: r.tail, logPath, buildFailed, preflight }); return { code: 1, report }; }
   result.baseline = { passed: true, seconds: r.dryRunSeconds };
   rememberFingerprint(workDir(project.dir), inputs.fingerprint);
   result.reused = r.reused ?? 0;

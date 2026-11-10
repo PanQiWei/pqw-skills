@@ -105,10 +105,11 @@ function tallyText(result) {
   return `：杀死 ${sm.killed}${timedOut}、存活 ${sm.survived}、无覆盖 ${sm.uncovered}、未跑 ${sm.notRun}；分数 ${score}${carried}${recheckText(result.recheck)}`;
 }
 
-/** 抬头之后关于基线的说明：初跑不通过的尾巴。 */
+/** 抬头之后关于基线的说明：初跑不通过的尾巴；沙箱预检没跑通时再列没跑通的测试文件。 */
 function baselineNotes(result) {
   if (result.planOnly || result.baseline.passed !== false) return [];
-  return [`基线不通过：\n${result.baseline.tail}`];
+  const files = result.baseline.failedFiles;
+  return [`基线不通过：\n${result.baseline.tail}`, ...(files ? ["没跑通的测试文件：", ...(files.length ? files.map((f) => `- ${f}`) : ["- （报告里没有定位到文件，见上面的日志）"])] : [])];
 }
 
 /** 引擎那一行与它的说明；结果里没有 engine（直接调库）时不出。 */

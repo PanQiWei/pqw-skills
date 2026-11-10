@@ -1,7 +1,8 @@
 // Stryker 引擎的适配层：找依赖、认运行器、选引擎；范围变 mutate 条目与配置、起进程；读报告、映射回位点模型。
 // 核心层 core.mjs 与适配器 adapter-typescript.mjs 不知道引擎；mutation.mjs 只在这里拿引擎的决定。
-import { existsSync, readFileSync, readdirSync, createWriteStream, writeFileSync, realpathSync, statSync, symlinkSync } from "node:fs";
-import { join, resolve, relative, isAbsolute, sep, basename } from "node:path";
+import { existsSync, readFileSync, readdirSync, createWriteStream, writeFileSync, realpathSync, statSync, symlinkSync, unlinkSync, rmSync } from "node:fs";
+import { join, resolve, relative, isAbsolute, sep, basename, dirname } from "node:path";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
@@ -180,34 +181,84 @@ export const buildCommandFor = (script) => `node ${script.replaceAll(" ", "\\ ")
 const SANDBOX_BUILD_COMMAND = buildCommandFor(SANDBOX_BUILD);
 export const BUILD_ENV = { project: "PQW_PROJECT_DIR", command: "PQW_BUILD_COMMAND", mark: "PQW_BUILD_FAILED_MARK" };
 
-/** 给 Stryker 进程的环境变量，包装脚本在沙箱里读它们；没给构建命令（undefined 或 null）时为空。 */
-export const buildEnv = ({ projectDir, command, mark }) => (command == null ? {} : { [BUILD_ENV.project]: projectDir, [BUILD_ENV.command]: command, [BUILD_ENV.mark]: mark });
+/** 沙箱预检读的环境变量：vitest 的可执行文件、配置文件（可为空）、JSON 报告与失败标记的路径。 */
+export const PREFLIGHT_ENV = { vitest: "PQW_PREFLIGHT_VITEST", config: "PQW_PREFLIGHT_CONFIG", report: "PQW_PREFLIGHT_REPORT", mark: "PQW_PREFLIGHT_FAILED_MARK" };
 
 /**
- * 包装脚本的全部逻辑，在沙箱（cwd）里跑：项目目录有 node_modules 而沙箱里没有时链过去；经 shell 跑用户命令，输出照传；
- * 退出非零（或被信号结束）时写标记文件，命令面据此把「构建失败」与「初跑失败」分开。返回退出码。
+ * 给 Stryker 进程的环境变量，包装脚本在沙箱里读它们；没给构建命令（undefined 或 null）也不预检时为空。
+ * preflight 是 { vitest, configFile, report, mark }，给了就让包装脚本在构建之后跑一遍沙箱预检。
  */
-export function sandboxBuild({ cwd = process.cwd(), env = process.env, stdio = "inherit" } = {}) {
-  const source = join(env[BUILD_ENV.project], "node_modules"), target = join(cwd, "node_modules");
-  if (existsSync(source) && !existsSync(target)) symlinkSync(source, target, "junction");
-  const r = spawnSync(env[BUILD_ENV.command], { cwd, env, shell: true, stdio });
+export function buildEnv({ projectDir, command, mark, preflight = null }) {
+  if (command == null && !preflight) return {};
+  return {
+    [BUILD_ENV.project]: projectDir,
+    ...(command == null ? {} : { [BUILD_ENV.command]: command, [BUILD_ENV.mark]: mark }),
+    ...(preflight ? { [PREFLIGHT_ENV.vitest]: preflight.vitest, [PREFLIGHT_ENV.config]: preflight.configFile ?? "", [PREFLIGHT_ENV.report]: preflight.report, [PREFLIGHT_ENV.mark]: preflight.mark } : {}),
+  };
+}
+
+/** vitest 的可执行文件：Stryker 依赖所在的 node_modules 里有 vitest 就用它（vitest runner 加载的是它），否则从项目目录解析。 */
+export function vitestBinFor(modulesDir, projectDir) {
+  const own = join(modulesDir, "vitest");
+  const dir = existsSync(join(own, "package.json")) ? own : dirname(createRequire(join(projectDir, "package.json")).resolve("vitest/package.json"));
+  const bin = readPackage(dir)?.bin;
+  return join(dir, (typeof bin === "string" ? bin : bin?.vitest) ?? "vitest.mjs");
+}
+
+/**
+ * 沙箱预检：在沙箱（cwd）里按 Stryker 初跑的选项（threads 池、一个工作进程、不采覆盖）用同一份配置把测试跑一遍。
+ * Stryker 的 vitest runner 只看用例结果与全局错误，文件只在沙箱里加载失败时它可能仍判初跑成功；vitest 自己的退出码计入文件级失败。
+ * 没跑通时写标记 { status, files }，files 是报告里失败的测试文件（相对沙箱，也就是相对项目目录）。返回退出码。
+ */
+function preflightRun({ cwd, env, stdio }) {
+  const config = env[PREFLIGHT_ENV.config], report = env[PREFLIGHT_ENV.report];
+  rmSync(report, { force: true });
+  const args = [env[PREFLIGHT_ENV.vitest], "run", ...(config ? ["--config", config] : []), "--pool=threads", "--maxWorkers=1", "--coverage.enabled=false", "--reporter=json", `--outputFile=${report}`];
+  const r = spawnSync(process.execPath, args, { cwd, env, stdio });
   const code = r.status ?? 1;
-  if (code !== 0) writeFileSync(env[BUILD_ENV.mark], `构建命令退出 ${r.status ?? r.signal}：${env[BUILD_ENV.command]}\n`);
+  if (code === 0) return 0;
+  let files = [];
+  try { files = JSON.parse(readFileSync(report, "utf8")).testResults.filter((t) => t.status === "failed").map((t) => relative(cwd, t.name).split(sep).join("/")).sort(); } catch { files = []; }
+  writeFileSync(env[PREFLIGHT_ENV.mark], JSON.stringify({ status: r.status ?? r.signal, files }) + "\n");
   return code;
 }
 
-/** 没有报告时的基线：初跑不通过，带日志尾；构建失败（包装脚本留了标记）时多 buildFailed，没有构建失败时字段与 0.11.0 一致。 */
-export const failedBaseline = ({ seconds, tail, logPath, buildFailed }) => ({ passed: false, seconds, tail: `${tail}\n（完整日志 ${logPath}）`, ...(buildFailed ? { buildFailed: true } : {}) });
+/**
+ * 包装脚本的全部逻辑，在沙箱（cwd）里跑：项目目录有 node_modules 而沙箱里没有时链过去；给了构建命令就经 shell 跑它，输出照传，
+ * 退出非零（或被信号结束）时写标记文件，命令面据此把「构建失败」与「初跑失败」分开；给了预检就再跑沙箱预检。
+ * 没有构建命令时依赖只为预检而链，跑完撤掉，仍由 Stryker 自己链（它会链项目里每个实目录的 node_modules）。返回退出码。
+ */
+export function sandboxBuild({ cwd = process.cwd(), env = process.env, stdio = "inherit" } = {}) {
+  const source = join(env[BUILD_ENV.project], "node_modules"), target = join(cwd, "node_modules");
+  const linked = existsSync(source) && !existsSync(target);
+  if (linked) symlinkSync(source, target, "junction");
+  const command = env[BUILD_ENV.command];
+  let code = 0;
+  if (command) {
+    const r = spawnSync(command, { cwd, env, shell: true, stdio });
+    code = r.status ?? 1;
+    if (code !== 0) writeFileSync(env[BUILD_ENV.mark], `构建命令退出 ${r.status ?? r.signal}：${command}\n`);
+  }
+  if (code === 0 && env[PREFLIGHT_ENV.vitest]) code = preflightRun({ cwd, env, stdio });
+  if (!command && linked) unlinkSync(target);
+  return code;
+}
+
+/**
+ * 没有报告时的基线：初跑不通过，带日志尾；构建失败（包装脚本留了标记）时多 buildFailed；沙箱预检没跑通时多 preflightFailed 与 failedFiles；
+ * 都没有时字段与 0.11.0 一致。
+ */
+export const failedBaseline = ({ seconds, tail, logPath, buildFailed, preflight = null }) => ({ passed: false, seconds, tail: `${tail}\n（完整日志 ${logPath}）`, ...(buildFailed ? { buildFailed: true } : {}), ...(preflight ? { preflightFailed: true, failedFiles: preflight.files } : {}) });
 
 /** 基线不通过时抬头写的原因。 */
-export const baselineFailure = (baseline) => (baseline.buildFailed ? "构建失败" : "Stryker 初跑失败");
+export const baselineFailure = (baseline) => (baseline.preflightFailed ? "沙箱预检没通过" : baseline.buildFailed ? "构建失败" : "Stryker 初跑失败");
 
 /**
  * Stryker 配置。并行度启动时定下；runnerEntry 是已经解析到的 vitest runner 入口的绝对路径，写成 plugins，
  * 不靠 Stryker 在核心旁边找 @stryker-mutator/*（pnpm 的隔离布局里核心的真实位置旁边没有 runner）；--timeout 给了就映射到 timeoutMS；增量按 incremental 参数（null 不开）。
  * Stryker 在项目目录里跑，条目要相对项目目录：这里是写方向的唯一换算处，去掉 prefix（读方向在 readReport）。
  */
-export function strykerConfig({ entries, configFile, concurrency, reportPath, incremental = null, timeoutMs = null, tempDirName = ".stryker-tmp", prefix = "", build = false, runnerEntry = null }) {
+export function strykerConfig({ entries, configFile, concurrency, reportPath, incremental = null, timeoutMs = null, tempDirName = ".stryker-tmp", prefix = "", build = false, preflight = false, runnerEntry = null }) {
   return {
     testRunner: "vitest",
     ...(runnerEntry ? { plugins: [runnerEntry] } : {}),
@@ -216,7 +267,8 @@ export function strykerConfig({ entries, configFile, concurrency, reportPath, in
     mutate: prefix ? entries.map((e) => e.slice(prefix.length + 1)) : entries,
     tempDirName,
     cleanTempDir: true,
-    ...(build ? { buildCommand: SANDBOX_BUILD_COMMAND, symlinkNodeModules: false } : {}),
+    ...(build || preflight ? { buildCommand: SANDBOX_BUILD_COMMAND } : {}),
+    ...(build ? { symlinkNodeModules: false } : {}),
     concurrency,
     ...(timeoutMs === null ? {} : { timeoutMS: timeoutMs }),
     ...(incremental ? { incremental: true, incrementalFile: incremental.file, force: incremental.force } : { incremental: false }),
