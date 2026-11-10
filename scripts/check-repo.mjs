@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 仓库一致性检查。只读，纯 Node，无依赖。退出 0 全部通过；退出 1 有失败；退出 2 用法错误。
-// 核的是 AGENTS.md 布局与写作规则里能机器化的那部分：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、写代码的四条只有一处正文。
+// 核的是 AGENTS.md 布局与写作规则里能机器化的那部分：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、写代码的四条只有一处正文、圈外的问题只有一处正文。
 
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
@@ -207,6 +207,28 @@ function checkFourRules() {
   }
 }
 checkFourRules();
+
+// ---- 9. 圈外的问题只有一处正文：入口技能那一节，带处置表。别处提到「圈外发现」或「圈外的问题」的行必须带指向它的链接，标题行也一样。
+const OUT_OF_SCOPE_PHRASES = ["圈外发现", "圈外的问题"];
+const OUT_OF_SCOPE_LINK = "SKILL.md#圈外的问题";
+const OUT_OF_SCOPE_TABLE = "| 它在哪 | 处置 |";
+function checkOutOfScope() {
+  const entry = read(FOUR_RULES_ENTRY);
+  const at = entry.indexOf("\n## 圈外的问题\n");
+  if (at < 0) fail("圈外的问题只有一处正文", `${rel(FOUR_RULES_ENTRY)} 缺「## 圈外的问题」一节`);
+  else {
+    const rest = entry.slice(at + 1);
+    const next = rest.indexOf("\n## ");
+    if (!(next < 0 ? rest : rest.slice(0, next)).includes(`\n${OUT_OF_SCOPE_TABLE}\n`)) fail("圈外的问题只有一处正文", `${rel(FOUR_RULES_ENTRY)} 的「## 圈外的问题」缺表「${OUT_OF_SCOPE_TABLE}」`);
+  }
+  for (const file of walkMd(config.skillsDir)) {
+    if (file === FOUR_RULES_ENTRY) continue;
+    read(file).split("\n").forEach((line, i) => {
+      if (OUT_OF_SCOPE_PHRASES.some((p) => line.includes(p)) && !line.includes(OUT_OF_SCOPE_LINK)) fail("圈外的问题只有一处正文", `${rel(file)}:${i + 1} 提到圈外的问题却没有链到入口那一节`);
+    });
+  }
+}
+checkOutOfScope();
 
 // ---- 输出
 
