@@ -29,13 +29,15 @@ function parseArgs(argv) {
     opts[a.slice(2)] = argv[++i];
   }
   if (!opts.plan && !opts.handoff) usageError("未提供：--plan 或 --handoff");
-  if (opts.now !== undefined) {
-    const now = Date.parse(opts.now);
-    if (Number.isNaN(now)) usageError(`--now 不是时刻：${opts.now}`);
-    opts.now = now;
-  }
-  return opts;
+  return { ...opts, now: parseNow(opts.now) };
 }
+/** --now 读成毫秒；没给返回 undefined，由核对器取当前时刻。 */
+const parseNow = (text) => {
+  if (text === undefined) return undefined;
+  const ms = Date.parse(text);
+  if (Number.isNaN(ms)) usageError(`--now 不是时刻：${text}`);
+  return ms;
+};
 const usageError = (message) => { console.error(message); console.error(USAGE); process.exit(2); };
 const opts = parseArgs(process.argv.slice(2));
 

@@ -290,17 +290,26 @@ const etaSignal = (planText, now) => {
  * 返回 { signals, state }，state 存进 state.json 供下一轮接着比。
  */
 const closeoutLag = (plan, prev, runDir) => {
-  const completed = plan.slices.filter((r) => (r[3] ?? "").startsWith("已完成")).length;
-  const grew = prev && typeof prev.completed === "number" && completed > prev.completed;
-  const since = grew ? prev.at : prev?.closeoutSince ?? null;
-  const from = grew ? prev.completed : prev?.closeoutFrom ?? null;
+  const completed = plan.slices.filter((r) => r[3]?.startsWith("已完成")).length;
+  const pending = completed > (prev?.completed ?? completed) ? { since: prev.at, from: prev.completed } : prev?.closeoutLag;
   const report = reportFile(runDir);
-  const lagging = since !== null && (!report || statSync(report).mtimeMs < Date.parse(since));
+  if (!pending || (report && statSync(report).mtimeMs >= Date.parse(pending.since))) return { signals: [], state: { completed } };
   return {
-    signals: lagging ? [`文档陈旧：切片收口了（已完成 ${from} → ${completed}）而汇报件没有在那之后生成`] : [],
-    state: { completed, closeoutSince: lagging ? since : null, closeoutFrom: lagging ? from : null },
+    signals: [`文档陈旧：切片收口了（已完成 ${pending.from} → ${completed}）而汇报件没有在那之后生成`],
+    state: { completed, closeoutLag: pending },
   };
 };
+
+/** plan 不动：这一轮有新提交而 plan 一字没改。连续两轮这样，主代理可能在写另一份 plan（例如换了工作树），或没有刷新进度。 */
+const planStill = (planText, prev, commits) => {
+  const planHash = createHash("sha256").update(planText).digest("hex");
+  const planStillStreak = commits !== "" && prev?.planHash === planHash ? (prev.planStillStreak ?? 0) + 1 : 0;
+  const signals = planStillStreak >= 2 ? [`文档陈旧：plan 连续 ${planStillStreak} 轮没改，而这两轮都有新提交：主代理可能在写另一份 plan，或没有刷新进度`] : [];
+  return { signals, state: { planHash, planStillStreak } };
+};
+
+/** 在跑的子代理：状态格以「进行中」或「第 n/N 轮」开头（plan 模板的约定，check-plan 核）。只看开头，说明里写的「第 3/5 轮后终止」不算。 */
+const runningAgents = (plan) => plan.agents.filter((r) => /^(进行中|第 \d+\/\d+ 轮)(?=$|[ ：（])/.test(r[5] ?? ""));
 
 /** 汇报的「文档」节：结构核对结果（最多列 10 条缺陷）与维护表行数。 */
 const docsSection = (structure, plan) => [
@@ -348,12 +357,9 @@ const wake = (n) => {
   const repeated = (prev?.stuckFiles ?? []).filter((f) => touched.includes(f));
   if (repeated.length) signals.push(`可能兜圈：连续两轮有提交，进度标记（当前行、勾上的里程碑数、切片状态）都没动，两轮都改了 ${repeated.slice(0, 10).join("、")}${repeated.length > 10 ? `（共 ${repeated.length} 个，只列前 10 个）` : ""}`);
   if (noDispositionStreak >= 2) signals.push(`主代理连续 ${noDispositionStreak} 轮没有写处置：plan 里仍是 ${dispositions} 条`);
-  // plan 不动：这一轮有新提交而 plan 一字没改。连续两轮这样，主代理可能在写另一份 plan（例如换了工作树），或没有刷新进度。
-  const planHash = createHash("sha256").update(planText).digest("hex");
-  const planStillStreak = prev && commits !== "" && prev.planHash === planHash ? (prev.planStillStreak ?? 0) + 1 : 0;
-  if (planStillStreak >= 2) signals.push(`文档陈旧：plan 连续 ${planStillStreak} 轮没改，而这两轮都有新提交：主代理可能在写另一份 plan，或没有刷新进度`);
-  // 状态格以状态词开头（plan 模板的约定，check-plan 核）。只看开头，说明里写的「第 3/5 轮后终止」不算在跑。
-  const running = plan.agents.filter((r) => /^(进行中|第 \d+\/\d+ 轮)(?=$|[ ：（])/.test(r[5] ?? ""));
+  const still = planStill(planText, prev, commits);
+  signals.push(...still.signals);
+  const running = runningAgents(plan);
   for (const r of running) {
     const start = Date.parse(r[4] ?? "");
     if (Number.isNaN(start)) continue;
@@ -422,7 +428,7 @@ const wake = (n) => {
   try {
     writeFileSync(file, report);
     writeFileSync(join(outDir, "latest.md"), report);
-    writeFileSync(statePath, JSON.stringify({ at: now.toISOString(), head, dirty, current: plan.current, progress, stuckFiles: stuck ? touched : null, n, dispositions, noDispositionStreak, findings, planHash, planStillStreak, ...closeout.state }, null, 2));
+    writeFileSync(statePath, JSON.stringify({ at: now.toISOString(), head, dirty, current: plan.current, progress, stuckFiles: stuck ? touched : null, n, dispositions, noDispositionStreak, findings, ...still.state, ...closeout.state }, null, 2));
   } catch (e) {
     console.error(`写不了汇报：${outDir}：${e.message}`);
     process.exit(1);
