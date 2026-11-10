@@ -313,8 +313,30 @@ export function mapReport({ report, files, ranges, pinned = [] }) {
   return { sites, unmutated, unknown: [...new Set(sites.map((s) => s.unknownStatus).filter(Boolean))] };
 }
 
-/** Stryker 引擎下的指纹：工具版本、「vitest@<版本> + <配置文件>」当测试命令、测试文件摘要，再加 Stryker 版本。任一项变了上次的结果就不能再信。 */
-export const strykerFingerprint = (root, engine) => ({ toolVersion: TOOL_VERSION, testCommand: `vitest@${engine.modules.vitestVersion ?? "?"} + ${engine.configFile ?? "无配置"}`, testFilesDigest: testFilesDigest(root), strykerVersion: engine.version });
+/** 几个目录（相对 root）里全部文件的路径与内容按路径排序后取 sha256，不进 node_modules；目录不在也记一笔，有无之变同样算变。 */
+export function dirsDigest(root, dirs) {
+  const hash = createHash("sha256");
+  const walk = (abs, rel) => {
+    if (!existsSync(abs)) hash.update(`${rel}\0（不在）\0`);
+    else if (!statSync(abs).isDirectory()) hash.update(rel).update("\0").update(readFileSync(abs)).update("\0");
+    else for (const n of readdirSync(abs).sort()) if (n !== "node_modules") walk(join(abs, n), `${rel}/${n}`);
+  };
+  for (const d of dirs) walk(resolve(root, d), d);
+  return hash.digest("hex");
+}
+
+/**
+ * Stryker 引擎下的指纹：工具版本、「vitest@<版本> + <配置文件>」当测试命令、测试文件摘要、Stryker 版本、测试配置文件的内容摘要（没有配置文件为 null）；
+ * 给了 buildOutputs（有构建命令时的产物目录，相对 root）再加它们的内容摘要。任一项变了上次的结果就不能再信。
+ */
+export function strykerFingerprint(root, engine, { buildOutputs = null } = {}) {
+  const config = engine.configFile ? resolve(root, engine.configFile) : null;
+  return {
+    toolVersion: TOOL_VERSION, testCommand: `vitest@${engine.modules.vitestVersion ?? "?"} + ${engine.configFile ?? "无配置"}`, testFilesDigest: testFilesDigest(root), strykerVersion: engine.version,
+    testConfigDigest: config && existsSync(config) ? createHash("sha256").update(readFileSync(config)).digest("hex") : null,
+    ...(buildOutputs ? { buildOutputDigest: dirsDigest(root, buildOutputs) } : {}),
+  };
+}
 
 const sameFingerprint = (a, b) => a !== null && JSON.stringify(a) === JSON.stringify(b);
 

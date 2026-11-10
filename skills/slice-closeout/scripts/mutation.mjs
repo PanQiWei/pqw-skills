@@ -17,6 +17,7 @@ const USAGE = `用法：mutation.mjs [选项]
                              输出里的路径仍相对 Git 根，成员外的改动在抬头计数。改动跨几个成员时按成员各调一次。缺省是 Git 根
   --build-command <命令>     测试导入构建产物（如 dist/）时给：Stryker 建好沙箱后、跑测试前，先把项目的 node_modules 链进沙箱，
                              再在沙箱里经 shell 跑这条命令（可用 && 与管道），让产物来自插桩后的源码；失败时抬头写「测量无效（构建失败）」
+  --build-output <目录,目录> 给了 --build-command 时，这些目录（相对项目目录，可指到成员外的上游产物）的内容进增量指纹；缺省 dist
   --base <ref>               基线提交；缺省取与 --target 的合并点。给的 ref 不是 HEAD 的祖先（基线分支前进过）时改用两者的合并点，抬头与 JSON 的 baseGiven 写明
   --target <分支>            缺省依次试 main、master
   --ts <目录>                typescript 包目录（要 JS 实现，6.x 可用；7 起是原生实现，npm 包里没有 JS 接口）；缺省依次找 Git 根、--project 成员目录、Git 根的 pnpm 存储（node_modules/.pnpm/typescript@*），每处只收有 JS 接口的，存储里取最高版本；都没有退出 2 并写出找到的路径与版本。只用来按行找函数，不参与变异
@@ -34,14 +35,15 @@ const USAGE = `用法：mutation.mjs [选项]
   --low-memory-halve <MB>    可用内存低于这个数时上限减半，缺省 2048
   --no-nice                  不降低 Stryker 进程的优先级；缺省 nice 10，Windows 不降
 
-增量：Stryker 的 incremental 文件在系统临时目录的工作目录里，指纹（工具版本、vitest 版本与配置文件、测试文件摘要、Stryker 版本）变了整轮重跑，抬头写「沿用 N」。
+增量：Stryker 的 incremental 文件在系统临时目录的工作目录里，指纹（工具版本、vitest 版本与配置文件、配置文件的内容、测试文件摘要、Stryker 版本；给了 --build-command 时再加构建产物目录的内容）变了整轮重跑，抬头写「沿用 N」。
+成员目录外被测试经相对路径读的文件不进指纹：它们变了不会触发重跑，要重跑时删掉工作目录里的 fingerprint.json。
 
 复核：第一轮有超时的变异体时再起一轮，只打它们所在的行，一个进程、时限放宽、不进增量；结果并回位点，抬头写「复核 N（超时转杀死 a、存活 b、仍超时 c）」。超时常是机器忙而不是测试强，复核过的分数才可信。
   --no-recheck               不起第二轮
   --recheck-timeout <时长>   第二轮的 timeoutMS；缺省是第一轮 --timeout（没给按 Stryker 缺省 5000 毫秒）的 4 倍且至少 60 秒
 0.8.0 起退役的参数：--test、--engine、--lcov、--budget、--history、--no-tests-pattern、--load-ceiling（内建引擎及它的预算、覆盖门控、历史沿用、运行中自适应随之删除）；给了退出 2。
 退出 0 正常；1 初跑不通过；2 用法错误、未提供 typescript、项目不是 vitest 或找不到 Stryker；129 收到 SIGHUP、130 被中断、143 被终止。`;
-const SPEC = { repo: "value", project: "value", "build-command": "value", base: "value", target: "value", ts: "value", scope: "value", files: "value", json: "value", format: "value", "plan-only": "flag", timeout: "value", "no-recheck": "flag", "recheck-timeout": "value", "stryker-modules": "value", workers: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "no-nice": "flag", "vitest-config": "value" };
+const SPEC = { repo: "value", project: "value", "build-command": "value", base: "value", target: "value", ts: "value", scope: "value", files: "value", json: "value", format: "value", "plan-only": "flag", timeout: "value", "no-recheck": "flag", "recheck-timeout": "value", "stryker-modules": "value", workers: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "no-nice": "flag", "vitest-config": "value", "build-output": "value" };
 const RETIRED = { test: "测试命令由 Stryker 起 vitest，不再需要", engine: "内建引擎已删，只有 Stryker 一种", lcov: "覆盖由 Stryker 按用例记，不读 lcov", budget: "Stryker 没有整轮预算，超时的变异体改为单独复核", history: "增量由 Stryker 的 incremental 文件负责", "no-tests-pattern": "「没跑测试」是内建引擎跑整套命令时的问题，Stryker 按用例跑", "load-ceiling": "并行度启动时定下，运行中不调" };
 const retired = process.argv.slice(2).map((a) => /^--([a-z-]+)/.exec(a)?.[1]).find((k) => k && k in RETIRED);
 if (retired) { console.error(`--${retired} 0.8.0 起退役：${RETIRED[retired]}`); process.exit(2); }
@@ -76,7 +78,7 @@ function loadInputs() {
   if (given !== null && !existsSync(resolve(project.dir, given))) { console.error(`--vitest-config 不存在：${given}（相对项目目录）`); process.exit(2); }
   const { modules, configFile, ...engine } = load(() => chooseEngine({ root: project.dir, repoRoot: root, modulesDir: opts["stryker-modules"], configFile: given }));
   const { base, baseGiven } = load(() => resolveBase(root, opts.base, opts.target));
-  return { root, project: { ...project, temp: tempDirFor(project) }, ts, engine, stryker: { modules, configFile }, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources: planResources(), fingerprint: strykerFingerprint(project.dir, { ...engine, modules, configFile }), timeoutMs: duration(opts.timeout, null), recheckTimeoutMs: duration(opts["recheck-timeout"], null) };
+  return { root, project: { ...project, temp: tempDirFor(project) }, ts, engine, stryker: { modules, configFile }, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources: planResources(), fingerprint: strykerFingerprint(project.dir, { ...engine, modules, configFile }, { buildOutputs: opts["build-command"] === undefined ? null : parseScope(opts["build-output"] ?? "dist") }), timeoutMs: duration(opts.timeout, null), recheckTimeoutMs: duration(opts["recheck-timeout"], null) };
 }
 
 /** 写 JSON 文件与打印。 */
