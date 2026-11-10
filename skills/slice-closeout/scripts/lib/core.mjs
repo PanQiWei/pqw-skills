@@ -98,8 +98,8 @@ export function changedPaths(cwd, base, prefixes = null) {
 
 export const touches = (ranges, start, end) => ranges.some(([a, b]) => a <= end && b >= start);
 
-/** 测试文件：tests、test、__tests__、spec 目录下的，或 .test、.spec 后缀的。读数不度量，变异不打。 */
-export const TEST_FILE_RE = /(^|\/)(tests?|__tests__|spec)\/|\.(test|spec)\.[cm]?[jt]sx?$/;
+/** 测试文件：tests、test、__tests__、spec 目录下的，或 .test、.spec 后缀的，含类型测试的 .test-d、.spec-d。读数不度量，变异不打。 */
+export const TEST_FILE_RE = /(^|\/)(tests?|__tests__|spec)\/|\.(test|spec)(-d)?\.[cm]?[jt]sx?$/;
 
 /** 测试文件摘要：工作树里（含未跟踪的）测试文件的路径与内容按路径排序后取 sha256。测试一变，变异的历史就不能沿用。 */
 export function testFilesDigest(root) {

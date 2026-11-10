@@ -183,26 +183,49 @@ function calleeHead(ts, expr) {
 const TEST_HEADS = new Set(["test", "it"]);
 const isFunctionArg = (ts, a) => ts.isArrowFunction(a) || ts.isFunctionExpression(a);
 
-/** 节点树里有没有被调用者首段匹配 pattern 的调用（递归，嵌套函数里的也算：断言常在循环与回调里）。 */
-function hasAssertion(ts, node, pattern) {
-  if (ts.isCallExpression(node)) { const head = calleeHead(ts, node.expression); if (head !== null && pattern.test(head)) return true; }
-  return ts.forEachChild(node, (child) => (hasAssertion(ts, child, pattern) ? true : undefined)) === true;
+/** 节点树里有没有被调用者首段让 isAssert 成立的调用（递归，嵌套函数里的也算：断言常在循环与回调里）。 */
+function hasAssertion(ts, node, isAssert) {
+  if (ts.isCallExpression(node)) { const head = calleeHead(ts, node.expression); if (head !== null && isAssert(head)) return true; }
+  return ts.forEachChild(node, (child) => (hasAssertion(ts, child, isAssert) ? true : undefined)) === true;
 }
 
-/** 改动的测试文件里没有断言的用例：[{ name, startLine, endLine }]。名字取第一个字符串字面量实参，没有写 <匿名>。 */
+/** 类型测试文件（.test-d、.spec-d）：expectTypeOf、assertType 与 @ts-expect-error 也是断言。 */
+const TYPE_TEST_RE = /\.(test|spec)-d\.[cm]?[jt]sx?$/;
+const TYPE_ASSERT_RE = /^(expectTypeOf|assertType)$/;
+
+/** 同一文件里有名字的函数：函数声明，以及初始值是箭头函数或函数表达式的变量。名字 → 函数节点。 */
+function namedFunctions(ts, sf) {
+  const found = new Map();
+  const walk = (node) => {
+    if (ts.isFunctionDeclaration(node) && node.name && node.body) found.set(node.name.text, node);
+    else if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && isFunctionArg(ts, node.initializer)) found.set(node.name.text, node.initializer);
+    ts.forEachChild(node, walk);
+  };
+  walk(sf);
+  return found;
+}
+
+/**
+ * 改动的测试文件里没有断言的用例：[{ name, startLine, endLine }]。名字取第一个字符串字面量实参，没有写 <匿名>。
+ * 断言：被调用者首段匹配 pattern；调用同一文件里自己有断言的辅助函数（只解一层）；类型测试文件里另加 expectTypeOf、assertType 与回调里的 @ts-expect-error。
+ */
 export function testsWithoutAssertions(ts, path, text, pattern = /^(assert|expect)$/) {
   const sf = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, scriptKind(ts, path));
   // 解析器容错，语法错不抛；这里不猜残缺的树，把第一条语法错报出去，调用方记「解析失败」。
   const bad = sf.parseDiagnostics?.[0];
   if (bad) throw new Error(`${sf.getLineAndCharacterOfPosition(bad.start ?? 0).line + 1} 行：${ts.flattenDiagnosticMessageText(bad.messageText, " ")}`);
   const lineOf = (pos) => sf.getLineAndCharacterOfPosition(pos).line + 1;
+  const typeTest = TYPE_TEST_RE.test(path);
+  const direct = (head) => pattern.test(head) || (typeTest && TYPE_ASSERT_RE.test(head));
+  const helpers = new Set([...namedFunctions(ts, sf)].filter(([, fn]) => hasAssertion(ts, fn, direct)).map(([name]) => name));
+  const asserts = (fn) => hasAssertion(ts, fn, (head) => direct(head) || helpers.has(head)) || (typeTest && text.slice(fn.getStart(sf), fn.getEnd()).includes("@ts-expect-error"));
   const found = [];
   const walk = (node) => {
     if (ts.isCallExpression(node) && TEST_HEADS.has(calleeHead(ts, node.expression))) {
       const fn = node.arguments.find((a) => isFunctionArg(ts, a));
       if (fn) {
         const literal = node.arguments.find((a) => ts.isStringLiteralLike(a));
-        if (!hasAssertion(ts, fn, pattern)) found.push({ name: literal ? literal.text : "<匿名>", startLine: lineOf(node.getStart(sf)), endLine: lineOf(node.getEnd()) });
+        if (!asserts(fn)) found.push({ name: literal ? literal.text : "<匿名>", startLine: lineOf(node.getStart(sf)), endLine: lineOf(node.getEnd()) });
         return;
       }
     }

@@ -19,7 +19,7 @@ const USAGE = `用法：metrics.mjs [选项]
   --json <路径>        结果 JSON 写到这里；--format json 直接打印 JSON
   --cc <warn>,<alert>  圈复杂度两条线，缺省 10,12；严格大于才过线
   --crap [<warn>,]<alert>  CRAP 的线：一个数是 alert，缺省 30；两个数与 --cc 同形，另加提醒线；严格大于才过线
-  --assert-pattern <正则>  认断言的模式，匹配被调用者最左的标识符，缺省 ^(assert|expect)$；改动的测试文件里改动行所在、回调里没有这类调用的用例列在表后
+  --assert-pattern <正则>  认断言的模式，匹配被调用者最左的标识符，缺省 ^(assert|expect)$；调用同一文件里有断言的辅助函数也算（只解一层）；类型测试文件（.test-d、.spec-d）里另认 expectTypeOf、assertType 与 @ts-expect-error。改动的测试文件里改动行所在、回调里没有断言的用例列在表后
 
 退出 0 正常；1 失败；2 用法错误或未提供 typescript。`;
 const { opts, error } = parseArgs(process.argv.slice(2), { repo: "value", base: "value", target: "value", lcov: "value", ts: "value", json: "value", format: "value", scope: "value", cc: "value", crap: "value", "assert-pattern": "value" });
