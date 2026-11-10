@@ -19,7 +19,7 @@ export function touchesOwnLines(unit, nested, ranges) {
 /** 缺省的线：函数级两条线，取 omne 的 repo-toolchain 与 crapper 的 --threshold。模型见「带位」。 */
 export const DEFAULT_THRESHOLDS = { cyclomaticWarn: 10, cyclomaticAlert: 12, crapAlert: 30 };
 
-/** 解析 `--cc <warn>,<alert>` 与 `--crap <alert>`；没给用缺省，格式错抛错。 */
+/** 解析 `--cc <warn>,<alert>` 与 `--crap [<warn>,]<alert>`；没给用缺省，格式错抛错。CRAP 只给一个数时当 alert，不设 crapWarn。 */
 export function parseThresholds(cc, crap) {
   const t = { ...DEFAULT_THRESHOLDS };
   if (cc !== undefined) {
@@ -28,28 +28,47 @@ export function parseThresholds(cc, crap) {
     t.cyclomaticWarn = Number(m[1]); t.cyclomaticAlert = Number(m[2]);
   }
   if (crap !== undefined) {
-    if (!/^\d+(\.\d+)?$/.test(crap)) throw new Error(`--crap 要是一个数：${crap}`);
-    t.crapAlert = Number(crap);
+    const m = /^(?:(\d+(?:\.\d+)?),)?(\d+(?:\.\d+)?)$/.exec(crap);
+    if (!m || (m[1] !== undefined && Number(m[1]) > Number(m[2]))) throw new Error(`--crap 要是一个数，或写成 <warn>,<alert> 且 warn 不大于 alert：${crap}`);
+    if (m[1] !== undefined) t.crapWarn = Number(m[1]);
+    t.crapAlert = Number(m[2]);
   }
   return t;
 }
 
-/** 带位：严格大于才过线。圈复杂度的线总是看；CRAP 的线只在算得出时看；都没过线而 CRAP 算不出记「无覆盖」。 */
+/** 带位：严格大于才过线。圈复杂度的线总是看；CRAP 的线只在算得出时看，提醒线给了才看；都没过线而 CRAP 算不出记「无覆盖」。 */
 export function bandOf(cyclomatic, crap, t) {
   if (cyclomatic > t.cyclomaticAlert || (crap !== null && crap > t.crapAlert)) return "alert";
-  if (cyclomatic > t.cyclomaticWarn) return "warn";
+  if (cyclomatic > t.cyclomaticWarn || (crap !== null && t.crapWarn !== undefined && crap > t.crapWarn)) return "warn";
   return crap === null ? "无覆盖" : "ok";
 }
 
-/** 基线版本里的单元读数：限定名 → { cyclomatic, cognitive }；文件在基线里不存在返回 null。 */
+/** 基线版本里的单元：[{ name, startLine, endLine, cyclomatic, cognitive }]；文件在基线里不存在返回 null。 */
 export function baselineUnits(root, base, path, ts) {
   let text;
   try { text = sh(root, ["show", `${base}:${path}`]); } catch { return null; }
-  return new Map(analyze(ts, path, text).units.map((u) => [u.name, { cyclomatic: u.cyclomatic, cognitive: u.cognitive }]));
+  return analyze(ts, path, text).units.map(({ name, startLine, endLine, cyclomatic, cognitive }) => ({ name, startLine, endLine, cyclomatic, cognitive }));
 }
 
-/** 趋势：基线没有这个单元记 new；圈复杂度大记 up、小记 down；相等再看认知复杂度；都相等记 same。 */
+const overlaps = (a, b) => a.startLine <= b.endLine && b.startLine <= a.endLine;
+
+/**
+ * 给一个单元配基线里的同名单元。同一文件里同名的单元按行号排：现在与基线个数相同时按序号配；
+ * 个数不同时取行区间与它重叠、且只与它重叠的那一个；都不成返回 "unsure"。基线里没有同名单元（或文件是新的）返回 null。
+ */
+export function pairBaseline(unit, units, baseUnits) {
+  const named = (list) => list.filter((u) => u.name === unit.name).sort((a, b) => a.startLine - b.startLine);
+  const base = named(baseUnits ?? []);
+  if (base.length === 0) return null;
+  const now = named(units);
+  if (now.length === base.length) return base[now.indexOf(unit)];
+  const hits = base.filter((b) => overlaps(unit, b));
+  return hits.length === 1 && now.filter((u) => overlaps(u, hits[0])).length === 1 ? hits[0] : "unsure";
+}
+
+/** 趋势：基线没有这个单元记 new；配不上记 unsure；圈复杂度大记 up、小记 down；相等再看认知复杂度；都相等记 same。 */
 export function trendOf(unit, baseline) {
+  if (baseline === "unsure") return "unsure";
   if (!baseline) return "new";
   const d = unit.cyclomatic - baseline.cyclomatic || unit.cognitive - baseline.cognitive;
   return d > 0 ? "up" : d < 0 ? "down" : "same";
@@ -57,15 +76,16 @@ export function trendOf(unit, baseline) {
 
 const overLine = (band) => band === "warn" || band === "alert";
 
-/** 一个单元的读数；改动不在它自己的行上时返回 null。baseUnits 是基线版本的单元 Map 或 null。 */
+/** 一个单元的读数；改动不在它自己的行上时返回 null。baseUnits 是 baselineUnits 的结果或 null。 */
 export function measureUnit(path, unit, units, ranges, report, thresholds = DEFAULT_THRESHOLDS, baseUnits = null) {
   const nested = nestedUnits(unit, units);
   if (!touchesOwnLines(unit, nested, ranges)) return null;
   const coverage = coverageOf(report, path, unit, nested);
   const crapValue = round(crap(unit.cyclomatic, coverage.value), 4);
   const band = bandOf(unit.cyclomatic, crapValue, thresholds);
-  const baseline = baseUnits?.get(unit.name) ?? null;
-  const trend = trendOf(unit, baseline);
+  const paired = pairBaseline(unit, units, baseUnits);
+  const trend = trendOf(unit, paired);
+  const baseline = paired && paired !== "unsure" ? { cyclomatic: paired.cyclomatic, cognitive: paired.cognitive } : null;
   return {
     path, name: unit.name, namespace: unit.namespace, startLine: unit.startLine, endLine: unit.endLine,
     cyclomatic: unit.cyclomatic, cognitive: unit.cognitive,
@@ -129,7 +149,7 @@ function unassertedTests(root, path, ranges, ts, assertPattern, uncovered) {
   } catch (e) { uncovered.push({ path, reason: `解析失败：${String(e.message ?? e).split("\n")[0]}` }); return []; }
 }
 
-/** 基线到工作树的改动函数读数。scope 是路径前缀数组或 null；report 是 parseLcov 的结果或 null；reportMtimeMs 是报告文件的修改时刻（毫秒）或 null。；assertPattern 见 DEFAULT_ASSERT_PATTERN。 */
+/** 基线到工作树的改动函数读数。scope 是路径前缀数组或 null；report 是 loadLcov 的报告或 null；reportMtimeMs 是报告文件（几份时取最早一份）的修改时刻（毫秒）或 null；assertPattern 见 DEFAULT_ASSERT_PATTERN。 */
 export function collectMetrics({ root, base, baseGiven = null, head, ts, report, scope, thresholds = DEFAULT_THRESHOLDS, reportMtimeMs = null, assertPattern = DEFAULT_ASSERT_PATTERN }) {
   const functions = [];
   const uncovered = [];
@@ -156,8 +176,8 @@ export function collectMetrics({ root, base, baseGiven = null, head, ts, report,
   return { kind: "pqw-metrics", generatedAt: new Date().toISOString(), base, baseGiven, head, thresholds, warnings, functions, uncovered, testsWithoutAssertions: unasserted, summary: summarize(functions, report) };
 }
 
-/** 「原 → 现」列：新函数写「新 → 现」；lib 直打构造的行没有趋势时写空。 */
-const trendText = (f) => (f.trend === undefined ? "" : f.trend === "new" ? `新 → ${f.cyclomatic}` : `${f.baseline.cyclomatic} → ${f.cyclomatic}`);
+/** 「原 → 现」列：新函数写「新 → 现」；同名单元配不上基线写「拿不准」；lib 直打构造的行没有趋势时写空。 */
+const trendText = (f) => (f.trend === undefined ? "" : f.trend === "new" ? `新 → ${f.cyclomatic}` : f.trend === "unsure" ? "拿不准" : `${f.baseline.cyclomatic} → ${f.cyclomatic}`);
 
 const functionRow = (f, provided) => `| ${f.name} | ${f.path} | ${f.startLine}-${f.endLine} | ${f.cyclomatic} | ${f.cognitive} | ${coverageText(f, provided)} | ${f.crap === null ? "无覆盖" : f.crap.toFixed(2)} | ${f.band ?? ""} | ${trendText(f)} | ${f.worse ? "!" : ""} |`;
 
@@ -173,6 +193,11 @@ export function formatMetrics(result) {
   for (const f of functions) lines.push(functionRow(f, summary.coverageProvided));
   if (functions.length === 0) lines.push("| | 没有改动的函数 | | | | | | | | |");
   else lines.push(`要交代 ${summary.explain?.length ?? 0} 个变差；另有 ${summary.overLineNotWorse ?? 0} 个过线但没有变差，照列不解释`);
+  const unsure = functions.filter((f) => f.trend === "unsure");
+  if (unsure.length) {
+    lines.push("", "拿不准的基线（同名单元配不上，不报变差）：");
+    for (const f of unsure) lines.push(`- ${f.path}:${f.startLine} ${f.name}`);
+  }
   if (uncovered.length) {
     lines.push("", "未覆盖的改动文件：");
     for (const u of uncovered) lines.push(`- ${u.path}：${u.reason}`);

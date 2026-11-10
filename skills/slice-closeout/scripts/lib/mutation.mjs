@@ -48,16 +48,27 @@ export const isMutable = (root, path, scope) => inScope(path, scope) && SOURCE_R
 /** 存活位点的事实一句：只说发生了什么，怎么处置归读的人。字段名沿用 suggestion（I-1）。 */
 const suggestion = (s) => (s.mutant === "" ? `删去 ${s.original} 后测试仍过` : `${s.original} 换成 ${s.mutant} 后测试仍过`);
 
-/** 测量无效的原因：基线不通过；或一个位点都没有执行（杀死加存活为 0），按情形分没有位点、全部无覆盖、没有执行。有效返回 null。 */
-function invalidReasonOf(summary, baselinePassed) {
+/** 超过复核上限、没有复核的超时位点的原因；运行时报错的位点的原因（Stryker 的 RuntimeError）。 */
+export const UNRECHECKED = "超时未复核";
+const RUNTIME_ERROR = "runtime error";
+
+/**
+ * 测量无效的原因：基线不通过；有超时未复核的位点；有运行时报错的位点；或一个位点都没有执行（杀死加存活为 0），
+ * 按情形分没有位点、全部无覆盖、没有执行。有效返回 null。
+ */
+function invalidReasonOf(summary, baselinePassed, sites) {
   if (!baselinePassed) return "基线不通过";
+  const unrechecked = sites.filter((s) => s.reason === UNRECHECKED).length;
+  if (unrechecked) return `${UNRECHECKED} ${unrechecked} 个`;
+  const runtime = sites.filter((s) => s.reason === RUNTIME_ERROR).length;
+  if (runtime) return `运行时报错 ${runtime} 个位点`;
   if (summary.killed + summary.survived > 0) return null;
   if (summary.total === 0) return "没有位点";
   return summary.uncovered === summary.total ? "全部位点无覆盖" : "没有执行任何位点";
 }
 
 /**
- * 汇总与存活清单。timedOut 是杀死里因超时的位点数，单列是因为超时可能是机器慢而不是测试强。
+ * 汇总、存活清单与运行时报错的位点。timedOut 是杀死里因超时的位点数，单列是因为超时可能是机器慢而不是测试强。
  * valid 为 false 时 score 为 null，抬头不出计数：没有执行过的测量不能写成「杀死 0、存活 0」。只列时 valid 为 null。
  */
 export function summarize(sites, { planOnly = false, baselinePassed = true } = {}) {
@@ -65,12 +76,13 @@ export function summarize(sites, { planOnly = false, baselinePassed = true } = {
   const byReason = (r) => sites.filter((s) => s.reason === r).length;
   const summary = { total: sites.length, killed: count("killed"), survived: count("survived"), uncovered: count("uncovered"), notRun: count("notRun"), planned: count("planned"), timedOut: byReason("timeout"), carried: byReason("carried"), score: score(sites), valid: null, invalidReason: null };
   if (!planOnly) {
-    summary.invalidReason = invalidReasonOf(summary, baselinePassed);
+    summary.invalidReason = invalidReasonOf(summary, baselinePassed, sites);
     summary.valid = summary.invalidReason === null;
     if (!summary.valid) summary.score = null;
   }
-  const survivors = sites.filter((s) => s.verdict === "survived").map((s) => ({ file: s.file, unit: s.unit, line: s.line, original: s.original, mutant: s.mutant, category: s.category, suggestion: suggestion(s) }));
-  return { summary, survivors };
+  const fact = (s) => ({ file: s.file, unit: s.unit, line: s.line, original: s.original, mutant: s.mutant });
+  const survivors = sites.filter((s) => s.verdict === "survived").map((s) => ({ ...fact(s), category: s.category, suggestion: suggestion(s) }));
+  return { summary, survivors, runtimeErrors: sites.filter((s) => s.reason === RUNTIME_ERROR).map(fact) };
 }
 
 // ---- 人读的输出。
@@ -93,10 +105,11 @@ function tallyText(result) {
   return `：杀死 ${sm.killed}${timedOut}、存活 ${sm.survived}、无覆盖 ${sm.uncovered}、未跑 ${sm.notRun}；分数 ${score}${carried}${recheckText(result.recheck)}`;
 }
 
-/** 抬头之后关于基线的说明：初跑不通过的尾巴。 */
+/** 抬头之后关于基线的说明：初跑不通过的尾巴；沙箱预检没跑通时再列没跑通的测试文件。 */
 function baselineNotes(result) {
   if (result.planOnly || result.baseline.passed !== false) return [];
-  return [`基线不通过：\n${result.baseline.tail}`];
+  const files = result.baseline.failedFiles;
+  return [`基线不通过：\n${result.baseline.tail}`, ...(files ? ["没跑通的测试文件：", ...(files.length ? files.map((f) => `- ${f}`) : ["- （报告里没有定位到文件，见上面的日志）"])] : [])];
 }
 
 /** 引擎那一行与它的说明；结果里没有 engine（直接调库）时不出。 */
@@ -118,12 +131,16 @@ function headLine(result) {
   return `差分变异：基线 ${baseLabel(result.base, result.baseGiven)} 到工作树${pinned}；位点 ${total}${tallyText(result)}`;
 }
 
-/** 表格后的两段清单：存活的位点、没有位点的改动段。 */
+/** 表格后的三段清单：存活的位点、运行时报错的位点、没有位点的改动段。 */
 function trailingLists(result) {
   const lines = [];
   if (result.survivors.length) {
     lines.push("", "存活的位点：");
     for (const s of result.survivors) lines.push(`- ${s.file}:${s.line} ${s.unit}：${s.suggestion}`);
+  }
+  if (result.runtimeErrors?.length) {
+    lines.push("", "运行时报错的位点：");
+    for (const s of result.runtimeErrors) lines.push(`- ${s.file}:${s.line} ${s.unit}：${s.original} 换成 ${s.mutant === "" ? "（删去）" : s.mutant}`);
   }
   if (result.unmutated?.length) {
     lines.push("", "没有位点的改动段（不进分数）：");

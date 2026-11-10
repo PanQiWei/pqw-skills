@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // 结构读数：只摘改动函数的圈复杂度、认知复杂度与 CRAP。模型见 ../metrics-model.md，逻辑在 lib/metrics.mjs，本文件只是命令面。
 // 用法与每个参数的含义见 --help。退出 0 正常；1 失败；2 用法错误或未提供 typescript。
-import { readFileSync, writeFileSync, statSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { parseArgs, parseScope, resolveBase, parseLcov, sh } from "./lib/core.mjs";
+import { parseArgs, parseScope, resolveBase, loadLcov, sh } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
 import { collectMetrics, formatMetrics, parseThresholds, DEFAULT_ASSERT_PATTERN } from "./lib/metrics.mjs";
 
@@ -13,13 +13,14 @@ const USAGE = `用法：metrics.mjs [选项]
   --repo <目录>        仓库里任一目录，缺省当前目录
   --base <ref>         基线提交；缺省取与 --target 的合并点。给的 ref 不是 HEAD 的祖先时改用两者的合并点，抬头与 JSON 的 baseGiven 写明
   --target <分支>      缺省依次试 main、master
-  --lcov <路径>        覆盖率文件；没有就 CRAP 记无覆盖
+  --lcov <路径,路径>   覆盖率文件，可给几份（Git 根相对或绝对路径）；每份里的相对源码路径从它自己所在的目录起找，那里没有就逐级往上找到 Git 根；
+                       几份里的同一源文件取各行、各分支命中的并；没有就 CRAP 记无覆盖
   --ts <目录>          typescript 包目录（要 JS 实现，6.x 可用；7 起是原生实现，npm 包里没有 JS 接口）；缺省依次找 Git 根、Git 根的 pnpm 存储（node_modules/.pnpm/typescript@*），每处只收有 JS 接口的，存储里取最高版本；都没有退出 2 并写出找到的路径与版本
   --scope <前缀,前缀>  只看这些路径前缀
   --json <路径>        结果 JSON 写到这里；--format json 直接打印 JSON
   --cc <warn>,<alert>  圈复杂度两条线，缺省 10,12；严格大于才过线
-  --crap <alert>       CRAP 的线，缺省 30；严格大于才过线
-  --assert-pattern <正则>  认断言的模式，匹配被调用者最左的标识符，缺省 ^(assert|expect)$；改动的测试文件里改动行所在、回调里没有这类调用的用例列在表后
+  --crap [<warn>,]<alert>  CRAP 的线：一个数是 alert，缺省 30；两个数与 --cc 同形，另加提醒线；严格大于才过线
+  --assert-pattern <正则>  认断言的模式，匹配被调用者最左的标识符，缺省 ^(assert|expect)$；调用同一文件里有断言的辅助函数也算（只解一层）；类型测试文件（.test-d、.spec-d）里另认 expectTypeOf、assertType 与 @ts-expect-error。改动的测试文件里改动行所在、回调里没有断言的用例列在表后
 
 退出 0 正常；1 失败；2 用法错误或未提供 typescript。`;
 const { opts, error } = parseArgs(process.argv.slice(2), { repo: "value", base: "value", target: "value", lcov: "value", ts: "value", json: "value", format: "value", scope: "value", cc: "value", crap: "value", "assert-pattern": "value" });
@@ -33,8 +34,7 @@ const root = load(() => sh(repo, ["rev-parse", "--show-toplevel"]), `不是 Git 
 const ts = load(() => loadTypescript(opts.ts, root));
 const { base, baseGiven } = load(() => resolveBase(root, opts.base, opts.target));
 const head = sh(root, ["rev-parse", "HEAD"]);
-const report = opts.lcov ? parseLcov(readFileSync(resolve(root, opts.lcov), "utf8")) : null;
-const reportMtimeMs = opts.lcov ? statSync(resolve(root, opts.lcov)).mtimeMs : null;
+const { report, mtimeMs: reportMtimeMs } = opts.lcov ? load(() => loadLcov(root, parseScope(opts.lcov))) : { report: null, mtimeMs: null };
 
 const thresholds = load(() => parseThresholds(opts.cc, opts.crap));
 const assertPattern = load(() => (opts["assert-pattern"] === undefined ? DEFAULT_ASSERT_PATTERN : new RegExp(opts["assert-pattern"])), opts["assert-pattern"] === undefined ? undefined : `--assert-pattern 不是合法正则：${opts["assert-pattern"]}`);

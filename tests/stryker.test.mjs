@@ -159,13 +159,13 @@ test.skipIf(skipReal)("Stryker 真跑的超时复核：死循环变异体第一�
   } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); }
 });
 
-test.skipIf(skipReal)("Stryker 初跑失败：退出 1，抬头写测量无效（Stryker 初跑失败），基线不通过带日志尾，.stryker-tmp 已删", () => {
+test.skipIf(skipReal)("用例在工作树里就不过：沙箱预检先拦下，退出 1，抬头写测量无效（沙箱预检没通过），基线不通过带日志尾并列出没跑通的文件，.stryker-tmp 已删", () => {
   const dir = makeVitestRepo(MODULES);
   try {
     writeFiles(dir, { "src/calc.ts": VITEST_SRC.replace("  return n > 0;", "  return n < 0;") });
     const r = strykerRun(dir, []);
     assert.equal(r.status, 1, r.stdout);
-    assert.match(r.stdout, /^差分变异：基线 [0-9a-f]{12} 到工作树；位点 0：测量无效（Stryker 初跑失败）\n基线不通过：\n[\s\S]*initial test run[\s\S]*完整日志 .*mutation\.log）\n引擎：Stryker 10\.1\.1（vitest）\n/);
+    assert.match(r.stdout, /^差分变异：基线 [0-9a-f]{12} 到工作树；位点 0：测量无效（沙箱预检没通过）\n基线不通过：\n[\s\S]*完整日志 .*mutation\.log）\n没跑通的测试文件：\n- test\/calc\.test\.ts\n引擎：Stryker 10\.1\.1（vitest）\n/);
     assert.equal(existsSync(join(dir, ".stryker-tmp")), false);
   } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); }
 });

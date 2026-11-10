@@ -1,7 +1,8 @@
 // Stryker 引擎的适配层：找依赖、认运行器、选引擎；范围变 mutate 条目与配置、起进程；读报告、映射回位点模型。
 // 核心层 core.mjs 与适配器 adapter-typescript.mjs 不知道引擎；mutation.mjs 只在这里拿引擎的决定。
-import { existsSync, readFileSync, readdirSync, createWriteStream, writeFileSync, realpathSync, statSync, symlinkSync } from "node:fs";
-import { join, resolve, relative, isAbsolute, sep, basename } from "node:path";
+import { existsSync, readFileSync, readdirSync, createWriteStream, writeFileSync, realpathSync, statSync, symlinkSync, unlinkSync, rmSync } from "node:fs";
+import { join, resolve, relative, isAbsolute, sep, basename, dirname } from "node:path";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
@@ -9,6 +10,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { unitDigests, testFilesDigest, ownLines, nestedUnits } from "./core.mjs";
 import { TOOL_VERSION } from "./version.mjs";
 import { analyze } from "./adapter-typescript.mjs";
+import { UNRECHECKED } from "./mutation.mjs";
 
 /** 脚本目录自带的 node_modules：`scripts/package.json` 钉版本，`npm ci --prefix <脚本目录>` 装到这里。 */
 export const SCRIPTS_DIR = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -76,10 +78,13 @@ export function detectRunner(root) {
 
 const installHint = (dirs) => `找不到 Stryker：${dirs.map(([d]) => d).join("、")} 里都没有 ${CORE} 与 ${RUNNER}；装法：项目里 npm i -D @stryker-mutator/core @stryker-mutator/vitest-runner，或 npm ci --prefix ${SCRIPTS_DIR}，或用 --stryker-modules / PQW_STRYKER_MODULES 指向装好的 node_modules`;
 
-/** 选引擎：只有 Stryker。返回 { name, version, runner, reason, modules, configFile }，前四项进抬头与 JSON；项目不是 vitest 或找不到依赖抛错（.code = "unavailable"），命令面退出 2。 */
-export function chooseEngine({ root, repoRoot = root, modulesDir = null, env = process.env, scriptsModules = SCRIPTS_MODULES }) {
+/**
+ * 选引擎：只有 Stryker。返回 { name, version, runner, reason, modules, configFile }，前四项进抬头与 JSON；项目不是 vitest 或找不到依赖抛错（.code = "unavailable"），命令面退出 2。
+ * configFile 是调用方指定的 vitest 配置（相对项目目录或绝对路径，例如只跑快层的那份），给了就不再自动找。
+ */
+export function chooseEngine({ root, repoRoot = root, modulesDir = null, env = process.env, scriptsModules = SCRIPTS_MODULES, configFile = null }) {
   const where = { root, repoRoot, modulesDir, env, scriptsModules };
-  const runner = detectRunner(root);
+  const runner = configFile ? { name: "vitest", configFile, evidence: `指定了 --vitest-config ${configFile}` } : detectRunner(root);
   if (!runner) { const e = new Error("项目没有 vitest 配置也没有声明 vitest：本工具只支持 vitest 项目（jest、node:test 等暂不支持）"); e.code = "unavailable"; throw e; }
   const found = resolveStryker(where);
   if (!found) { const e = new Error(installHint(searchDirs(where))); e.code = "unavailable"; throw e; }
@@ -89,20 +94,43 @@ export function chooseEngine({ root, repoRoot = root, modulesDir = null, env = p
 /** 连续的行号合并成闭区间。 */
 const segments = (lines) => lines.reduce((acc, l) => { const last = acc[acc.length - 1]; if (last && last[1] === l - 1) last[1] = l; else acc.push([l, l]); return acc; }, []);
 
+/** 单元自有行数超过它时只变异改动行与包住它的最小嵌套函数（--unit-max-lines 的缺省）。 */
+export const DEFAULT_UNIT_MAX_LINES = 200;
+
+/** owner：行 → 拥有它的有名单元（单元自己的行，扣掉嵌套单元；<module> 不算）；size：单元 → 自有行数。 */
+function lineOwners(units) {
+  const owner = new Map(), size = new Map();
+  for (const u of units) if (u.name !== "<module>") for (const l of ownLines(u, nestedUnits(u, units))) owner.set(l, u);
+  for (const u of owner.values()) size.set(u, (size.get(u) ?? 0) + 1);
+  return { owner, size };
+}
+
 /**
  * 改动段扩成「改动行所在单元自己的全部行」：改动行落在哪个有名单元自己的行上，就把那个单元自己的行（扣掉嵌套单元）全算进来；
- * 不在任何有名单元里的改动行原样保留。返回合并后的闭区间列表。
+ * 那个单元自有行数超过 maxLines 时不取整个单元，只取包住改动行的最小嵌套函数（spans 是全部函数的行区间，匿名回调也在内）里归它的行，
+ * 没有这样的函数或它也超过 maxLines 时只取改动行。不在任何有名单元里的改动行原样保留。返回合并后的闭区间列表。
  */
-export function unitRanges(units, ranges) {
-  const owner = new Map();
-  for (const u of units) if (u.name !== "<module>") for (const l of ownLines(u, nestedUnits(u, units))) owner.set(l, u);
+export function unitRanges(units, ranges, { maxLines = DEFAULT_UNIT_MAX_LINES, spans = [] } = {}) {
+  const { owner, size } = lineOwners(units);
   const lines = new Set();
+  const addOwned = (u, a, b) => { for (let x = a; x <= b; x++) if (owner.get(x) === u) lines.add(x); };
   for (const [a, b] of ranges) for (let l = a; l <= b; l++) {
     const u = owner.get(l);
-    if (u) for (const [line, o] of owner) { if (o === u) lines.add(line); }
+    if (!u) { lines.add(l); continue; }
+    if (size.get(u) <= maxLines) { addOwned(u, u.startLine, u.endLine); continue; }
+    const inner = spans.filter(([s, e]) => s <= l && l <= e && s >= u.startLine && e <= u.endLine && !(s === u.startLine && e === u.endLine)).sort((x, y) => (x[1] - x[0]) - (y[1] - y[0]))[0];
+    if (inner && inner[1] - inner[0] + 1 <= maxLines) addOwned(u, inner[0], inner[1]);
     else lines.add(l);
   }
   return segments([...lines].sort((x, y) => x - y));
+}
+
+/** 改动行碰到的、自有行数超过 maxLines 而被 unitRanges 收窄的单元：[{ unit, ownLines }]，按首次碰到的顺序。 */
+export function largeUnits(units, ranges, maxLines = DEFAULT_UNIT_MAX_LINES) {
+  const { owner, size } = lineOwners(units);
+  const touched = new Set();
+  for (const [a, b] of ranges) for (let l = a; l <= b; l++) if (owner.has(l)) touched.add(owner.get(l));
+  return [...touched].map((u) => ({ unit: u.name, ownLines: size.get(u) })).filter((u) => u.ownLines > maxLines);
 }
 
 /** 范围变 mutate 条目：点名文件整份写路径；改动文件每个改动段写 `路径:起-止`。输入是按文件的闭区间 Map 与可变异的文件列表。 */
@@ -145,6 +173,7 @@ export const workDir = (root) => join(tmpdir(), "pqw-mutation", createHash("sha2
 
 // ---- 沙箱里构建：Stryker 10.1.1 建沙箱是复制文件、跑 buildCommand、再链 node_modules（core/dist/src/sandbox/sandbox.js 的 init），
 // 构建时沙箱里还没有依赖。给了 --build-command 时关掉 Stryker 的链接，buildCommand 换成自带的包装脚本：先链 node_modules，再经 shell 跑用户的命令。
+// 沙箱预检也挂在这个钩子上：第一轮起变异前走包装脚本（复核那轮不再预检），没有构建命令时依赖只为预检临时链进来，跑完撤掉，仍由 Stryker 自己链。
 
 /** 包装脚本与它读的环境变量。Stryker 用 execaCommand 按空格切 buildCommand，路径里的空格要用反斜杠转义。 */
 export const SANDBOX_BUILD = join(SCRIPTS_DIR, "sandbox-build.mjs");
@@ -152,34 +181,89 @@ export const buildCommandFor = (script) => `node ${script.replaceAll(" ", "\\ ")
 const SANDBOX_BUILD_COMMAND = buildCommandFor(SANDBOX_BUILD);
 export const BUILD_ENV = { project: "PQW_PROJECT_DIR", command: "PQW_BUILD_COMMAND", mark: "PQW_BUILD_FAILED_MARK" };
 
-/** 给 Stryker 进程的环境变量，包装脚本在沙箱里读它们；没给构建命令（undefined 或 null）时为空。 */
-export const buildEnv = ({ projectDir, command, mark }) => (command == null ? {} : { [BUILD_ENV.project]: projectDir, [BUILD_ENV.command]: command, [BUILD_ENV.mark]: mark });
+/** 沙箱预检读的环境变量：vitest 的可执行文件、配置文件（可为空）、JSON 报告与失败标记的路径。 */
+export const PREFLIGHT_ENV = { vitest: "PQW_PREFLIGHT_VITEST", config: "PQW_PREFLIGHT_CONFIG", report: "PQW_PREFLIGHT_REPORT", mark: "PQW_PREFLIGHT_FAILED_MARK" };
 
 /**
- * 包装脚本的全部逻辑，在沙箱（cwd）里跑：项目目录有 node_modules 而沙箱里没有时链过去；经 shell 跑用户命令，输出照传；
- * 退出非零（或被信号结束）时写标记文件，命令面据此把「构建失败」与「初跑失败」分开。返回退出码。
+ * 给 Stryker 进程的环境变量，包装脚本在沙箱里读它们；没给构建命令（undefined 或 null）也不预检时为空。
+ * preflight 是 { vitest, configFile, report, mark }，给了就让包装脚本在构建之后跑一遍沙箱预检。
  */
-export function sandboxBuild({ cwd = process.cwd(), env = process.env, stdio = "inherit" } = {}) {
-  const source = join(env[BUILD_ENV.project], "node_modules"), target = join(cwd, "node_modules");
-  if (existsSync(source) && !existsSync(target)) symlinkSync(source, target, "junction");
-  const r = spawnSync(env[BUILD_ENV.command], { cwd, env, shell: true, stdio });
-  const code = r.status ?? 1;
-  if (code !== 0) writeFileSync(env[BUILD_ENV.mark], `构建命令退出 ${r.status ?? r.signal}：${env[BUILD_ENV.command]}\n`);
+export function buildEnv({ projectDir, command, mark, preflight = null }) {
+  if (command == null && !preflight) return {};
+  return {
+    [BUILD_ENV.project]: projectDir,
+    ...(command == null ? {} : { [BUILD_ENV.command]: command, [BUILD_ENV.mark]: mark }),
+    ...(preflight ? { [PREFLIGHT_ENV.vitest]: preflight.vitest, [PREFLIGHT_ENV.config]: preflight.configFile ?? "", [PREFLIGHT_ENV.report]: preflight.report, [PREFLIGHT_ENV.mark]: preflight.mark } : {}),
+  };
+}
+
+/** vitest 的可执行文件：Stryker 依赖所在的 node_modules 里有 vitest 就用它（vitest runner 加载的是它），否则从项目目录解析。 */
+export function vitestBinFor(modulesDir, projectDir) {
+  const own = join(modulesDir, "vitest");
+  const dir = existsSync(join(own, "package.json")) ? own : dirname(createRequire(join(projectDir, "package.json")).resolve("vitest/package.json"));
+  const bin = readPackage(dir)?.bin;
+  return join(dir, (typeof bin === "string" ? bin : bin?.vitest) ?? "vitest.mjs");
+}
+
+/**
+ * 沙箱预检：在沙箱（cwd）里按 Stryker 初跑的选项（threads 池、一个工作进程、不采覆盖）用同一份配置把测试跑一遍。
+ * Stryker 的 vitest runner 只看用例结果与全局错误，文件只在沙箱里加载失败时它可能仍判初跑成功；vitest 自己的退出码计入文件级失败。
+ * 时限与 Stryker 初跑的缺省时限相同（5 分钟），到时限按没跑通算，status 记「超时」。
+ * 没跑通时写标记 { status, files }，files 是报告里失败的测试文件（相对沙箱，也就是相对项目目录）。返回退出码。
+ */
+function preflightRun({ cwd, env, stdio, timeoutMs }) {
+  const config = env[PREFLIGHT_ENV.config], report = env[PREFLIGHT_ENV.report];
+  rmSync(report, { force: true });
+  const args = [env[PREFLIGHT_ENV.vitest], "run", ...(config ? ["--config", config] : []), "--pool=threads", "--maxWorkers=1", "--coverage.enabled=false", "--reporter=json", `--outputFile=${report}`];
+  const r = spawnSync(process.execPath, args, { cwd, env, stdio, timeout: timeoutMs });
+  const timedOut = r.error?.code === "ETIMEDOUT";
+  const code = timedOut ? 1 : r.status ?? 1;
+  if (code === 0) return 0;
+  let files = [];
+  try { files = JSON.parse(readFileSync(report, "utf8")).testResults.filter((t) => t.status === "failed").map((t) => relative(cwd, t.name).split(sep).join("/")).sort(); } catch { files = []; }
+  writeFileSync(env[PREFLIGHT_ENV.mark], JSON.stringify({ status: timedOut ? "超时" : r.status ?? r.signal, files }) + "\n");
   return code;
 }
 
-/** 没有报告时的基线：初跑不通过，带日志尾；构建失败（包装脚本留了标记）时多 buildFailed，没有构建失败时字段与 0.11.0 一致。 */
-export const failedBaseline = ({ seconds, tail, logPath, buildFailed }) => ({ passed: false, seconds, tail: `${tail}\n（完整日志 ${logPath}）`, ...(buildFailed ? { buildFailed: true } : {}) });
+/** 沙箱预检的时限：Stryker 初跑的缺省时限。 */
+export const PREFLIGHT_TIMEOUT_MS = 5 * 60 * 1000;
+
+/**
+ * 包装脚本的全部逻辑，在沙箱（cwd）里跑：项目目录有 node_modules 而沙箱里没有时链过去；给了构建命令就经 shell 跑它，输出照传，
+ * 退出非零（或被信号结束）时写标记文件，命令面据此把「构建失败」与「初跑失败」分开；给了预检就再跑沙箱预检。
+ * 没有构建命令时依赖只为预检而链，跑完撤掉，仍由 Stryker 自己链（它会链项目里每个实目录的 node_modules）。返回退出码。
+ */
+export function sandboxBuild({ cwd = process.cwd(), env = process.env, stdio = "inherit", preflightTimeoutMs = PREFLIGHT_TIMEOUT_MS } = {}) {
+  const source = join(env[BUILD_ENV.project], "node_modules"), target = join(cwd, "node_modules");
+  const linked = existsSync(source) && !existsSync(target);
+  if (linked) symlinkSync(source, target, "junction");
+  const command = env[BUILD_ENV.command];
+  let code = 0;
+  if (command) {
+    const r = spawnSync(command, { cwd, env, shell: true, stdio });
+    code = r.status ?? 1;
+    if (code !== 0) writeFileSync(env[BUILD_ENV.mark], `构建命令退出 ${r.status ?? r.signal}：${command}\n`);
+  }
+  if (code === 0 && env[PREFLIGHT_ENV.vitest]) code = preflightRun({ cwd, env, stdio, timeoutMs: preflightTimeoutMs });
+  if (!command && linked) unlinkSync(target);
+  return code;
+}
+
+/**
+ * 没有报告时的基线：初跑不通过，带日志尾；构建失败（包装脚本留了标记）时多 buildFailed；沙箱预检没跑通时多 preflightFailed 与 failedFiles；
+ * 都没有时字段与 0.11.0 一致。
+ */
+export const failedBaseline = ({ seconds, tail, logPath, buildFailed, preflight = null }) => ({ passed: false, seconds, tail: `${tail}\n（完整日志 ${logPath}）`, ...(buildFailed ? { buildFailed: true } : {}), ...(preflight ? { preflightFailed: true, failedFiles: preflight.files } : {}) });
 
 /** 基线不通过时抬头写的原因。 */
-export const baselineFailure = (baseline) => (baseline.buildFailed ? "构建失败" : "Stryker 初跑失败");
+export const baselineFailure = (baseline) => (baseline.preflightFailed ? "沙箱预检没通过" : baseline.buildFailed ? "构建失败" : "Stryker 初跑失败");
 
 /**
  * Stryker 配置。并行度启动时定下；runnerEntry 是已经解析到的 vitest runner 入口的绝对路径，写成 plugins，
  * 不靠 Stryker 在核心旁边找 @stryker-mutator/*（pnpm 的隔离布局里核心的真实位置旁边没有 runner）；--timeout 给了就映射到 timeoutMS；增量按 incremental 参数（null 不开）。
  * Stryker 在项目目录里跑，条目要相对项目目录：这里是写方向的唯一换算处，去掉 prefix（读方向在 readReport）。
  */
-export function strykerConfig({ entries, configFile, concurrency, reportPath, incremental = null, timeoutMs = null, tempDirName = ".stryker-tmp", prefix = "", build = false, runnerEntry = null }) {
+export function strykerConfig({ entries, configFile, concurrency, reportPath, incremental = null, timeoutMs = null, tempDirName = ".stryker-tmp", prefix = "", build = false, preflight = false, runnerEntry = null }) {
   return {
     testRunner: "vitest",
     ...(runnerEntry ? { plugins: [runnerEntry] } : {}),
@@ -188,7 +272,8 @@ export function strykerConfig({ entries, configFile, concurrency, reportPath, in
     mutate: prefix ? entries.map((e) => e.slice(prefix.length + 1)) : entries,
     tempDirName,
     cleanTempDir: true,
-    ...(build ? { buildCommand: SANDBOX_BUILD_COMMAND, symlinkNodeModules: false } : {}),
+    ...(build || preflight ? { buildCommand: SANDBOX_BUILD_COMMAND } : {}),
+    ...(build ? { symlinkNodeModules: false } : {}),
     concurrency,
     ...(timeoutMs === null ? {} : { timeoutMS: timeoutMs }),
     ...(incremental ? { incremental: true, incrementalFile: incremental.file, force: incremental.force } : { incremental: false }),
@@ -310,8 +395,30 @@ export function mapReport({ report, files, ranges, pinned = [] }) {
   return { sites, unmutated, unknown: [...new Set(sites.map((s) => s.unknownStatus).filter(Boolean))] };
 }
 
-/** Stryker 引擎下的指纹：工具版本、「vitest@<版本> + <配置文件>」当测试命令、测试文件摘要，再加 Stryker 版本。任一项变了上次的结果就不能再信。 */
-export const strykerFingerprint = (root, engine) => ({ toolVersion: TOOL_VERSION, testCommand: `vitest@${engine.modules.vitestVersion ?? "?"} + ${engine.configFile ?? "无配置"}`, testFilesDigest: testFilesDigest(root), strykerVersion: engine.version });
+/** 几个目录（相对 root）里全部文件的路径与内容按路径排序后取 sha256，不进 node_modules；目录不在也记一笔，有无之变同样算变。 */
+export function dirsDigest(root, dirs) {
+  const hash = createHash("sha256");
+  const walk = (abs, rel) => {
+    if (!existsSync(abs)) hash.update(`${rel}\0（不在）\0`);
+    else if (!statSync(abs).isDirectory()) hash.update(rel).update("\0").update(readFileSync(abs)).update("\0");
+    else for (const n of readdirSync(abs).sort()) if (n !== "node_modules") walk(join(abs, n), `${rel}/${n}`);
+  };
+  for (const d of dirs) walk(resolve(root, d), d);
+  return hash.digest("hex");
+}
+
+/**
+ * Stryker 引擎下的指纹：工具版本、「vitest@<版本> + <配置文件>」当测试命令、测试文件摘要、Stryker 版本、测试配置文件的内容摘要（没有配置文件为 null）；
+ * 给了 buildOutputs（有构建命令时的产物目录，相对 root）再加它们的内容摘要。任一项变了上次的结果就不能再信。
+ */
+export function strykerFingerprint(root, engine, { buildOutputs = null } = {}) {
+  const config = engine.configFile ? resolve(root, engine.configFile) : null;
+  return {
+    toolVersion: TOOL_VERSION, testCommand: `vitest@${engine.modules.vitestVersion ?? "?"} + ${engine.configFile ?? "无配置"}`, testFilesDigest: testFilesDigest(root), strykerVersion: engine.version,
+    testConfigDigest: config && existsSync(config) ? createHash("sha256").update(readFileSync(config)).digest("hex") : null,
+    ...(buildOutputs ? { buildOutputDigest: dirsDigest(root, buildOutputs) } : {}),
+  };
+}
 
 const sameFingerprint = (a, b) => a !== null && JSON.stringify(a) === JSON.stringify(b);
 
@@ -326,9 +433,9 @@ export function incrementalFor(dir, fingerprint) {
 /** 跑完记下这次的指纹，下次据此判要不要 force。 */
 export const rememberFingerprint = (dir, fingerprint) => writeFileSync(join(dir, "fingerprint.json"), JSON.stringify(fingerprint, null, 2) + "\n");
 
-/** 映射要用的文件表：path → { text, units, digests }；单元由现有适配器按行找。 */
+/** 映射要用的文件表：path → { text, units, spans, digests }；单元与函数区间由现有适配器按行找。 */
 export function fileEntries(root, ts, files) {
-  return new Map(files.map((path) => { const text = readFileSync(join(root, path), "utf8"); const { units } = analyze(ts, path, text); return [path, { text, units, digests: unitDigests(text, units) }]; }));
+  return new Map(files.map((path) => { const text = readFileSync(join(root, path), "utf8"); const { units, spans } = analyze(ts, path, text); return [path, { text, units, spans, digests: unitDigests(text, units) }]; }));
 }
 
 // ---- 超时复核：第一轮超时的变异体所在的整行再跑一轮，结果按位点 id 并入。
@@ -336,16 +443,28 @@ export function fileEntries(root, ts, files) {
 /**
  * 第一轮报告里超时变异体所在的整行范围，作第二轮的 mutate 条目 `路径:起行-止行`，相邻行合并；只看 files 里的文件、本轮范围内（或点名文件）的变异体：
  * 开着增量时 Stryker 会把上一轮范围外的结果也写进报告，它们不是本轮的位点。用整行而不是行列，避开列号基数的歧义；同行别的变异体顺带再跑，并入时只认超时的那些。
+ * only 是要复核的变异体 id（limitRecheck 的结果），null 不限。
  */
-export function timeoutEntries(report, files, ranges = new Map(), pinned = []) {
+export function timeoutEntries(report, files, ranges = new Map(), pinned = [], only = null) {
   const entries = [];
   for (const path of files.keys()) {
     const inRange = (line) => pinned.includes(path) || (ranges.get(path) ?? []).some(([a, b]) => a <= line && line <= b);
     const lines = new Set();
-    for (const m of report?.files?.[path]?.mutants ?? []) if (m.status === "Timeout" && inRange(m.location.start.line)) for (let l = m.location.start.line; l <= m.location.end.line; l++) lines.add(l);
+    for (const m of report?.files?.[path]?.mutants ?? []) if (m.status === "Timeout" && inRange(m.location.start.line) && (only === null || only.has(m.id))) for (let l = m.location.start.line; l <= m.location.end.line; l++) lines.add(l);
     for (const [a, b] of segments([...lines].sort((x, y) => x - y))) entries.push(`${path}:${a}-${b}`);
   }
   return entries;
+}
+
+/** 超时复核的上限：按位点顺序取前 limit 个超时位点去复核，返回它们的变异体 id；其余记未跑「超时未复核」，使成员测量无效。 */
+export function limitRecheck(sites, limit) {
+  const kept = new Set();
+  for (const s of sites) {
+    if (s.reason !== "timeout") continue;
+    if (kept.size < limit) kept.add(s.strykerId);
+    else [s.verdict, s.reason] = ["notRun", UNRECHECKED];
+  }
+  return kept;
 }
 
 const RECHECK = { Killed: ["killed", "recheck"], Survived: ["survived", "recheck"], Timeout: ["killed", "timeout"] };
