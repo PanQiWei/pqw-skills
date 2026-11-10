@@ -221,11 +221,11 @@ function checkScope(file, sec) {
 }
 
 /** 责任分级三级里反引号括起的路径，去掉开头的 ./ 与结尾的 /。 */
-const scopePaths = (sec) => sec.lines.map(cellsOf).filter((c) => ["重点", "次要", "连带"].includes(c?.[0]))
+export const scopePaths = (sec) => sec.lines.map(cellsOf).filter((c) => ["重点", "次要", "连带"].includes(c?.[0]))
   .flatMap((c) => [...(c[1] ?? "").matchAll(/`([^`]+)`/g)].map((m) => normalizePath(m[1])));
-const normalizePath = (p) => p.replace(/^\.\//, "").replace(/\/+$/, "");
+export const normalizePath = (p) => p.replace(/^\.\//, "").replace(/\/+$/, "");
 /** 路径落在某条范围路径上：就是它，或在它这个目录下。pkg/a 不盖 pkg/ab。与哨兵判圈外改动同一取法。 */
-const covered = (path, paths) => paths.some((p) => path === p || path.startsWith(`${p}/`));
+export const covered = (path, paths) => paths.some((p) => path === p || path.startsWith(`${p}/`));
 
 /** 验收标准的条目：「- C<n> …」连同紧跟其后的缩进续行，[{ id, line, text }]。空行或不缩进的行结束一条。 */
 function criteriaOf(sec) {
