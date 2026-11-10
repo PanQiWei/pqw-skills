@@ -50,3 +50,13 @@ test("命令面：合格退出 0，有缺陷退出 1，缺参数退出 2", () =>
     assert.equal(spawnSync("node", [SCRIPT], { encoding: "utf8" }).status, 2);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("「不做的事」只到下一个小节或节为止：后面的小节里写对抗式要求照报；写者没有这一小节时哪里写都报", () => {
+  const later = asRole("只读评审者").replace("### 停止条件\n", "### 停止条件\n\n- 挑刺挑到没有为止\n").replace("## 9. 追加记录\n", "## 9. 追加记录\n\n- 再找问题\n");
+  assert.deepEqual(checkBrief(later).map((d) => [d.line, d.message.split("：")[0]]), [
+    [later.split("\n").indexOf("- 挑刺挑到没有为止") + 1, "对抗式要求「挑刺」"],
+    [later.split("\n").indexOf("- 再找问题") + 1, "对抗式要求「找问题」"],
+  ]);
+  const writer = asRole("写者").replace(/### 不做的事[^]*?(?=\n### )/, "").replace("- 端到端要做成：<从使用者视角一句话>", "- 端到端要做成：挑战设计");
+  assert.deepEqual(checkBrief(writer).map((d) => d.message.split("：")[0]), ["对抗式要求「挑战设计」"]);
+});
