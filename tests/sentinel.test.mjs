@@ -261,13 +261,18 @@ test("圈外改动：提交里落在责任分级路径之外的文件列为信�
     assert.doesNotMatch(first, /^- 圈外改动/m, "第一次唤醒没有上次的 head，只看未提交改动；这里没有");
     assert.doesNotMatch(first, /^- 责任分级缺失/m);
 
-    writeFiles(dir, { "pkg/a/x.ts": "1\n", "pkg/c/y.ts": "1\n", "pkg/ab/z.ts": "1\n", "pkg/b": "单个文件也是路径\n", "run/plan.md": TEMPLATE_PLAN(head, "2026-11-08T10:05Z"), "run/spec.md": SPEC("pkg/a/", "pkg/b") + "\n改了\n" });
+    writeFiles(dir, { "pkg/a/x.ts": "1\n", "pkg/c/y.ts": "1\n", "run/plan.md": TEMPLATE_PLAN(head, "2026-11-08T10:05Z"), "run/spec.md": SPEC("pkg/a/", "pkg/b") + "\n改了\n" });
     git(dir, "add -A");
     git(dir, 'commit -q -m "feat: 改 a 也改 c"');
     writeFiles(dir, { "build/out.js": "忽略的\n" });
     const second = runWake(dir, out);
-    assert.match(second.report, /^- 圈外改动：pkg\/ab\/z\.ts、pkg\/c\/y\.ts$/m, "pkg/a 不匹配 pkg/ab/，按目录前缀比");
-    assert.match(second.stdout, /^信号：圈外改动：pkg\/ab\/z\.ts、pkg\/c\/y\.ts$/m);
+    assert.match(second.report, /^- 圈外改动：pkg\/c\/y\.ts$/m, "只列 pkg/c/y.ts：pkg/a/x.ts 在路径内，plan 与 spec 自身、Git 忽略的不算");
+    assert.match(second.stdout, /^信号：圈外改动：pkg\/c\/y\.ts$/m);
+
+    writeFiles(dir, { "pkg/ab/z.ts": "1\n", "pkg/b": "单个文件也是路径\n", "pkg/b2/w.ts": "1\n" });
+    git(dir, "add -A");
+    git(dir, 'commit -q -m "feat: 前缀"');
+    assert.match(runWake(dir, out).report, /^- 圈外改动：pkg\/ab\/z\.ts、pkg\/b2\/w\.ts$/m, "按目录前缀比：pkg/a 不盖 pkg/ab/，pkg/b 盖住同名文件、不盖 pkg/b2/；上一轮的提交不再列");
 
     const third = runWake(dir, out).report;
     assert.doesNotMatch(third, /^- 圈外改动/m, "上次唤醒以来没有新提交、工作树没变");
