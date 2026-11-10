@@ -126,17 +126,19 @@ function cognitiveStep(ts, node, parent) {
   }
 }
 
-/** 单元列表，每个含 cyclomatic 与 cognitive。 */
+/** 单元列表，每个含 cyclomatic 与 cognitive；spans 是全部有函数体的函数（含匿名回调）的行区间 [起, 止]，差分变异收窄大单元时用。 */
 export function analyze(ts, path, text) {
   const sf = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, scriptKind(ts, path));
   const lineOf = (pos) => sf.getLineAndCharacterOfPosition(pos).line + 1;
   const logical = LOGICAL(ts);
   const units = [];
+  const spans = [];
   const moduleUnit = { name: "<module>", namespace: "", startLine: 1, endLine: lineOf(sf.getEnd()), startByte: 0, endByte: sf.getEnd(), cyclomatic: 1, cognitive: 0 };
 
   // depth：本节点的子孙里的分叉结构要加的嵌套深度。
   const walk = (node, qualifiers, unit, depth, parent) => {
     let q = qualifiers; let u = unit; let childDepth = depth;
+    if (ts.isFunctionLike(node) && node.body) spans.push([lineOf(node.getStart(sf)), lineOf(node.getEnd())]);
     const name = unitName(ts, node, sf);
     if (name !== undefined) {
       q = [...qualifiers, name];
@@ -162,7 +164,7 @@ export function analyze(ts, path, text) {
   };
   walk(sf, [], moduleUnit, 0, null);
   if (moduleUnit.cyclomatic > 1) units.unshift(moduleUnit);
-  return { sourceFile: sf, units };
+  return { sourceFile: sf, units, spans };
 }
 
 // ---- 没有断言的用例。认法：被调用者是 test 或 it（含 .skip、.only、.skipIf(x)、.each(rows) 这类链）且有函数实参的调用是用例；

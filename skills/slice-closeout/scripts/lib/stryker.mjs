@@ -92,20 +92,44 @@ export function chooseEngine({ root, repoRoot = root, modulesDir = null, env = p
 /** 连续的行号合并成闭区间。 */
 const segments = (lines) => lines.reduce((acc, l) => { const last = acc[acc.length - 1]; if (last && last[1] === l - 1) last[1] = l; else acc.push([l, l]); return acc; }, []);
 
-/**
- * 改动段扩成「改动行所在单元自己的全部行」：改动行落在哪个有名单元自己的行上，就把那个单元自己的行（扣掉嵌套单元）全算进来；
- * 不在任何有名单元里的改动行原样保留。返回合并后的闭区间列表。
- */
-export function unitRanges(units, ranges) {
+/** 单元自有行数超过它时只变异改动行与包住它的最小嵌套函数（--unit-max-lines 的缺省）。 */
+export const DEFAULT_UNIT_MAX_LINES = 200;
+
+/** 行 → 拥有它的有名单元（单元自己的行，扣掉嵌套单元；<module> 不算）。 */
+function lineOwners(units) {
   const owner = new Map();
   for (const u of units) if (u.name !== "<module>") for (const l of ownLines(u, nestedUnits(u, units))) owner.set(l, u);
+  return owner;
+}
+
+const ownCount = (owner, u) => [...owner.values()].filter((o) => o === u).length;
+
+/**
+ * 改动段扩成「改动行所在单元自己的全部行」：改动行落在哪个有名单元自己的行上，就把那个单元自己的行（扣掉嵌套单元）全算进来；
+ * 那个单元自有行数超过 maxLines 时不取整个单元，只取包住改动行的最小嵌套函数（spans 是全部函数的行区间，匿名回调也在内）里归它的行，
+ * 没有这样的函数或它也超过 maxLines 时只取改动行。不在任何有名单元里的改动行原样保留。返回合并后的闭区间列表。
+ */
+export function unitRanges(units, ranges, { maxLines = DEFAULT_UNIT_MAX_LINES, spans = [] } = {}) {
+  const owner = lineOwners(units);
   const lines = new Set();
+  const addOwned = (u, a, b) => { for (let x = a; x <= b; x++) if (owner.get(x) === u) lines.add(x); };
   for (const [a, b] of ranges) for (let l = a; l <= b; l++) {
     const u = owner.get(l);
-    if (u) for (const [line, o] of owner) { if (o === u) lines.add(line); }
+    if (!u) { lines.add(l); continue; }
+    if (ownCount(owner, u) <= maxLines) { addOwned(u, u.startLine, u.endLine); continue; }
+    const inner = spans.filter(([s, e]) => s <= l && l <= e && s >= u.startLine && e <= u.endLine && !(s === u.startLine && e === u.endLine)).sort((x, y) => (x[1] - x[0]) - (y[1] - y[0]))[0];
+    if (inner && inner[1] - inner[0] + 1 <= maxLines) addOwned(u, inner[0], inner[1]);
     else lines.add(l);
   }
   return segments([...lines].sort((x, y) => x - y));
+}
+
+/** 改动行碰到的、自有行数超过 maxLines 而被 unitRanges 收窄的单元：[{ unit, ownLines }]，按首次碰到的顺序。 */
+export function largeUnits(units, ranges, maxLines = DEFAULT_UNIT_MAX_LINES) {
+  const owner = lineOwners(units);
+  const touched = new Set();
+  for (const [a, b] of ranges) for (let l = a; l <= b; l++) if (owner.has(l)) touched.add(owner.get(l));
+  return [...touched].map((u) => ({ unit: u.name, ownLines: ownCount(owner, u) })).filter((u) => u.ownLines > maxLines);
 }
 
 /** 范围变 mutate 条目：点名文件整份写路径；改动文件每个改动段写 `路径:起-止`。输入是按文件的闭区间 Map 与可变异的文件列表。 */
@@ -351,9 +375,9 @@ export function incrementalFor(dir, fingerprint) {
 /** 跑完记下这次的指纹，下次据此判要不要 force。 */
 export const rememberFingerprint = (dir, fingerprint) => writeFileSync(join(dir, "fingerprint.json"), JSON.stringify(fingerprint, null, 2) + "\n");
 
-/** 映射要用的文件表：path → { text, units, digests }；单元由现有适配器按行找。 */
+/** 映射要用的文件表：path → { text, units, spans, digests }；单元与函数区间由现有适配器按行找。 */
 export function fileEntries(root, ts, files) {
-  return new Map(files.map((path) => { const text = readFileSync(join(root, path), "utf8"); const { units } = analyze(ts, path, text); return [path, { text, units, digests: unitDigests(text, units) }]; }));
+  return new Map(files.map((path) => { const text = readFileSync(join(root, path), "utf8"); const { units, spans } = analyze(ts, path, text); return [path, { text, units, spans, digests: unitDigests(text, units) }]; }));
 }
 
 // ---- 超时复核：第一轮超时的变异体所在的整行再跑一轮，结果按位点 id 并入。
