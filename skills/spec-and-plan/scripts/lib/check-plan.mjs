@@ -227,16 +227,17 @@ const normalizePath = (p) => p.replace(/^\.\//, "").replace(/\/+$/, "");
 /** 路径落在某条范围路径上：就是它，或在它这个目录下。pkg/a 不盖 pkg/ab。与哨兵判圈外改动同一取法。 */
 const covered = (path, paths) => paths.some((p) => path === p || path.startsWith(`${p}/`));
 
-/** 验收标准的条目：「- C<n> …」连同其后缩进的续行，[{ id, line, text }]。 */
+/** 验收标准的条目：「- C<n> …」连同紧跟其后的缩进续行，[{ id, line, text }]。空行或不缩进的行结束一条。 */
 function criteriaOf(sec) {
   const out = [];
+  let open = null;
   sec.lines.forEach((l, i) => {
     const m = /^- (C\d+)\b/.exec(l);
-    if (m) out.push({ id: m[1], line: sec.start + i, text: l });
-    else if (out.length && /^\s+\S/.test(l)) out[out.length - 1].text += `\n${l}`;
-    else if (out.length && l.trim() !== "") out.push({ id: null, line: sec.start + i, text: "" });
+    if (m) out.push((open = { id: m[1], line: sec.start + i, text: l }));
+    else if (open && /^\s+\S/.test(l)) open.text += `\n${l}`;
+    else open = null;
   });
-  return out.filter((c) => c.id);
+  return out;
 }
 
 /**

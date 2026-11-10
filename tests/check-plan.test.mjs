@@ -389,3 +389,29 @@ test("时刻不晚于检查时的时钟：plan 与 spec 里晚于现在的时刻
     assert.equal(run(["--plan", join(dir, "plan.md"), "--now", "2026-11-08T11:00Z"]).status, 0);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("经过的成员：只认「经过：」之后的反引号；续行只到空行或不缩进的行；./ 与结尾的 / 不影响；连带里的路径也算", () => {
+  const spec = (text) => checkSpec(text).map((d) => d.message);
+  assert.deepEqual(spec(GOOD_SPEC.replace("- C1 第一条。", "- C1 跑 `npm test` 退出 0。")), [], "经过之前的反引号是命令，不是成员");
+  const para = GOOD_SPEC.replace("- C1 第一条。经过：`pkg/a/`、`pkg/b/x.ts`", "- C1 第一条").replace("  第二行说明。经过：`pkg/b2`\n", "  第二行说明。经过：`pkg/b2`\n\n说明段落里写了经过：`pkg/a/`\n");
+  assert.deepEqual(spec(para), ["C1 没写经过的成员：在这条里写「经过：`<成员或目录>`」；它经过范围外的成员时改写「按范围验收：<范围内验到哪>；范围外部分归<谁>」"], "列表后面的段落不算进 C2");
+  const blank = GOOD_SPEC.replace("- C2 第二条\n  第二行说明。", "- C2 第二条\n\n  第二行说明。");
+  assert.deepEqual(spec(blank), ["C2 没写经过的成员：在这条里写「经过：`<成员或目录>`」；它经过范围外的成员时改写「按范围验收：<范围内验到哪>；范围外部分归<谁>」"], "空行结束一条");
+  assert.deepEqual(spec(GOOD_SPEC.replace("`pkg/b/x.ts`", "`./pkg/b/x.ts`")), [], "开头的 ./ 去掉再比");
+  assert.deepEqual(spec(GOOD_SPEC.replace("`pkg/b2`", "`pkg/b2/`")), [], "结尾的 / 去掉再比");
+  assert.deepEqual(spec(GOOD_SPEC.replace("`pkg/b/x.ts`", "`docs/x.md`").replace("| 连带 | 无 | 无 |", "| 连带 | `docs/` | 回归 |")), [], "连带里的路径也在三级之内");
+  const at = GOOD_SPEC.replace("。经过：`pkg/a/`、`pkg/b/x.ts`", "");
+  assert.deepEqual(checkSpec(at).map((d) => d.line), [at.split("\n").findIndex((l) => l.startsWith("- C1")) + 1], "行号指向那一条");
+});
+
+test("新缺陷的行号：预计收尾格式错指向那一行，收口缺合入检查指向「**收口**」；收口之前的同名勾选项不算；子代理表在节末尾也照核", () => {
+  const badEta = GOOD_PLAN.replace("预计收尾：2026-11-08T12:00Z · 依据：剩一片，预算 2 小时", "预计收尾：明天");
+  assert.deepEqual(checkPlan(badEta).map((d) => d.line), [badEta.split("\n").indexOf("预计收尾：明天") + 1]);
+  const no = GOOD_PLAN.replace("- [ ] 改动成员的合入检查：\n", "");
+  const lines = no.split("\n");
+  assert.deepEqual(checkPlan(no).map((d) => d.line), [lines.findIndex((l, i) => l.startsWith("**收口**") && i > lines.indexOf("### 02：第二片")) + 1]);
+  const before = GOOD_PLAN.replace("**开工包**：开工时填。", "**开工包**：开工时填。\n\n- [ ] 改动成员的合入检查：写在开工包里").replace("- [ ] 改动成员的合入检查：\n- [ ] 提交", "- [ ] 提交");
+  assert.deepEqual(checkPlan(before).map((d) => d.message), ["切片 02 收口缺「改动成员的合入检查」"]);
+  const tail = GOOD_PLAN.replace("| 哨兵 | 哨兵，45 分钟，4 轮 | 理由二 | 便宜档 | 2026-11-08T08:00Z | 第 2/4 轮 |\n\n处置 1", "| 哨兵 | 哨兵，45 分钟，4 轮 | 理由二 | 便宜档 | 2026-11-08T08:00Z | 运行中 |\n\n处置 1");
+  assert.deepEqual(checkPlan(tail.replace(/\n\n处置 1[^]*?\n\n## 一程目标/, "\n## 一程目标")).map((d) => d.message.split("：")[0]), ["子代理「哨兵」的状态「运行中」不以状态词开头"]);
+});
