@@ -17,27 +17,39 @@ const USAGE = `用法：consumers.mjs [--spec <spec.md>] [--literal <文本>]...
 退出 0 没有范围外的命中；1 有；2 用法错误或读不到文件。`;
 
 const usageError = (message) => { console.error(message); console.error(USAGE); process.exit(2); };
-const opts = { literal: [] };
-const argv = process.argv.slice(2);
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i];
-  if (a === "--help" || a === "-h") { console.log(USAGE); process.exit(0); }
-  if (!["--spec", "--literal", "--repo", "--format"].includes(a)) usageError(`未知参数 ${a}`);
-  if (i + 1 >= argv.length) usageError(`${a} 缺少值`);
-  if (a === "--literal") opts.literal.push(argv[++i]);
-  else opts[a.slice(2)] = argv[++i];
+
+/** 解析参数；--literal 可给多次。 */
+function parseArgs(argv) {
+  const opts = { literal: [] };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--help" || a === "-h") { console.log(USAGE); process.exit(0); }
+    if (!["--spec", "--literal", "--repo", "--format"].includes(a)) usageError(`未知参数 ${a}`);
+    if (i + 1 >= argv.length) usageError(`${a} 缺少值`);
+    if (a === "--literal") opts.literal.push(argv[++i]);
+    else opts[a.slice(2)] = argv[++i];
+  }
+  return opts;
 }
 
-const repo = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd: resolve(opts.repo ?? "."), encoding: "utf8" }).stdout.trim();
-if (!repo) usageError(`不在 Git 仓库里：${opts.repo ?? "."}`);
-let specText = null;
-if (opts.spec) { try { specText = readFileSync(resolve(opts.spec), "utf8"); } catch { usageError(`读不到：${opts.spec}`); } }
-const fromSpec = specText === null ? [] : literalsOf(specText);
-if (specText !== null && fromSpec.length === 0 && opts.literal.length === 0) usageError("spec 里没有「- 旧字面：」行：在不变式对照或失败语义里写「- 旧字面：`<旧原因码>` `<旧状态名>`」，或用 --literal 直接给");
-const literals = [...new Set([...fromSpec, ...opts.literal])];
-if (literals.length === 0) usageError("未提供：--spec 或 --literal");
+/** spec 文本；没给 --spec 返回 null，读不到退出 2。 */
+const readSpec = (path) => {
+  if (!path) return null;
+  try { return readFileSync(resolve(path), "utf8"); } catch { return usageError(`读不到：${path}`); }
+};
 
-const specRel = opts.spec ? relative(realpathSync(repo), realpathSync(resolve(opts.spec))) : null;
-const result = findConsumers({ repo, literals, scope: specText === null ? null : scopeOfSpec(specText), exclude: specRel ? [specRel] : [] });
+/** 要搜的字面：spec 的「旧字面」与 --literal 合并去重；一个都没有退出 2。 */
+function literalsFrom(specText, extra) {
+  const fromSpec = specText === null ? [] : literalsOf(specText);
+  if (specText !== null && fromSpec.length === 0 && extra.length === 0) usageError("spec 里没有「- 旧字面：」行：在不变式对照或失败语义里写「- 旧字面：`<旧原因码>` `<旧状态名>`」，或用 --literal 直接给");
+  const all = [...new Set([...fromSpec, ...extra])];
+  return all.length ? all : usageError("未提供：--spec 或 --literal");
+}
+
+const opts = parseArgs(process.argv.slice(2));
+const repo = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd: resolve(opts.repo ?? "."), encoding: "utf8" }).stdout.trim() || usageError(`不在 Git 仓库里：${opts.repo ?? "."}`);
+const specText = readSpec(opts.spec);
+const exclude = opts.spec ? [relative(realpathSync(repo), realpathSync(resolve(opts.spec)))] : [];
+const result = findConsumers({ repo, literals: literalsFrom(specText, opts.literal), scope: specText === null ? null : scopeOfSpec(specText), exclude });
 console.log(opts.format === "json" ? JSON.stringify(result, null, 2) : formatConsumers(result));
 process.exit(result.outside === 0 ? 0 : 1);
