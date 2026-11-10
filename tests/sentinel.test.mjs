@@ -1,4 +1,4 @@
-// 哨兵脚本：唤醒一次写汇报；增量摘要列提交、改动统计与新交回件；信号：停滞、可能兜圈、主代理连续两轮无处置。
+// 哨兵脚本：唤醒一次写汇报；增量摘要列提交、改动统计与新交回件；信号：停滞、可能兜圈、主代理连续两轮无处置、圈外改动、责任分级缺失。
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -28,6 +28,22 @@ const PLAN = `# 计划
 - [ ] 里程碑二：没做
 `;
 
+/** 带责任分级的 spec：列出的路径之外的改动算圈外改动。 */
+const SPEC = (...paths) => `# 示例 实施规格（revision 1）
+
+## 责任分级
+
+| 级别 | 成员与路径（反引号括起，可多个） | 本程对它做什么 |
+| --- | --- | --- |
+| 重点 | ${paths.slice(0, 1).map((p) => `\`${p}\``).join("、")} | 兑现 C1 |
+| 次要 | ${paths.slice(1).map((p) => `\`${p}\``).join("、") || "无"} | 同步消费者 |
+| 连带 | 无 | 无 |
+
+## Out of Scope
+
+- 无
+`;
+
 const wake = (dir, out) => {
   const r = spawnSync("node", [SCRIPT, "--plan", join(dir, "tmp/run-x/plan.md"), "--out", out, "--once"], { encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr);
@@ -41,10 +57,10 @@ test("--help 退出 0；缺 --plan 退出 2；读不到 plan 退出 1", () => {
 });
 
 test("唤醒一次：进度、切片表、里程碑计数、在跑的子代理、增量摘要；第二次列出新提交与新交回件；第三次停滞与两轮无处置", () => {
-  const dir = makeRepo({ "README.md": "x\n" });
+  const dir = makeRepo({ "README.md": "x\n", ".gitignore": "tmp/\n" });
   const out = join(dir, "tmp/run-x/sentinel");
   try {
-    writeFiles(dir, { "tmp/run-x/plan.md": PLAN });
+    writeFiles(dir, { "tmp/run-x/plan.md": PLAN, "tmp/run-x/spec.md": SPEC("src/") });
     const first = wake(dir, out);
     assert.match(first, /第 1 次唤醒；上次 无/);
     assert.match(first, /进度：\[■□□□\] 1\/4 切片已完成/);
@@ -84,7 +100,7 @@ test("唤醒一次：进度、切片表、里程碑计数、在跑的子代理�
 });
 
 // 文档陈旧信号（第六程 C4）。模板格式的 plan 才核结构。
-const TEMPLATE_PLAN = (head, updated, extra = "") => `# 示例 交付计划（revision 1）
+const TEMPLATE_PLAN = (head, updated, extra = "", findings = "") => `# 示例 交付计划（revision 1）
 
 ## 进度总览
 
@@ -148,6 +164,11 @@ ${extra}
 
 - [ ] 做好一轮：；提交
 
+## 圈外发现
+
+| 时刻 | 位置 | 现象 | 证据 | 挡住的验收（无或编号） | 处置（记录 / 绕法 / 停切片 NN） |
+| --- | --- | --- | --- | --- | --- |
+${findings}
 ## 顺序与并行
 
 - 01 → 02
@@ -158,7 +179,7 @@ ${extra}
 `;
 
 test("文档陈旧：进度行 head 不是 HEAD、处置断号、汇报件早于最近提交、维护表落后而提交改了它，各出一条带证据的信号；结构合模板写进「文档」节", () => {
-  const dir = makeRepo({ "README.md": "x\n", "docs/a.md": "a\n" });
+  const dir = makeRepo({ "README.md": "x\n", "docs/a.md": "a\n", ".gitignore": "tmp/\n" });
   const out = join(dir, "tmp/run-y/artifacts/sentinel");
   try {
     const head = git(dir, "rev-parse --short HEAD");
@@ -171,7 +192,7 @@ test("文档陈旧：进度行 head 不是 HEAD、处置断号、汇报件早于
     git(dir, "add docs");
     git(dir, 'commit -q -m "docs: 改 a"');
     const newHead = git(dir, "rev-parse --short HEAD");
-    writeFiles(dir, { "tmp/run-y/plan.md": TEMPLATE_PLAN(head, "2026-11-08T10:00Z", "\n处置 1（2026-11-08T09:00Z）：继续；无\n处置 3（2026-11-08T09:45Z）：继续；无\n\n- [x] 额外里程碑：做完\n- [x] 再一个：做完\n") });
+    writeFiles(dir, { "tmp/run-y/spec.md": SPEC("docs/"), "tmp/run-y/plan.md": TEMPLATE_PLAN(head, "2026-11-08T10:00Z", "\n处置 1（2026-11-08T09:00Z）：继续；无\n处置 3（2026-11-08T09:45Z）：继续；无\n\n- [x] 额外里程碑：做完\n- [x] 再一个：做完\n") });
     const r = spawnSync("node", [SCRIPT, "--plan", join(dir, "tmp/run-y/plan.md"), "--out", out, "--once"], { encoding: "utf8" });
     assert.equal(r.status, 0, r.stderr);
     const report = readFileSync(join(out, "latest.md"), "utf8");
@@ -217,5 +238,84 @@ test("文档陈旧：结构不合模板出一条信号并在「文档」节列�
     assert.match(missingReport, /- 未核结构：找不到 check-plan（.*nope\.mjs）/);
     assert.match(missingReport, /- 文档陈旧：处置编号断号，应为 2 却是 3/, "没核结构时断号由哨兵自己报");
     assert.equal((missingReport.match(/- 文档陈旧/g) ?? []).length, 1);
+  } finally { dispose(dir); }
+});
+
+// 圈外改动与圈外发现（责任分级接通到底）。plan 与 spec 放在不被忽略的目录，才能核它们自身的改动不算。
+const runWake = (dir, out, extra = []) => {
+  const r = spawnSync("node", [SCRIPT, "--plan", join(dir, "run/plan.md"), "--out", out, "--once", ...extra], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  return { report: readFileSync(join(out, "latest.md"), "utf8"), stdout: r.stdout };
+};
+const FINDING = (place, blocks) => `| 2026-11-08T10:00Z | ${place} | 现象 | 证据 | ${blocks} | 记录 |\n`;
+
+test("圈外改动：提交里落在责任分级路径之外的文件列为信号，路径内的、plan 与 spec 自身、Git 忽略的都不算；未提交改动也算", () => {
+  const dir = makeRepo({ "README.md": "x\n", ".gitignore": "out/\nbuild/\n" });
+  const out = join(dir, "out/sentinel");
+  try {
+    const head = git(dir, "rev-parse --short HEAD");
+    writeFiles(dir, { "run/spec.md": SPEC("pkg/a/", "pkg/b"), "run/plan.md": TEMPLATE_PLAN(head, "2026-11-08T10:00Z") });
+    git(dir, "add run");
+    git(dir, 'commit -q -m "docs: spec 与 plan"');
+    const first = runWake(dir, out).report;
+    assert.doesNotMatch(first, /^- 圈外改动/m, "第一次唤醒没有上次的 head，只看未提交改动；这里没有");
+    assert.doesNotMatch(first, /^- 责任分级缺失/m);
+
+    writeFiles(dir, { "pkg/a/x.ts": "1\n", "pkg/c/y.ts": "1\n", "pkg/ab/z.ts": "1\n", "pkg/b": "单个文件也是路径\n", "run/plan.md": TEMPLATE_PLAN(head, "2026-11-08T10:05Z"), "run/spec.md": SPEC("pkg/a/", "pkg/b") + "\n改了\n" });
+    git(dir, "add -A");
+    git(dir, 'commit -q -m "feat: 改 a 也改 c"');
+    writeFiles(dir, { "build/out.js": "忽略的\n" });
+    const second = runWake(dir, out);
+    assert.match(second.report, /^- 圈外改动：pkg\/ab\/z\.ts、pkg\/c\/y\.ts$/m, "pkg/a 不匹配 pkg/ab/，按目录前缀比");
+    assert.match(second.stdout, /^信号：圈外改动：pkg\/ab\/z\.ts、pkg\/c\/y\.ts$/m);
+
+    const third = runWake(dir, out).report;
+    assert.doesNotMatch(third, /^- 圈外改动/m, "上次唤醒以来没有新提交、工作树没变");
+
+    writeFiles(dir, { "pkg/d/new.ts": "1\n", "README.md": "y\n" });
+    const fourth = runWake(dir, out).report;
+    assert.match(fourth, /^- 圈外改动：README\.md、pkg\/d\/new\.ts$/m, "未跟踪与未暂存的改动都算");
+
+    writeFiles(dir, Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`z/f${String(i).padStart(2, "0")}.ts`, "1\n"])));
+    const many = runWake(dir, out).report;
+    assert.match(many, /^- 圈外改动：README\.md、pkg\/d\/new\.ts、z\/f00\.ts、.*、z\/f07\.ts（共 14 个，只列前 10 个）$/m);
+  } finally { dispose(dir); }
+});
+
+test("责任分级缺失：spec 读不到、没有这一节、表里没有路径时出信号，不算圈外改动；--spec 不给时取 plan 同目录的 spec.md", () => {
+  const dir = makeRepo({ "README.md": "x\n", ".gitignore": "out/\n" });
+  const out = join(dir, "out/sentinel");
+  try {
+    const head = git(dir, "rev-parse --short HEAD");
+    writeFiles(dir, { "run/plan.md": TEMPLATE_PLAN(head, "2026-11-08T10:00Z"), "pkg/c/y.ts": "1\n" });
+    const missing = runWake(dir, out).report;
+    assert.match(missing, new RegExp(`^- 责任分级缺失：读不到 spec .*run/spec\\.md$`, "m"));
+    assert.doesNotMatch(missing, /^- 圈外改动/m);
+
+    writeFiles(dir, { "run/spec.md": "# 示例 实施规格（revision 1）\n\n## Out of Scope\n\n- 无\n" });
+    assert.match(runWake(dir, out).report, /^- 责任分级缺失：.*run\/spec\.md 没有「## 责任分级」节$/m);
+    writeFiles(dir, { "run/spec.md": SPEC("pkg/a/").replace("`pkg/a/`", "pkg/a/") });
+    assert.match(runWake(dir, out).report, /^- 责任分级缺失：.*run\/spec\.md 的责任分级表里没有反引号括起的路径$/m);
+
+    writeFiles(dir, { "elsewhere/spec.md": SPEC("pkg/", "run/") });
+    const given = runWake(dir, out, ["--spec", join(dir, "elsewhere/spec.md")]).report;
+    assert.doesNotMatch(given, /^- (责任分级缺失|圈外改动)/m, "给了 --spec 就读它；pkg/ 盖住 pkg/c/y.ts，elsewhere/spec.md 自身不算");
+    assert.match(spawnSync("node", [SCRIPT, "--help"], { encoding: "utf8" }).stdout, /--spec <spec\.md>/);
+  } finally { dispose(dir); }
+});
+
+test("圈外发现：条数与挡住验收的条数写进「进度」节，与上一轮比差；plan 没有这一节时写明", () => {
+  const dir = makeRepo({ "README.md": "x\n", ".gitignore": "out/\n" });
+  const out = join(dir, "out/sentinel");
+  try {
+    const head = git(dir, "rev-parse --short HEAD");
+    writeFiles(dir, { "run/spec.md": SPEC("run/"), "run/plan.md": TEMPLATE_PLAN(head, "2026-11-08T10:00Z", "", FINDING("pkg/x", "无")) });
+    assert.match(runWake(dir, out).report, /## 进度\n[\s\S]*^圈外发现：1 条，挡住验收 0 条$/m, "第一轮没有上一轮，不比差");
+    writeFiles(dir, { "run/plan.md": TEMPLATE_PLAN(head, "2026-11-08T10:00Z", "", FINDING("pkg/x", "无") + FINDING("pkg/y", "C2") + FINDING("pkg/z", " C1、C3 ")) });
+    assert.match(runWake(dir, out).report, /^圈外发现：3 条（比上一轮 \+2），挡住验收 2 条（比上一轮 \+2）$/m);
+    writeFiles(dir, { "run/plan.md": TEMPLATE_PLAN(head, "2026-11-08T10:00Z", "", FINDING("pkg/y", "C2")) });
+    assert.match(runWake(dir, out).report, /^圈外发现：1 条（比上一轮 -2），挡住验收 1 条（比上一轮 -1）$/m);
+    writeFiles(dir, { "run/plan.md": PLAN });
+    assert.match(runWake(dir, out).report, /^圈外发现：plan 没有「## 圈外发现」节$/m);
   } finally { dispose(dir); }
 });

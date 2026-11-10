@@ -1,10 +1,12 @@
 #!/usr/bin/env node
-// 哨兵子代理取事实的工具：读 plan 的进度总览、处置记录、文档维护表与工作树事实，写一份增量汇报（提交、改动统计、新交回件、文档结构与陈旧、信号），然后睡或退出。不调用模型。
+// 哨兵子代理取事实的工具：读 plan 的进度总览、处置记录、文档维护表、圈外发现，spec 的责任分级与工作树事实，写一份增量汇报（提交、改动统计、新交回件、圈外发现条数、文档结构与陈旧、信号），然后睡或退出。不调用模型。
+// 圈外改动信号只给事实：上次唤醒以来的提交与未提交改动里，落在责任分级所有路径之外的文件。它可能是圈外做功，也可能是本程改动带出、还没补进 spec 的消费者，由哨兵与主代理判。
 // 文档陈旧信号：进度行 head 不是 HEAD、汇报件早于最近提交、plan 结构不合模板（经 spec-and-plan 的 check-plan；它核不了时才由本脚本自己报处置断号）、维护表「最近更新」落后而最近提交改了该文档。
 // 退出 0 正常；1 读不到 plan 或写不了汇报；2 用法错误。
 //
 // 用法：
-//   sentinel.mjs --plan <plan.md> [--out <目录>] [--interval 45m] [--subagent-check 30m] [--once] [--cycles N] [--session <id>] [--run <id>]
+//   sentinel.mjs --plan <plan.md> [--spec <spec.md>] [--out <目录>] [--interval 45m] [--subagent-check 30m] [--once] [--cycles N] [--session <id>] [--run <id>]
+//   --spec      取责任分级的 spec，默认 plan 同目录的 spec.md
 //   --once      只醒一次就退出（宿主有原生定时时用：宿主每次到点调一次）
 //   --interval  没有 --once 时的循环间隔，默认 45m；支持 s、m、h
 //   --cycles    循环几次后退出，默认无限；测试用
@@ -12,13 +14,13 @@
 //   --session   会话标识，默认取 CLAUDE_CODE_SESSION_ID、CODEX_COMPANION_SESSION_ID、PQW_SESSION，再不然 unknown
 //   --run       一程标识，默认 plan 所在目录名
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from "node:fs";
-import { join, dirname, basename, resolve } from "node:path";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync, realpathSync } from "node:fs";
+import { join, dirname, basename, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { execSync, spawnSync } from "node:child_process";
 
-const USAGE = "用法：sentinel.mjs --plan <plan.md> [--out <目录>] [--interval 45m] [--subagent-check 30m] [--once] [--cycles N] [--session <id>] [--run <id>]";
+const USAGE = "用法：sentinel.mjs --plan <plan.md> [--spec <spec.md>] [--out <目录>] [--interval 45m] [--subagent-check 30m] [--once] [--cycles N] [--session <id>] [--run <id>]";
 
 const parseArgs = (argv) => {
   const opts = { interval: "45m", subagentCheck: "30m", once: false, cycles: Infinity };
@@ -31,6 +33,7 @@ const parseArgs = (argv) => {
     switch (a) {
       case "--help": case "-h": console.log(USAGE); process.exit(0);
       case "--plan": opts.plan = next(); break;
+      case "--spec": opts.spec = next(); break;
       case "--out": opts.out = next(); break;
       case "--interval": opts.interval = next(); break;
       case "--subagent-check": opts.subagentCheck = next(); break;
@@ -63,6 +66,7 @@ try {
 }
 
 const planPath = resolve(opts.plan);
+const specPath = resolve(opts.spec ?? join(dirname(planPath), "spec.md"));
 const session = opts.session ?? process.env.CLAUDE_CODE_SESSION_ID ?? process.env.CODEX_COMPANION_SESSION_ID ?? process.env.PQW_SESSION ?? "unknown";
 const run = opts.run ?? basename(dirname(planPath));
 const outDir = resolve(opts.out ?? join(tmpdir(), "pqw-skills", session, run, "sentinel"));
@@ -71,9 +75,10 @@ const statePath = join(outDir, "state.json");
 const resolveCheckPlan = () => process.env.PQW_CHECK_PLAN ?? join(dirname(fileURLToPath(import.meta.url)), "..", "..", "spec-and-plan", "scripts", "check-plan.mjs");
 const checkPlanPath = resolveCheckPlan();
 
+const gitEnv = { ...process.env, NO_COLOR: "1", GIT_PAGER: "cat" };
 const sh = (cmd, cwd) => {
   try {
-    return execSync(cmd, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], env: { ...process.env, NO_COLOR: "1", GIT_PAGER: "cat" } }).trim();
+    return execSync(cmd, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], env: gitEnv }).trim();
   } catch {
     return null;
   }
@@ -135,6 +140,71 @@ const disposalGap = (text) => {
     expected = Number(m[1]) + 1;
   }
   return null;
+};
+
+/** 一个二级节的正文行（不含标题）；没有这一节返回 null。 */
+const sectionLines = (text, title) => {
+  const lines = text.split("\n");
+  const at = lines.findIndex((l) => l === `## ${title}` || l.startsWith(`## ${title}（`));
+  if (at < 0) return null;
+  const end = lines.findIndex((l, i) => i > at && l.startsWith("## "));
+  return lines.slice(at + 1, end < 0 ? undefined : end);
+};
+const cellsOf = (line) => (line.trim().startsWith("|") ? line.trim().slice(1, -1).split("|").map((c) => c.trim()) : null);
+const LEVELS = ["重点", "次要", "连带"];
+
+/** spec 的责任分级：{ paths } 是三级各行反引号里的路径（去掉开头的 ./ 与结尾的 /）；取不到时 { missing } 写原因。 */
+const scopeOf = (path) => {
+  let text;
+  try { text = readFileSync(path, "utf8"); } catch { return { missing: `读不到 spec ${path}` }; }
+  const lines = sectionLines(text, "责任分级");
+  if (!lines) return { missing: `${path} 没有「## 责任分级」节` };
+  const paths = lines.map(cellsOf).filter((c) => LEVELS.includes(c?.[0]))
+    .flatMap((c) => [...(c[1] ?? "").matchAll(/`([^`]+)`/g)].map((m) => m[1].replace(/^\.\//, "").replace(/\/+$/, "")));
+  return paths.length ? { paths } : { missing: `${path} 的责任分级表里没有反引号括起的路径` };
+};
+
+/** 文件落在某条路径上：就是它，或在它这个目录下。pkg/a 不盖 pkg/ab/。 */
+const covered = (file, paths) => paths.some((p) => file === p || file.startsWith(`${p}/`));
+
+/** 仓库里的相对路径；不在仓库里或文件不存在返回 null。 */
+const repoRelative = (repo, path) => { try { return relative(repo, realpathSync(path)); } catch { return null; } };
+
+/** 上次唤醒以来改过的文件：按上次的 head 取提交里的文件，加上未提交与未跟踪的改动；第一次唤醒没有上次的 head，只看未提交改动。Git 忽略的不算。 */
+const changedFiles = (repo, prevHead) => {
+  const quiet = "-c core.quotepath=off";
+  const committed = prevHead ? sh(`git ${quiet} log --name-only --format= ${prevHead}..HEAD`, repo) ?? "" : "";
+  const worktree = [sh(`git ${quiet} diff --name-only HEAD`, repo), sh(`git ${quiet} ls-files --others --exclude-standard`, repo)].join("\n");
+  const files = [...new Set(`${committed}\n${worktree}`.split("\n").filter(Boolean))];
+  if (files.length === 0) return [];
+  const ignored = new Set((spawnSync("git", ["check-ignore", "--no-index", "--stdin"], { cwd: repo, input: files.join("\n"), encoding: "utf8", env: gitEnv }).stdout ?? "").split("\n").filter(Boolean));
+  return files.filter((f) => !ignored.has(f)).sort();
+};
+
+/** 圈外改动或责任分级缺失的信号：改过的文件里落在责任分级所有路径之外的，plan 与 spec 自身除外，最多列 10 个。 */
+const scopeSignals = (repo, prevHead) => {
+  const scope = scopeOf(specPath);
+  if (scope.missing) return [`责任分级缺失：${scope.missing}`];
+  if (!repo) return [];
+  const own = new Set([repoRelative(repo, planPath), repoRelative(repo, specPath)]);
+  const outside = changedFiles(repo, prevHead).filter((f) => !own.has(f) && !covered(f, scope.paths));
+  if (outside.length === 0) return [];
+  return [`圈外改动：${outside.slice(0, 10).join("、")}${outside.length > 10 ? `（共 ${outside.length} 个，只列前 10 个）` : ""}`];
+};
+
+/** plan「圈外发现」表：条数与挡住验收的条数（第五格写了编号，不是空也不是「无」）；没有这一节返回 null。 */
+const findingsOf = (planText) => {
+  const lines = sectionLines(planText, "圈外发现");
+  if (!lines) return null;
+  const rows = lines.map(cellsOf).filter((c) => c && c[0] !== "时刻" && !/^-+$/.test(c[0]));
+  return { total: rows.length, blocking: rows.filter((c) => !["", "无"].includes(c[4] ?? "")).length };
+};
+
+/** 汇报「进度」节的圈外发现一行：与上一轮比差，上一轮没记就不比。 */
+const findingsLine = (findings, prev) => {
+  if (!findings) return "圈外发现：plan 没有「## 圈外发现」节";
+  const delta = (now, before) => (typeof before === "number" ? `（比上一轮 ${now - before >= 0 ? "+" : ""}${now - before}）` : "");
+  return `圈外发现：${findings.total} 条${delta(findings.total, prev?.findings?.total)}，挡住验收 ${findings.blocking} 条${delta(findings.blocking, prev?.findings?.blocking)}`;
 };
 
 /** 汇报件：本程目录或其 artifacts 子目录下的 report.html，取第一个存在的。 */
@@ -249,6 +319,8 @@ const wake = (n) => {
   }
   const doneM = plan.milestones.filter((m) => m.done).length;
   const structure = checkStructure(planText);
+  const findings = findingsOf(planText);
+  signals.push(...scopeSignals(repo, prev?.head));
   signals.push(...staleSignals({ planText, plan, head, repo, runDir: dirname(outDir), structure }));
 
   const report = [
@@ -268,6 +340,7 @@ const wake = (n) => {
     ...plan.slices.map((r) => `| ${r[0]} | ${r[3] ?? ""} |`),
     "",
     `里程碑：${doneM}/${plan.milestones.length} 已勾`,
+    findingsLine(findings, prev),
     "",
     "## 增量摘要",
     "",
@@ -289,7 +362,7 @@ const wake = (n) => {
     "",
     "## 读这份汇报的要做的",
     "",
-    "哨兵按 one-lesson-rule 对照 spec 与 plan 判六问：进度有没有偏离 spec 与 plan；是不是在局部兜圈（是就提醒按入口技能「写代码的四条」第四条找本质解）；上下文有没有腐化的迹象；每个在跑的子代理是否健康；实现是不是比本质复杂（切片用时超预算、同一切片提交过多、读数变差、改动面过大，是就提醒回到本质解与必要的建模；从已经定义的不变式出发，主代理或子代理在给不变式排除的状态写处理、分支或用例，是就提醒这是过度设计、违背对不变式的守护，按「写代码的四条」第三条删掉）；给人看的文档有没有过期（信号里以「文档陈旧」开头的）。写回看记录，给主代理发不超过十行的消息；主代理把处置写进 plan 的进度总览。",
+    "哨兵按 one-lesson-rule 对照 spec 与 plan 判六问：进度有没有偏离 spec 与 plan（含在圈外做功：信号里的「圈外改动」只是事实，可能是圈外做功，也可能是本程改动带出、还没补进 spec 责任分级的消费者，提醒里两种都写，由主代理判；「责任分级缺失」时判不了圈外，消息里写明）；是不是在局部兜圈（是就提醒按入口技能「写代码的四条」第四条找本质解）；上下文有没有腐化的迹象；每个在跑的子代理是否健康；实现是不是比本质复杂（切片用时超预算、同一切片提交过多、读数变差、改动面过大，是就提醒回到本质解与必要的建模；从已经定义的不变式出发，主代理或子代理在给不变式排除的状态写处理、分支或用例，是就提醒这是过度设计、违背对不变式的守护，按「写代码的四条」第三条删掉）；给人看的文档有没有过期（信号里以「文档陈旧」开头的）。写回看记录，给主代理发不超过十行的消息；主代理把处置写进 plan 的进度总览。",
     "",
   ].join("\n");
 
@@ -299,7 +372,7 @@ const wake = (n) => {
   try {
     writeFileSync(file, report);
     writeFileSync(join(outDir, "latest.md"), report);
-    writeFileSync(statePath, JSON.stringify({ at: now.toISOString(), head, dirty, current: plan.current, n, dispositions, noDispositionStreak }, null, 2));
+    writeFileSync(statePath, JSON.stringify({ at: now.toISOString(), head, dirty, current: plan.current, n, dispositions, noDispositionStreak, findings }, null, 2));
   } catch (e) {
     console.error(`写不了汇报：${outDir}：${e.message}`);
     process.exit(1);
