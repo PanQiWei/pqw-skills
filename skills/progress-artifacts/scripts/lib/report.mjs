@@ -82,8 +82,9 @@ export function renderArchitecture(before, after) {
 const num = (v, d = 1) => (v === null || v === undefined ? "无覆盖" : Number(v).toFixed(d));
 const pct = (c) => (c === null || c === undefined ? "无覆盖" : (c * 100).toFixed(0) + "%");
 
-/** 「原 → 现」：没有趋势字段（旧读数）写空；新函数写「新 → 现」。 */
-const trendText = (f) => (f.trend === undefined ? "" : f.trend === "new" ? `新 → ${f.cyclomatic}` : `${f.baseline?.cyclomatic} → ${f.cyclomatic}`);
+/** 「原 → 现」左边：没有趋势字段（旧读数）写空；新函数写「新」；同名单元配不上基线写「拿不准」。 */
+const TREND_FROM = { new: () => "新", unsure: () => "拿不准" };
+const trendText = (f) => (f.trend === undefined ? "" : `${(TREND_FROM[f.trend] ?? ((g) => g.baseline?.cyclomatic))(f)} → ${f.cyclomatic}`);
 
 /** 读数段的导语：最高值，有基线比时加要交代几个。 */
 function metricsLead(fs, s) {

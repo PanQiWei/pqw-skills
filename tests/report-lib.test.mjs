@@ -218,3 +218,10 @@ test("叙述渲染：两层各成小节并转行内标记；只有一层时另�
   assert.doesNotMatch(table, /<td>02<\/td>.*<tr class="meaning">/);
   assert.equal(renderSlices(rows), renderSlices(rows, new Map()), "不给意义时与原来一样");
 });
+
+test("读数：同名单元配不上基线时「原 → 现」写「拿不准 → 现」，不写 undefined", () => {
+  const f = { name: "derive", path: "a.ts", startLine: 1, endLine: 9, cyclomatic: 11, cognitive: 3, coverage: 1, crap: 11, band: "warn", baseline: null, trend: "unsure", worse: false };
+  const html = renderMetrics({ functions: [f], summary: { maxCyclomatic: 11, maxCognitive: 3, maxCrap: 11 } }, null);
+  assert.match(html, /<td>拿不准 → 11<\/td>/);
+  assert.doesNotMatch(html, /undefined/);
+});
