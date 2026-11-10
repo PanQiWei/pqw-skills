@@ -97,14 +97,13 @@ const segments = (lines) => lines.reduce((acc, l) => { const last = acc[acc.leng
 /** 单元自有行数超过它时只变异改动行与包住它的最小嵌套函数（--unit-max-lines 的缺省）。 */
 export const DEFAULT_UNIT_MAX_LINES = 200;
 
-/** 行 → 拥有它的有名单元（单元自己的行，扣掉嵌套单元；<module> 不算）。 */
+/** owner：行 → 拥有它的有名单元（单元自己的行，扣掉嵌套单元；<module> 不算）；size：单元 → 自有行数。 */
 function lineOwners(units) {
-  const owner = new Map();
+  const owner = new Map(), size = new Map();
   for (const u of units) if (u.name !== "<module>") for (const l of ownLines(u, nestedUnits(u, units))) owner.set(l, u);
-  return owner;
+  for (const u of owner.values()) size.set(u, (size.get(u) ?? 0) + 1);
+  return { owner, size };
 }
-
-const ownCount = (owner, u) => [...owner.values()].filter((o) => o === u).length;
 
 /**
  * 改动段扩成「改动行所在单元自己的全部行」：改动行落在哪个有名单元自己的行上，就把那个单元自己的行（扣掉嵌套单元）全算进来；
@@ -112,13 +111,13 @@ const ownCount = (owner, u) => [...owner.values()].filter((o) => o === u).length
  * 没有这样的函数或它也超过 maxLines 时只取改动行。不在任何有名单元里的改动行原样保留。返回合并后的闭区间列表。
  */
 export function unitRanges(units, ranges, { maxLines = DEFAULT_UNIT_MAX_LINES, spans = [] } = {}) {
-  const owner = lineOwners(units);
+  const { owner, size } = lineOwners(units);
   const lines = new Set();
   const addOwned = (u, a, b) => { for (let x = a; x <= b; x++) if (owner.get(x) === u) lines.add(x); };
   for (const [a, b] of ranges) for (let l = a; l <= b; l++) {
     const u = owner.get(l);
     if (!u) { lines.add(l); continue; }
-    if (ownCount(owner, u) <= maxLines) { addOwned(u, u.startLine, u.endLine); continue; }
+    if (size.get(u) <= maxLines) { addOwned(u, u.startLine, u.endLine); continue; }
     const inner = spans.filter(([s, e]) => s <= l && l <= e && s >= u.startLine && e <= u.endLine && !(s === u.startLine && e === u.endLine)).sort((x, y) => (x[1] - x[0]) - (y[1] - y[0]))[0];
     if (inner && inner[1] - inner[0] + 1 <= maxLines) addOwned(u, inner[0], inner[1]);
     else lines.add(l);
@@ -128,10 +127,10 @@ export function unitRanges(units, ranges, { maxLines = DEFAULT_UNIT_MAX_LINES, s
 
 /** 改动行碰到的、自有行数超过 maxLines 而被 unitRanges 收窄的单元：[{ unit, ownLines }]，按首次碰到的顺序。 */
 export function largeUnits(units, ranges, maxLines = DEFAULT_UNIT_MAX_LINES) {
-  const owner = lineOwners(units);
+  const { owner, size } = lineOwners(units);
   const touched = new Set();
   for (const [a, b] of ranges) for (let l = a; l <= b; l++) if (owner.has(l)) touched.add(owner.get(l));
-  return [...touched].map((u) => ({ unit: u.name, ownLines: ownCount(owner, u) })).filter((u) => u.ownLines > maxLines);
+  return [...touched].map((u) => ({ unit: u.name, ownLines: size.get(u) })).filter((u) => u.ownLines > maxLines);
 }
 
 /** 范围变 mutate 条目：点名文件整份写路径；改动文件每个改动段写 `路径:起-止`。输入是按文件的闭区间 Map 与可变异的文件列表。 */
