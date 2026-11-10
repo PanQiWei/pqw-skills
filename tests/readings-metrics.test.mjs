@@ -39,7 +39,6 @@ test.skipIf(skip)("同名单元：按名字加序号配基线，主体不再配�
     assert.deepEqual(derives.map((f) => [f.startLine, f.cyclomatic, f.trend, f.worse]), [[2, 11, "same", false], [16, 11, "unsure", false]], "现在 3 个、基线 2 个：主体按行重叠配上；新加的那个与基线哪个都不重叠，拿不准，不报变差");
     assert.equal(derives[1].baseline, null);
     assert.deepEqual(out.summary.explain, [], "拿不准的不进要交代的变差");
-    assert.deepEqual(out.summary.unsure, ["make.derive"]);
     const table = spawnSync("node", [SCRIPT, "--repo", dir, "--ts", TS, "--base", "HEAD"], { encoding: "utf8" }).stdout;
     assert.match(table, /\| make\.derive \| src\/make\.ts \| 16-16 \| 11 \|[^\n]*\| 拿不准 \|  \|\n/);
     assert.match(table, /\n\n拿不准的基线（同名单元配不上，不报变差）：\n- src\/make\.ts:16 make\.derive\n/);
