@@ -415,3 +415,11 @@ test("新缺陷的行号：预计收尾格式错指向那一行，收口缺合�
   const tail = GOOD_PLAN.replace("| 哨兵 | 哨兵，45 分钟，4 轮 | 理由二 | 便宜档 | 2026-11-08T08:00Z | 第 2/4 轮 |\n\n处置 1", "| 哨兵 | 哨兵，45 分钟，4 轮 | 理由二 | 便宜档 | 2026-11-08T08:00Z | 运行中 |\n\n处置 1");
   assert.deepEqual(checkPlan(tail.replace(/\n\n处置 1[^]*?\n\n## 一程目标/, "\n## 一程目标")).map((d) => d.message.split("：")[0]), ["子代理「哨兵」的状态「运行中」不以状态词开头"]);
 });
+
+test("checkFiles 把时钟传给 plan 与 spec 的核对", () => {
+  const late = GOOD_PLAN.replace("处置 2（2026-11-08T09:45Z）", "处置 2（2026-11-08T10:50Z）");
+  const lateSpec = GOOD_SPEC.replace("问题。", "问题，2026-11-08T10:50Z 发现。");
+  const read = (p) => ({ plan: late, spec: lateSpec })[p];
+  assert.equal(checkFiles({ plan: "plan", spec: "spec", now: Date.parse("2026-11-08T10:30Z") }, read).length, 2);
+  assert.equal(checkFiles({ plan: "plan", spec: "spec", now: Date.parse("2026-11-08T11:00Z") }, read).length, 0);
+});
