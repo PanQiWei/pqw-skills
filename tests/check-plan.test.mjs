@@ -79,6 +79,11 @@ const GOOD_PLAN = `# 示例 交付计划（revision 1）
 - [ ] 做好一轮：
 - [ ] 提交
 
+## 圈外发现
+
+| 时刻 | 位置 | 现象 | 证据 | 挡住的验收（无或编号） | 处置（记录 / 绕法 / 停切片 NN） |
+| --- | --- | --- | --- | --- | --- |
+
 ## 顺序与并行
 
 - 01 → 02
@@ -129,6 +134,16 @@ const GOOD_SPEC = `# 示例 实施规格（revision 1；每加一条例外升一
 
 - 无
 
+## 责任分级
+
+| 级别 | 成员与路径（反引号括起，可多个） | 本程对它做什么 |
+| --- | --- | --- |
+| 重点 | \`pkg/a/\` | 兑现 C1 |
+| 次要 | \`pkg/b/\`、\`pkg/b2/\` | 同步契约的消费者 |
+| 连带 | 无 | 无 |
+
+圈外：其余一切。
+
 ## Out of Scope
 
 - 无
@@ -146,8 +161,8 @@ test("好 plan 与好 spec 没有缺陷；模板实例化后也通过，把模�
   assert.deepEqual(checkSpec(GOOD_SPEC), []);
   assert.deepEqual(checkPlan(instantiate(TEMPLATE)).map((d) => d.message), []);
   assert.deepEqual(checkSpec(instantiate(SPEC_TEMPLATE)).map((d) => d.message), []);
-  assert.deepEqual(PLAN_SECTIONS.length, 7);
-  assert.deepEqual(SPEC_SECTIONS.length, 9);
+  assert.deepEqual(PLAN_SECTIONS.length, 8);
+  assert.deepEqual(SPEC_SECTIONS.length, 10);
 });
 
 test("六种坏 plan 各报对应缺陷：缺节、节顺序错、进度行格式错、切片缺意义段、处置断号、维护表表头少列", () => {
@@ -178,6 +193,36 @@ test("其余缺陷：抬头没 revision、缺进度行、切片表切片号不�
   const spec = (text) => checkSpec(text).map((d) => d.message);
   assert.ok(spec(GOOD_SPEC.replace("## User Stories", "## Stories")).includes("缺节「## User Stories」"));
   assert.ok(spec(GOOD_SPEC.replace("- C1 第一条\n- C2 第二条", "- 第一条")).includes("验收标准里没有「- C<n>」条目"));
+});
+
+test("责任分级：spec 缺这一节、表里没有重点行、重点行没有反引号路径，各报一处，消息写明加什么", () => {
+  const at = (text, needle) => text.split("\n").findIndex((l) => l.startsWith(needle)) + 1;
+  assert.deepEqual(checkSpec(GOOD_SPEC.replace("## 责任分级", "## 别的分级")).map((d) => [d.line, d.message]), [[null, "缺节「## 责任分级」：在「## Out of Scope」之前加一张表，表头「| 级别 | 成员与路径（反引号括起，可多个） | 本程对它做什么 |」，行为重点、次要、连带，格式见 spec 模板"]]);
+  const noKey = GOOD_SPEC.replace(/^\| 重点 \|.*\n/m, "");
+  assert.deepEqual(checkSpec(noKey).map((d) => [d.line, d.message]), [[at(noKey, "## 责任分级"), "责任分级表没有「重点」行：加一行「| 重点 | `<成员或目录>` | <本程对它做什么> |」"]], "行号指向节标题");
+  const noPath = GOOD_SPEC.replace("| 重点 | `pkg/a/` |", "| 重点 | pkg/a/ |");
+  assert.deepEqual(checkSpec(noPath).map((d) => [d.line, d.message]), [[at(noPath, "| 重点 |"), "责任分级「重点」行没有反引号括起的路径：把成员或目录写成 `<路径>`，可写多个"]], "行号指向重点行");
+  assert.deepEqual(checkSpec(GOOD_SPEC.replace("| 连带 | 无 | 无 |", "| 连带 | `docs/` | 回归 |")), [], "连带可以写路径也可以写无");
+  assert.deepEqual(checkSpec(GOOD_SPEC.replace("| 重点 | `pkg/a/` |", "| 重点 | 成员 a：`pkg/a/`、`pkg/a2/` |")), [], "反引号路径前可带成员名");
+  const outOfSection = GOOD_SPEC.replace(/^\| 重点 \|.*\n/m, "").replace("## Out of Scope\n", "## Out of Scope\n\n| 重点 | `pkg/a/` | 不在责任分级节里 |\n");
+  assert.ok(checkSpec(outOfSection).some((d) => d.message.startsWith("责任分级表没有「重点」行")), "别的节里的重点行不算");
+});
+
+test("圈外发现：plan 缺这一节报一处，消息写明加什么；节顺序要在切片与顺序与并行之间", () => {
+  assert.deepEqual(checkPlan(GOOD_PLAN.replace("## 圈外发现", "## 别的发现")).map((d) => d.message), ["缺节「## 圈外发现」：在「## 顺序与并行」之前加一张表，表头「| 时刻 | 位置 | 现象 | 证据 | 挡住的验收（无或编号） | 处置（记录 / 绕法 / 停切片 NN） |」，格式见 plan 模板"]);
+  const moved = GOOD_PLAN.replace(/## 圈外发现\n\n\| 时刻.*\n\| ---.*\n\n/, "").replace("## 一程交付声明", "## 圈外发现\n\n## 一程交付声明");
+  assert.deepEqual(checkPlan(moved).map((d) => d.message), ["节「## 顺序与并行」应在「## 圈外发现」之后"]);
+  assert.deepEqual(checkPlan(GOOD_PLAN.replace("## 圈外发现", "## 圈外发现（处置按入口的规则）")), [], "标题后可带括号说明");
+});
+
+test("交接信息包：边界缺责任分级表报一处，行号指向边界节；表在别的节里不算", () => {
+  const lines = GOOD_HANDOFF.split("\n");
+  const header = "| 级别 | 成员与路径（反引号括起，可多个） | 本程对它做什么 |";
+  assert.ok(lines.includes(header), "模板的边界节带责任分级表");
+  const noTable = GOOD_HANDOFF.replace(header, "| 层 | 路径 | 做什么 |");
+  assert.deepEqual(checkHandoff(noTable).map((d) => [d.line, d.message]), [[lines.indexOf("## 边界") + 1, `边界缺责任分级表：加一张与 spec「责任分级」同格式的表，表头「${header}」，写范围从它派生`]]);
+  const elsewhere = noTable.replace("## 已定事项\n", `## 已定事项\n\n${header}\n`);
+  assert.deepEqual(checkHandoff(elsewhere).map((d) => d.message), [`边界缺责任分级表：加一张与 spec「责任分级」同格式的表，表头「${header}」，写范围从它派生`]);
 });
 
 test("收口缺「做好一轮」报缺陷，行号指向那片的「**收口**」；勾没勾都算在", () => {

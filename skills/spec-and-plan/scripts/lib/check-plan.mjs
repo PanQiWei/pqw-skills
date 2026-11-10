@@ -1,10 +1,18 @@
-// 核 plan 与 spec 的骨架是否仍合模板：节在不在、顺序对不对、表头齐不齐、进度行与处置行格式对不对、每片有没有意义段与收口。
+// 核 plan 与 spec 的骨架是否仍合模板：节在不在、顺序对不对、表头齐不齐、进度行与处置行格式对不对、每片有没有意义段与收口、责任分级有没有带路径的重点行。
 // 只核结构，不核内容好坏。必需节的字面与 ../plan-template.md、../spec-template.md 是同一份契约，改一处就改另一处；用例里有一条把两处钉在一起。
 
 /** plan 必需的二级节，按顺序。匹配按「以此开头」，允许标题后带括号说明。 */
-export const PLAN_SECTIONS = ["进度总览", "一程目标与前后差别", "预算与回看", "文档维护表", "切片", "顺序与并行", "一程交付声明"];
+export const PLAN_SECTIONS = ["进度总览", "一程目标与前后差别", "预算与回看", "文档维护表", "切片", "圈外发现", "顺序与并行", "一程交付声明"];
 /** spec 必需的二级节，按顺序。 */
-export const SPEC_SECTIONS = ["Problem Statement", "Solution", "依据与已定事项", "验收标准", "不变式对照", "原则与约束", "User Stories", "Implementation Decisions", "Testing Decisions"];
+export const SPEC_SECTIONS = ["Problem Statement", "Solution", "依据与已定事项", "验收标准", "不变式对照", "原则与约束", "User Stories", "Implementation Decisions", "Testing Decisions", "责任分级"];
+/** spec「责任分级」与交接信息包「边界」里那张表的表头；哨兵按它的重点、次要、连带三行取路径。 */
+export const SCOPE_TABLE_HEADER = "| 级别 | 成员与路径（反引号括起，可多个） | 本程对它做什么 |";
+export const FINDINGS_TABLE_HEADER = "| 时刻 | 位置 | 现象 | 证据 | 挡住的验收（无或编号） | 处置（记录 / 绕法 / 停切片 NN） |";
+/** 缺节时补一句加什么：只给责任分级接通的两节，其余节的名字已经说清。 */
+const SECTION_HINTS = {
+  责任分级: `在「## Out of Scope」之前加一张表，表头「${SCOPE_TABLE_HEADER}」，行为重点、次要、连带，格式见 spec 模板`,
+  圈外发现: `在「## 顺序与并行」之前加一张表，表头「${FINDINGS_TABLE_HEADER}」，格式见 plan 模板`,
+};
 /** 交接信息包必需的二级节，按顺序。字面与 ../../single-session-dev-flow/handoff-pack-template.md 是同一份契约，用例把两处钉在一起。 */
 export const HANDOFF_SECTIONS = ["目标", "依据", "不变式", "验收标准", "边界", "起点与风险", "已定事项", "只有人能定的待决", "四问"];
 /** 起点一行：分支或引用、@、至少 7 位十六进制的提交号；分支与提交号可各自包在一对反引号里。 */
@@ -44,7 +52,7 @@ function checkSectionOrder(file, secs, required) {
   const defects = [];
   const titled = secs.filter((s) => s.title !== null);
   const found = required.map((name) => titled.find((s) => s.title === name || s.title.startsWith(`${name}（`)));
-  required.forEach((name, i) => { if (!found[i]) defects.push({ file, line: null, message: `缺节「## ${name}」` }); });
+  required.forEach((name, i) => { if (!found[i]) defects.push({ file, line: null, message: `缺节「## ${name}」${SECTION_HINTS[name] ? `：${SECTION_HINTS[name]}` : ""}` }); });
   const present = found.filter(Boolean);
   for (let i = 1; i < present.length; i++) {
     if (present[i].start < present[i - 1].start) defects.push({ file, line: present[i].start, message: `节「## ${present[i].title}」应在「## ${present[i - 1].title}」之后` });
@@ -54,6 +62,8 @@ function checkSectionOrder(file, secs, required) {
 
 const byTitle = (secs, name) => secs.find((s) => s.title === name || s.title?.startsWith(`${name}（`));
 const hasLine = (sec, pred) => sec.lines.some(pred);
+/** 表格行的单元格；不是表格行返回 null。 */
+const cellsOf = (line) => (line.trim().startsWith("|") ? line.trim().slice(1, -1).split("|").map((c) => c.trim()) : null);
 const lineNo = (sec, pred) => { const i = sec.lines.findIndex(pred); return i < 0 ? null : sec.start + i; };
 
 /** 进度总览：进度行、当前行、切片表表头、切片号递增。 */
@@ -95,7 +105,7 @@ function checkDocsTable(file, sec) {
   const defects = [];
   if (!hasLine(sec, (l) => l.trim() === DOCS_TABLE_HEADER)) defects.push({ file, line: sec.start, message: `文档维护表表头应为「${DOCS_TABLE_HEADER}」` });
   sec.lines.forEach((l, i) => {
-    const cells = l.trim().startsWith("|") ? l.trim().slice(1, -1).split("|").map((c) => c.trim()) : null;
+    const cells = cellsOf(l);
     if (!cells || cells.length !== 6 || cells[0] === "文档" || cells[0] === "---") return;
     if (!UPDATED_RE.test(cells[5])) defects.push({ file, line: sec.start + i, message: `文档维护表「最近更新」应是 UTC 时刻或「未…」，写的是「${cells[5]}」` });
   });
@@ -158,6 +168,13 @@ export function checkPlan(text, file = "plan.md") {
   return defects;
 }
 
+/** 责任分级：要有重点行，每个重点行至少一个反引号括起的路径；哨兵靠这些路径判圈外改动。 */
+function checkScope(file, sec) {
+  const keyRows = sec.lines.map((l, i) => ({ cells: cellsOf(l), line: sec.start + i })).filter((r) => r.cells?.[0] === "重点");
+  if (keyRows.length === 0) return [{ file, line: sec.start, message: "责任分级表没有「重点」行：加一行「| 重点 | `<成员或目录>` | <本程对它做什么> |」" }];
+  return keyRows.filter((r) => !/`[^`]+`/.test(r.cells[1] ?? "")).map((r) => ({ file, line: r.line, message: "责任分级「重点」行没有反引号括起的路径：把成员或目录写成 `<路径>`，可写多个" }));
+}
+
 /** 核一份 spec 文本。 */
 export function checkSpec(text, file = "spec.md") {
   const defects = [];
@@ -166,6 +183,8 @@ export function checkSpec(text, file = "spec.md") {
   defects.push(...checkSectionOrder(file, secs, SPEC_SECTIONS));
   const criteria = byTitle(secs, "验收标准");
   if (criteria && !hasLine(criteria, (l) => /^- C\d+/.test(l))) defects.push({ file, line: criteria.start, message: "验收标准里没有「- C<n>」条目" });
+  const scope = byTitle(secs, "责任分级");
+  if (scope) defects.push(...checkScope(file, scope));
   return defects;
 }
 
@@ -178,12 +197,14 @@ function fourQuestionDefects(file, sec) {
   });
 }
 
-/** 交接信息包：抬头、九节齐且顺序对、起点一行带提交号、四问四条都有答案。 */
+/** 交接信息包：抬头、九节齐且顺序对、边界带责任分级表、起点一行带提交号、四问四条都有答案。 */
 export function checkHandoff(text, file = "handoff.md") {
   const defects = [];
   if (!/^# 交接信息包：.+$/m.test(text)) defects.push({ file, line: 1, message: "抬头应为「# 交接信息包：<一程名>」" });
   const secs = sections(text);
   defects.push(...checkSectionOrder(file, secs, HANDOFF_SECTIONS));
+  const bounds = byTitle(secs, "边界");
+  if (bounds && !hasLine(bounds, (l) => l.trim() === SCOPE_TABLE_HEADER)) defects.push({ file, line: bounds.start, message: `边界缺责任分级表：加一张与 spec「责任分级」同格式的表，表头「${SCOPE_TABLE_HEADER}」，写范围从它派生` });
   const start = byTitle(secs, "起点与风险");
   if (start && !hasLine(start, (l) => HANDOFF_START_RE.test(l))) defects.push({ file, line: start.start, message: HANDOFF_START_MESSAGE });
   const four = byTitle(secs, "四问");
