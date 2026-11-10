@@ -80,7 +80,7 @@ test("唤醒一次：进度、切片表、里程碑计数、在跑的子代理�
     assert.match(second, /第 2 次唤醒；上次 20/);
     assert.match(second, /- 上次唤醒以来提交 1 条\n```\n[0-9a-f]+ feat: 加 a\n```/);
     assert.match(second, /- 新出现的交回件：\n  - artifacts\/metrics-s02\.json\n/);
-    assert.match(second, /- 可能兜圈：有提交但「当前」行没变/);
+    assert.doesNotMatch(second, /^- 可能兜圈/m,"只停住一轮不算兜圈");
     assert.doesNotMatch(second, /停滞/);
     assert.doesNotMatch(second, /连续 \d+ 轮没有写处置/);
     assert.match(second, /- 未提交改动：无\n/);
@@ -97,6 +97,39 @@ test("唤醒一次：进度、切片表、里程碑计数、在跑的子代理�
     assert.ok(existsSync(join(out, "state.json")));
     assert.equal(JSON.parse(readFileSync(join(out, "state.json"), "utf8")).n, 4);
   } finally { dispose(dir); }
+});
+
+/** 在 src/ 下改一处并提交。 */
+const commitTo = (dir, file, body, msg) => {
+  writeFiles(dir, { [file]: body });
+  git(dir, "add src");
+  git(dir, `commit -q -m "${msg}"`);
+};
+
+test("兜圈：连续两轮有提交、进度标记没动、两轮改了同一文件才报；顺着推进或换了文件不报", () => {
+  const cases = [
+    { name: "同一文件、进度没动", second: ["src/a.ts", PLAN], loops: true },
+    { name: "同一文件、第二轮勾上里程碑", second: ["src/a.ts", PLAN.replace("- [ ] 里程碑二", "- [x] 里程碑二")], loops: false },
+    { name: "同一文件、第二轮切片状态变了", second: ["src/a.ts", PLAN.replace("进行中（x）", "收口中（x）")], loops: false },
+    { name: "进度没动、两轮改的文件不同", second: ["src/b.ts", PLAN], loops: false },
+  ];
+  for (const c of cases) {
+    const dir = makeRepo({ "README.md": "x\n", ".gitignore": "tmp/\n" });
+    const out = join(dir, "tmp/run-x/sentinel");
+    try {
+      writeFiles(dir, { "tmp/run-x/plan.md": PLAN, "tmp/run-x/spec.md": SPEC("src/") });
+      wake(dir, out);
+      commitTo(dir, "src/a.ts", "export const a = 1;\n", "feat: 实现 a");
+      commitTo(dir, "src/a.ts", "export const a = 1;\nexport const b = 2;\n", "test: 补 a 的用例");
+      assert.doesNotMatch(wake(dir, out), /^- 可能兜圈/m,`${c.name}：同一轮先实现再补用例不算`);
+      const [file, plan] = c.second;
+      writeFiles(dir, { "tmp/run-x/plan.md": plan });
+      commitTo(dir, file, "export const a = 3;\n", "fix: 再改");
+      const third = wake(dir, out);
+      if (c.loops) assert.match(third, /- 可能兜圈：连续两轮有提交，进度标记（当前行、勾上的里程碑数、切片状态）都没动，两轮都改了 src\/a\.ts/, c.name);
+      else assert.doesNotMatch(third, /^- 可能兜圈/m,c.name);
+    } finally { dispose(dir); }
+  }
 });
 
 // 文档陈旧信号（第六程 C4）。模板格式的 plan 才核结构。

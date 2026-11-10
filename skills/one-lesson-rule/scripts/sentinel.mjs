@@ -181,12 +181,18 @@ const changedFiles = (repo, prevHead) => {
   return files.filter((f) => !ignored.has(f)).sort();
 };
 
+/** plan 与 spec 自身在仓库里的相对路径：改它们是记账，不算圈外改动，也不算兜圈。 */
+const ownFiles = (repo) => new Set([repoRelative(repo, planPath), repoRelative(repo, specPath)]);
+
+/** 进度标记：当前行、勾上的里程碑数、各切片状态。任何一样动了，这一轮就算有进展。 */
+const progressKey = (plan) => JSON.stringify([plan.current, plan.milestones.filter((m) => m.done).length, plan.slices.map((r) => r[3] ?? "")]);
+
 /** 圈外改动或责任分级缺失的信号：改过的文件里落在责任分级所有路径之外的，plan 与 spec 自身除外，最多列 10 个。 */
 const scopeSignals = (repo, prevHead) => {
   const scope = scopeOf(specPath);
   if (scope.missing) return [`责任分级缺失：${scope.missing}`];
   if (!repo) return [];
-  const own = new Set([repoRelative(repo, planPath), repoRelative(repo, specPath)]);
+  const own = ownFiles(repo);
   const outside = changedFiles(repo, prevHead).filter((f) => !own.has(f) && !covered(f, scope.paths));
   if (outside.length === 0) return [];
   return [`圈外改动：${outside.slice(0, 10).join("、")}${outside.length > 10 ? `（共 ${outside.length} 个，只列前 10 个）` : ""}`];
@@ -305,7 +311,13 @@ const wake = (n) => {
 
   const signals = [];
   if (prev && commits === "" && prev.head === head && prev.dirty === dirty) signals.push("停滞：上次唤醒以来没有新提交，工作树也没变");
-  if (prev && prev.current === plan.current && commits !== "") signals.push("可能兜圈：有提交但「当前」行没变");
+  // 兜圈：一直在改却没有进展。一轮有提交而进度标记没动只算「停住的一轮」；连续两轮停住、两轮又改了同一批文件才报。
+  // 顺着推进的连续提交（先实现再补用例、再重构）会动进度标记，同一文件连改几次不算。
+  const progress = progressKey(plan);
+  const stuck = Boolean(prev && repo && commits !== "" && prev.progress === progress);
+  const touched = stuck ? changedFiles(repo, prev.head).filter((f) => !ownFiles(repo).has(f)) : [];
+  const repeated = (prev?.stuckFiles ?? []).filter((f) => touched.includes(f));
+  if (repeated.length) signals.push(`可能兜圈：连续两轮有提交，进度标记（当前行、勾上的里程碑数、切片状态）都没动，两轮都改了 ${repeated.slice(0, 10).join("、")}${repeated.length > 10 ? `（共 ${repeated.length} 个，只列前 10 个）` : ""}`);
   if (noDispositionStreak >= 2) signals.push(`主代理连续 ${noDispositionStreak} 轮没有写处置：plan 里仍是 ${dispositions} 条`);
   const running = plan.agents.filter((r) => /进行中|第 \d+\/\d+ 轮/.test(r[5] ?? ""));
   for (const r of running) {
@@ -362,7 +374,7 @@ const wake = (n) => {
     "",
     "## 读这份汇报的要做的",
     "",
-    "哨兵按 one-lesson-rule 对照 spec 与 plan 判六问：进度有没有偏离 spec 与 plan（含在圈外做功：信号里的「圈外改动」只是事实，可能是圈外做功，也可能是本程改动带出、还没补进 spec 责任分级的消费者，提醒里两种都写，由主代理判；「责任分级缺失」时判不了圈外，消息里写明）；是不是在局部兜圈（是就提醒按入口技能「写代码的四条」第四条找本质解）；上下文有没有腐化的迹象；每个在跑的子代理是否健康；实现是不是比本质复杂（切片用时超预算、同一切片提交过多、读数变差、改动面过大，是就提醒回到本质解与必要的建模；从已经定义的不变式出发，主代理或子代理在给不变式排除的状态写处理、分支或用例，是就提醒这是过度设计、违背对不变式的守护，按「写代码的四条」第三条删掉）；给人看的文档有没有过期（信号里以「文档陈旧」开头的）。写回看记录，给主代理发不超过十行的消息；主代理把处置写进 plan 的进度总览。",
+    "哨兵按 one-lesson-rule 对照 spec 与 plan 判六问：进度有没有偏离 spec 与 plan（含在圈外做功：信号里的「圈外改动」只是事实，可能是圈外做功，也可能是本程改动带出、还没补进 spec 责任分级的消费者，提醒里两种都写，由主代理判；「责任分级缺失」时判不了圈外，消息里写明）；是不是在局部兜圈（一直在改却没有进展才算，看「可能兜圈」信号、收口轮数与反复红；先实现再补用例这类顺着推进的连续提交不算；是就提醒按入口技能「写代码的四条」第四条找本质解）；上下文有没有腐化的迹象；每个在跑的子代理是否健康；实现是不是比本质复杂（切片用时超预算、同一切片提交过多、读数变差、改动面过大，是就提醒回到本质解与必要的建模；从已经定义的不变式出发，主代理或子代理在给不变式排除的状态写处理、分支或用例，是就提醒这是过度设计、违背对不变式的守护，按「写代码的四条」第三条删掉）；给人看的文档有没有过期（信号里以「文档陈旧」开头的）。写回看记录，给主代理发不超过十行的消息；主代理把处置写进 plan 的进度总览。",
     "",
   ].join("\n");
 
@@ -372,7 +384,7 @@ const wake = (n) => {
   try {
     writeFileSync(file, report);
     writeFileSync(join(outDir, "latest.md"), report);
-    writeFileSync(statePath, JSON.stringify({ at: now.toISOString(), head, dirty, current: plan.current, n, dispositions, noDispositionStreak, findings }, null, 2));
+    writeFileSync(statePath, JSON.stringify({ at: now.toISOString(), head, dirty, current: plan.current, progress, stuckFiles: stuck ? touched : null, n, dispositions, noDispositionStreak, findings }, null, 2));
   } catch (e) {
     console.error(`写不了汇报：${outDir}：${e.message}`);
     process.exit(1);
