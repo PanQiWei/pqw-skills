@@ -99,7 +99,7 @@ test("运行时报错：有 RuntimeError 的位点时成员测量无效、不出
   assert.deepEqual(r.runtimeErrors, [{ file: "a.ts", unit: "f", line: 7, original: "x > 0", mutant: "true" }]);
   const text = formatMutation({ base: "abcdef1234567890", baseGiven: null, planOnly: false, baseline: { passed: true }, sites, ...r, unmutated: [], recheck: null });
   assert.match(text, /位点 3：测量无效（运行时报错 1 个位点）\n/);
-  assert.match(text, /\n\n运行时报错的位点：\n- a\.ts:7 f：x > 0 换成 true\n/);
+  assert.match(text, /\n\n运行时报错的位点：\n- a\.ts:7 f：x > 0 换成 true$/);
   assert.equal(summarize([site({ verdict: "notRun", reason: "compile error" }), site()]).summary.valid, true, "CompileError 不触发");
 });
 
