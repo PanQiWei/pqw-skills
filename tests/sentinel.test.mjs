@@ -458,3 +458,21 @@ test("汇报件落后于收口：两轮之间多了已完成的切片，而汇�
     assert.doesNotMatch(wake(dir, out), /汇报件没有在那之后生成/);
   } finally { dispose(dir); }
 });
+
+test("超出验收窗口：预计收尾晚于人回来的时刻，报一条；在窗口之内、人说过按一程做、没有窗口一行的旧 plan 都不报", () => {
+  const dir = makeRepo({ "README.md": "x\n", ".gitignore": "tmp/\n" });
+  const out = join(dir, "tmp/run-x/sentinel");
+  const at = (h) => new Date(Date.now() + h * 3600_000).toISOString().slice(0, 16) + "Z";
+  const plan = (eta, back, extra = "") => PLAN.replace("当前：切片 02 实施", `当前：切片 02 实施\n预计收尾：${eta} · 依据：剩一片`) + `\n## 预算与回看\n\n${back ? `- 人的验收窗口：回来 ${back} · 验收 60 分钟（缺省）\n` : ""}${extra}`;
+  try {
+    const [eta, back] = [at(5), at(2)];
+    writeFiles(dir, { "tmp/run-x/plan.md": plan(eta, back), "tmp/run-x/spec.md": SPEC("src/") });
+    assert.match(wake(dir, out), new RegExp(`- 超出验收窗口：预计收尾 ${eta} 晚于人回来的时刻 ${back}`));
+    writeFiles(dir, { "tmp/run-x/plan.md": plan(at(1), back) });
+    assert.doesNotMatch(wake(dir, out), /^- 超出验收窗口/m, "在窗口之内");
+    writeFiles(dir, { "tmp/run-x/plan.md": plan(eta, back, "\n处置 1（2026-11-08T09:00Z）：按一程做；人的原话：就按一程做\n") });
+    assert.doesNotMatch(wake(dir, out), /^- 超出验收窗口/m, "人说过按一程做");
+    writeFiles(dir, { "tmp/run-x/plan.md": plan(eta, null) });
+    assert.doesNotMatch(wake(dir, out), /^- 超出验收窗口/m, "没有窗口一行的旧 plan");
+  } finally { dispose(dir); }
+});

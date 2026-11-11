@@ -1,4 +1,4 @@
-// 核 plan 与 spec 的骨架是否仍合模板：节在不在、顺序对不对、表头齐不齐、进度行与处置行格式对不对、每片有没有意义段与收口、责任分级有没有带路径的重点行。
+// 核 plan 与 spec 的骨架是否仍合模板：节在不在、顺序对不对、表头齐不齐、进度行与处置行格式对不对、每片有没有意义段与收口、预计收尾超出人的验收窗口时有没有分程建议或人的决定、责任分级有没有带路径的重点行。
 // 只核结构，不核内容好坏。必需节的字面与 ../plan-template.md、../spec-template.md 是同一份契约，改一处就改另一处；用例里有一条把两处钉在一起。
 
 /** plan 必需的二级节，按顺序。匹配按「以此开头」，允许标题后带括号说明。 */
@@ -108,11 +108,11 @@ function agentStatusDefects(file, sec) {
   return defects;
 }
 
-/** 晚于时钟的时刻：估出来的时刻会让哨兵与汇报件把先后读错。预计收尾一行写的是将来，除外。 */
+/** 晚于时钟的时刻：估出来的时刻会让哨兵与汇报件把先后读错。预计收尾与人的验收窗口两行写的是将来，除外。 */
 function futureTimeDefects(file, text, now) {
   const defects = [];
   text.split("\n").forEach((l, i) => {
-    if (l.startsWith("预计收尾：")) return;
+    if (l.startsWith("预计收尾：") || l.startsWith(WINDOW_LINE_PREFIX)) return;
     for (const m of l.matchAll(TIME_RE)) {
       if (Date.parse(m[0]) > now + CLOCK_SLACK_MS) defects.push({ file, line: i + 1, message: `时刻 ${m[0]} 晚于检查时的时钟 ${new Date(now).toISOString().slice(0, 16)}Z：时刻在写的那一刻读时钟，不估` });
     }
@@ -231,19 +231,65 @@ function checkSlices(file, sec, tableIds, statuses, newTemplate) {
 
 const hasModelsLine = (overview) => overview.lines.some((l) => l.startsWith(MODELS_LINE_PREFIX));
 
+/** 「预算与回看」里人的验收窗口一行。有这一行的是带诤友的新模板，预计收尾对窗口按缺陷核；没有的只给提示。字面与 ../plan-template.md 是同一份契约。 */
+export const WINDOW_LINE_PREFIX = "- 人的验收窗口：";
+/** 窗口一行：回来的 UTC 时刻，再写验收多久。只取回来的时刻，验收时长是给人读的。 */
+export const WINDOW_RE = /^- 人的验收窗口：回来 (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?Z) · 验收 \S/;
+/** 处置记录里人说就按一程做：处置行里有「按一程做」四个字。 */
+const ONE_RUN_RE = /^处置 \d+（.*按一程做/;
+/** 切片的「人怎么验」写「无」：这片人上手看不到。 */
+const NO_HUMAN_CHECK_RE = /^- \*\*人怎么验：\*\*\s*无(?:$|[。；，\s（])/;
+
+/** 分程建议一节写了：表里至少一行不全是尖括号占位。照抄模板没改的不算。 */
+function splitWritten(secs) {
+  const sec = byTitle(secs, "分程建议");
+  return Boolean(sec?.lines.map(cellsOf).some((c) => c && /^\d+$/.test(c[0]) && c.slice(1).some((x) => x !== "" && !isPlaceholder(x))));
+}
+
+/** 人的验收窗口：一行在就核格式；预计收尾晚于回来的时刻时，要有写了的分程建议，或人说按一程做的处置。没有这一行的旧 plan 不核。 */
+function windowDefects(file, text, secs) {
+  const lines = text.split("\n");
+  const at = lines.findIndex((l) => l.startsWith(WINDOW_LINE_PREFIX));
+  if (at < 0) return [];
+  const m = WINDOW_RE.exec(lines[at]);
+  if (!m) return [{ file, line: at + 1, message: "人的验收窗口一行格式错：应为「- 人的验收窗口：回来 <UTC 时刻> · 验收 <分钟数> 分钟（<人的原话>）」" }];
+  const eta = /^预计收尾：(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?Z)/m.exec(text)?.[1];
+  if (!eta || Date.parse(eta) <= Date.parse(m[1])) return [];
+  if (splitWritten(secs) || lines.some((l) => ONE_RUN_RE.test(l))) return [];
+  return [{ file, line: at + 1, message: `预计收尾 ${eta} 晚于人回来的时刻 ${m[1]}：一程大过人验得完的量。在 plan 末尾写「## 分程建议」；人说就按一程做时，在处置记录里记一行「处置 <n>（<UTC 时刻>）：按一程做；人的原话：<>」` }];
+}
+
+/** 切片写「人怎么验：无」的提示：人上手看不到的片只是中间产物。 */
+function noHumanCheckHints(file, secs) {
+  const slices = byTitle(secs, "切片");
+  if (!slices) return [];
+  return sliceBlocks(slices).flatMap((b) => {
+    const i = b.body.findIndex((l) => NO_HUMAN_CHECK_RE.test(l));
+    return i < 0 ? [] : [{ file, line: b.line + i, message: `切片 ${b.id} 的「人怎么验」写的是无：人上手看不到这片的行为，它只是中间产物，考虑并进能看到的那一片` }];
+  });
+}
+
 /**
- * 提示：不算缺陷、不改退出码的几条。现在只有一类：旧模板的 plan 没有「思维模型：」一行，
- * 开工包的思维模型栏不按缺陷核，提示加上这一行，并列出加上之后要补的栏。已有的 plan 不因模板升级而无故变红。
+ * 提示：不算缺陷、不改退出码的几条。旧模板的 plan 没有「思维模型：」一行，开工包的思维模型栏不按缺陷核，
+ * 提示加上这一行，并列出加上之后要补的栏；没有「人的验收窗口」一行，预计收尾对窗口不按缺陷核，提示加上它。
+ * 有窗口一行的新模板，切片写「人怎么验：无」的给提示。已有的 plan 不因模板升级而无故变红。
  */
 export function planHints(text, file = "plan.md") {
   const secs = sections(text);
   const overview = byTitle(secs, "进度总览");
-  if (!overview || hasModelsLine(overview)) return [];
-  const slices = byTitle(secs, "切片");
-  const statuses = sliceStatuses(overview);
-  const owed = slices ? sliceBlocks(slices).map((b) => ({ id: b.id, names: missingFields(b.body, statuses.get(b.id)).names })).filter((s) => s.names.length) : [];
-  const tail = owed.length ? `；加上之后要补：${owed.map((s) => `切片 ${s.id} 缺${s.names.map((n) => `「${n}」`).join("")}`).join("，")}` : "";
-  return [{ file, line: overview.start, message: `进度总览没有「${MODELS_LINE_PREFIX}」一行，按旧模板核，开工包的思维模型栏只提示、不报缺陷。照 plan 模板加上这一行，上下文压缩之后按它重新加载思维模型技能${tail}` }];
+  if (!overview) return [];
+  const hints = [];
+  if (!hasModelsLine(overview)) {
+    const slices = byTitle(secs, "切片");
+    const statuses = sliceStatuses(overview);
+    const owed = slices ? sliceBlocks(slices).map((b) => ({ id: b.id, names: missingFields(b.body, statuses.get(b.id)).names })).filter((s) => s.names.length) : [];
+    const tail = owed.length ? `；加上之后要补：${owed.map((s) => `切片 ${s.id} 缺${s.names.map((n) => `「${n}」`).join("")}`).join("，")}` : "";
+    hints.push({ file, line: overview.start, message: `进度总览没有「${MODELS_LINE_PREFIX}」一行，按旧模板核，开工包的思维模型栏只提示、不报缺陷。照 plan 模板加上这一行，上下文压缩之后按它重新加载思维模型技能${tail}` });
+  }
+  const budget = byTitle(secs, "预算与回看");
+  if (!text.split("\n").some((l) => l.startsWith(WINDOW_LINE_PREFIX))) hints.push({ file, line: budget?.start ?? overview.start, message: `「预算与回看」没有「${WINDOW_LINE_PREFIX}」一行，按旧模板核，预计收尾对人的验收窗口只提示、不报缺陷。照 plan 模板加上这一行，写人什么时候回来、有多少时间上手验收` });
+  else hints.push(...noHumanCheckHints(file, secs));
+  return hints;
 }
 
 /** 处置编号从 1 起按出现顺序连续。 */
@@ -274,6 +320,7 @@ export function checkPlan(text, file = "plan.md", { now = Date.now() } = {}) {
   const slices = byTitle(secs, "切片");
   if (slices) defects.push(...checkSlices(file, slices, overview ? sliceTableIds(overview) : [], overview ? sliceStatuses(overview) : new Map(), overview ? hasModelsLine(overview) : false));
   defects.push(...checkDisposals(file, text));
+  defects.push(...windowDefects(file, text, secs));
   defects.push(...futureTimeDefects(file, text, now));
   return defects;
 }

@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { checkFiles, checkHandoff, checkPlan, checkSpec, planHints, sections, KICKOFF_FIELDS, MODELS_LINE_PREFIX, PLAN_SECTIONS, SPEC_SECTIONS } from "../skills/spec-and-plan/scripts/lib/check-plan.mjs";
+import { checkFiles, checkHandoff, checkPlan, checkSpec, planHints, sections, KICKOFF_FIELDS, MODELS_LINE_PREFIX, PLAN_SECTIONS, SPEC_SECTIONS, WINDOW_LINE_PREFIX, WINDOW_RE } from "../skills/spec-and-plan/scripts/lib/check-plan.mjs";
 
 const SCRIPT = new URL("../skills/spec-and-plan/scripts/check-plan.mjs", import.meta.url).pathname;
 const TEMPLATE = new URL("../skills/spec-and-plan/plan-template.md", import.meta.url).pathname;
@@ -51,6 +51,7 @@ const GOOD_PLAN = `# 示例 交付计划（revision 1）
 ## 预算与回看
 
 - 预算 1 小时。
+- 人的验收窗口：回来 2026-11-08T18:00Z · 验收 60 分钟（缺省：当天回来，验收一小时）
 
 ## 文档维护表
 
@@ -482,4 +483,52 @@ test("旧模板：进度总览没有「思维模型：」一行时开工包的�
     assert.deepEqual(parsed.defects, []);
     assert.deepEqual(parsed.hints.map((h) => h.message), [hints[0].message]);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+/** 0.19.0 模板的 plan：有「思维模型：」一行，没有人的验收窗口一行。 */
+const PLAN_019 = GOOD_PLAN.split("\n").filter((l) => !l.startsWith(WINDOW_LINE_PREFIX)).join("\n");
+const LATE = (plan) => plan.replace("预计收尾：2026-11-08T12:00Z", "预计收尾：2026-11-08T20:00Z");
+const windowLine = (plan) => plan.split("\n").findIndex((l) => l.startsWith(WINDOW_LINE_PREFIX)) + 1;
+const OVER_WINDOW = "预计收尾 2026-11-08T20:00Z 晚于人回来的时刻 2026-11-08T18:00Z：一程大过人验得完的量。在 plan 末尾写「## 分程建议」；人说就按一程做时，在处置记录里记一行「处置 <n>（<UTC 时刻>）：按一程做；人的原话：<>」";
+const SPLIT = "\n## 分程建议\n\n| 程 | 目标 | 交付的行为 | 预计时长 | 人怎么验 |\n| --- | --- | --- | --- | --- |\n| 1 | 先交第一片 | 第一片 | 2 小时 | 跑一次 demo，十分钟 |\n";
+
+test("人的验收窗口：plan 模板里有这一行，实例化后合格式，核对器与模板是同一份契约", () => {
+  const line = instantiate(TEMPLATE).split("\n").find((l) => l.startsWith(WINDOW_LINE_PREFIX));
+  assert.ok(line, "plan 模板的预算与回看有「人的验收窗口」一行");
+  assert.match(line, WINDOW_RE);
+  assert.ok(readFileSync(TEMPLATE, "utf8").includes("\n## 分程建议\n"), "plan 模板有「分程建议」一节");
+  assert.ok(readFileSync(TEMPLATE, "utf8").includes("- **人怎么验：**"), "plan 模板的切片有「人怎么验」一项");
+});
+
+test("人的验收窗口：预计收尾晚于人回来的时刻，没有分程建议也没有按一程做的处置，报一处，行号指向窗口一行；有其一就不报", () => {
+  assert.deepEqual(checkPlan(GOOD_PLAN), [], "预计收尾在窗口之内");
+  const late = LATE(GOOD_PLAN);
+  assert.deepEqual(checkPlan(late).map((d) => [d.line, d.message]), [[windowLine(late), OVER_WINDOW]]);
+  assert.deepEqual(checkPlan(late + SPLIT), [], "写了分程建议");
+  assert.deepEqual(checkPlan(late + SPLIT.replace("| 1 | 先交第一片 | 第一片 | 2 小时 | 跑一次 demo，十分钟 |", "| 1 | <> | <> | <> | <> |")).map((d) => d.message), [OVER_WINDOW], "照抄模板没改的分程建议不算");
+  assert.deepEqual(checkPlan(late.replace("处置 2（2026-11-08T09:45Z）：继续；无信号。", "处置 2（2026-11-08T09:45Z）：按一程做；人的原话：就按一程做")), [], "人说按一程做");
+  assert.deepEqual(checkPlan(late.replace("- 预算 1 小时。", "- 预算 1 小时。按一程做。")).map((d) => d.message), [OVER_WINDOW], "处置行之外的「按一程做」不算");
+  assert.deepEqual(checkPlan(GOOD_PLAN.replace("回来 2026-11-08T18:00Z", "回来 今晚")).map((d) => [d.line, d.message]), [[windowLine(GOOD_PLAN), "人的验收窗口一行格式错：应为「- 人的验收窗口：回来 <UTC 时刻> · 验收 <分钟数> 分钟（<人的原话>）」"]]);
+  assert.deepEqual(checkPlan(GOOD_PLAN, "plan.md", { now: Date.parse("2026-11-08T10:30Z") }), [], "回来的时刻在将来不算晚于时钟");
+});
+
+test("0.19.0 模板的 plan：没有人的验收窗口一行，预计收尾再晚也不报新缺陷，只给一条提示；命令面照样退出 0", () => {
+  assert.deepEqual(checkPlan(LATE(PLAN_019)), []);
+  const hints = planHints(LATE(PLAN_019));
+  assert.deepEqual(hints.map((h) => [h.line, h.message]), [[PLAN_019.split("\n").indexOf("## 预算与回看") + 1, "「预算与回看」没有「- 人的验收窗口：」一行，按旧模板核，预计收尾对人的验收窗口只提示、不报缺陷。照 plan 模板加上这一行，写人什么时候回来、有多少时间上手验收"]]);
+  const dir = mkdtempSync(join(tmpdir(), "pqw-check-plan-"));
+  try {
+    writeFileSync(join(dir, "plan.md"), LATE(PLAN_019));
+    const text = run(["--plan", join(dir, "plan.md"), "--now", "2026-11-08T11:00Z"]);
+    assert.equal(text.status, 0, text.stdout);
+    assert.ok(text.stdout.trimEnd().endsWith("check-plan：结构合模板，1 条提示"), text.stdout);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("人怎么验：新模板里切片写「无」给一条提示，不报缺陷；写了办法的、旧模板的不提示", () => {
+  const none = GOOD_PLAN.replace("### 02：第二片\n\n- **交付：** 一句。", "### 02：第二片\n\n- **交付：** 一句。\n- **人怎么验：** 无");
+  assert.deepEqual(checkPlan(none), []);
+  assert.deepEqual(planHints(none).map((h) => [h.line, h.message]), [[none.split("\n").indexOf("- **人怎么验：** 无") + 1, "切片 02 的「人怎么验」写的是无：人上手看不到这片的行为，它只是中间产物，考虑并进能看到的那一片"]]);
+  assert.deepEqual(planHints(none.replace("- **人怎么验：** 无", "- **人怎么验：** 无需命令，打开页面看；约 5 分钟")), [], "「无需」不是无");
+  assert.deepEqual(planHints(none.split("\n").filter((l) => !l.startsWith(WINDOW_LINE_PREFIX)).join("\n")).length, 1, "旧模板只提示缺窗口一行");
 });
