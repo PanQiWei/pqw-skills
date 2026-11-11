@@ -37,7 +37,7 @@ pqw-skills/
 │   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、工具版本常量与 plugin.json 一致、写代码的四条只有一处索引、上下文地图每一格兑现（含横切技能、阶段技能与常驻卡片）、接入约定与它的版本、发版说明合模板
 ├── tests/                    仓库测试，vitest；根 package.json 钉依赖，npm install 后直接跑；根目录不提交锁文件
 └── skills/
-    ├── single-session-dev-flow/   总入口；resident-card.md（常驻卡片，消费项目原样放进常驻入口文件）
+    ├── single-session-dev-flow/   总入口；resident-card.md（常驻卡片，消费项目原样放进常驻入口文件）；unattended-card.md（无人卡片，没有人在场的运行接在常驻卡片后面）
     ├── teach-pqw-skills/             教人用这套流；mental-models.md、who-does-what.md、prompting.md
     ├── requirement-and-invariants/   requirement-template.md
     ├── domain-impact-analysis/       impact-template.md

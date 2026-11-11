@@ -2,6 +2,22 @@
 
 每一版一节，写法见 [DEVELOPMENT.md 的「发版」](./DEVELOPMENT.md#发版)。「细节」之前的部分就是 GitHub Release 的正文。
 
+## 0.25.0 · 没有人在场时怎么用
+
+An unattended card: how to run the flow when no human is present to ask or to verify, as in batch jobs and automated evaluation.
+
+**要你动手的：** 不用，直接升级。要在无人值守的运行里用这套流，把无人卡片接在常驻卡片后面。
+**接入约定：** version 1，没变。
+
+### 变了什么
+
+- **新增无人卡片** `skills/single-session-dev-flow/unattended-card.md`：任务说明就是全部要求时，替人把边界定成一张要求清单，然后按交付期做：看现状定差异、切片、每片对照清单带证据收口、交之前再核一遍。不走定义期其余几步、交接期与诤友，不跑结构读数与差分变异。
+- **`single-session-dev-flow`**：「不可商量的」多一条「没有人在场」，指到无人卡片。
+
+### 细节
+
+这套流的定义期与交接期是和人一起走的，入口技能会停下来等人确认。没有人的运行里它要么不被加载，要么停在第一步。无人卡片只留没有人也成立的部分。它还没有在真实任务上验证过效果。
+
 ## 0.24.1 · 发版说明有了模板
 
 Release notes now follow one template: what you get, what you must do, what changed.
