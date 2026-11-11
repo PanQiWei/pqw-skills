@@ -74,12 +74,15 @@ test("上下文地图：仓库本身不报；删掉一处指路行或一个模�
   } finally { dispose(dir); }
 });
 
-test("上下文地图：别处一行里同时出现模型的两个标志词却没点技能名，报复述；点了技能名的不报", () => {
+test("上下文地图：别处一行里同时出现模型的两个标志词却没点技能名，报复述；点了技能名的、指向写代码的四条的不报", () => {
   const dir = copyRepo();
   try {
-    appendFileSync(join(dir, "skills/cleanup/SKILL.md"), "\n先写应然，再看实然，从差异做事。\n\n应然与实然的做法见 `think-ought-vs-is`。\n\n- 应然：只有一个标志词的空位\n");
+    appendFileSync(join(dir, "skills/cleanup/SKILL.md"), "\n先写应然，再看实然，从差异做事。\n\n应然与实然的做法见 `think-ought-vs-is`。\n\n- 应然：只有一个标志词的空位\n\n做对之后留一轮做好一轮。\n\n做对与做好一轮见[写代码的四条](../single-session-dev-flow/SKILL.md#写代码的四条)。\n");
     const lines = readFileSync(join(dir, "skills/cleanup/SKILL.md"), "utf8").split("\n");
-    assert.deepEqual(mapReported(dir), [`skills/cleanup/SKILL.md:${lines.indexOf("先写应然，再看实然，从差异做事。") + 1} 复述了「应然与实然」却没有点技能名 \`think-ought-vs-is\``]);
+    assert.deepEqual(mapReported(dir), [
+      `skills/cleanup/SKILL.md:${lines.indexOf("先写应然，再看实然，从差异做事。") + 1} 复述了「应然与实然」却没有点技能名 \`think-ought-vs-is\``,
+      `skills/cleanup/SKILL.md:${lines.indexOf("做对之后留一轮做好一轮。") + 1} 复述了「先做对，再做好」却没有点技能名 \`think-right-then-well\``,
+    ]);
   } finally { dispose(dir); }
 });
 

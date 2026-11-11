@@ -257,11 +257,13 @@ function checkMapCell(row, model, cell) {
   else for (const file of cell.files ?? []) if (!hasText(file, model.hook)) fail(MAP_CHECK, `${at}：${file} 缺指路行「${model.hook}」`);
   for (const [file, slots] of Object.entries(cell.slots ?? {})) for (const slot of slots) if (!hasText(file, slot)) fail(MAP_CHECK, `${at}：${file} 缺空位「${slot}」`);
 }
+/** 复述：别处一行里出现模型的两个标志词，却既没点技能名，也不是指向「写代码的四条」的一行。指向四条的行是指针，四条那一节各句已指到所属模型。 */
 function checkRestatement(model) {
   const own = join(config.skillsDir, model.skill) + "/";
   for (const file of walkMd(config.skillsDir)) {
     if (file.startsWith(own)) continue;
     read(file).split("\n").forEach((line, i) => {
+      if (line.includes("写代码的四条")) return;
       if (model.marks.filter((mark) => line.includes(mark)).length >= 2 && !line.includes(`\`${model.skill}\``)) fail(MAP_CHECK, `${rel(file)}:${i + 1} 复述了「${model.name}」却没有点技能名 \`${model.skill}\``);
     });
   }

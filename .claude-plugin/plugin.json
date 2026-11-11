@@ -34,6 +34,8 @@
     "./skills/cleanup",
     "./skills/teach-pqw-skills",
     "./skills/think-ought-vs-is",
+    "./skills/think-model-first",
+    "./skills/think-right-then-well",
     "./skills/clear-writing",
     "./skills/write-agents-md"
   ]

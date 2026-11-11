@@ -81,6 +81,8 @@ description: 交付期第 11 步，切片收口：主代理自跑类型检查与
 
 对自己和派出去的子代理同样按[写代码的四条](../single-session-dev-flow/SKILL.md#写代码的四条)要求代码品味、架构优雅与代码整洁；判设计与实践的完整依据加载技能 `ub-mode`；TypeScript 的写法加载技能 `pstack:typescript-best-practices`。
 
+做好一轮在收口之前单独做完，按结构读数、差分变异与品味核对单收拾本片的改动，核对单的答案写进收口清单。先做对，再单独做好一轮。做法加载技能 `think-right-then-well`。
+
 ## 外部技能
 
 - 对照标准的评审加载技能 `mattpocock-skills:code-review`，只用它的标准面。

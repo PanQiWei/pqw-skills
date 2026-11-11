@@ -9,13 +9,27 @@
       "question": "这件事的工作到底是什么",
       "hook": "先答三问：应然、实然、差异。做法加载技能 `think-ought-vs-is`。",
       "marks": ["应然", "实然"]
+    },
+    {
+      "skill": "think-model-first",
+      "name": "建模先于代码",
+      "question": "代码该长成什么形状",
+      "hook": "先把状态与操作写成偏函数并全化，再翻成领域模型与对象模型。做法加载技能 `think-model-first`。",
+      "marks": ["全化表", "领域模型与对象模型"]
+    },
+    {
+      "skill": "think-right-then-well",
+      "name": "先做对，再做好",
+      "question": "按什么顺序建，怎样算好",
+      "hook": "先做对，再单独做好一轮。做法加载技能 `think-right-then-well`。",
+      "marks": ["做对", "做好一轮"]
     }
   ],
   "rows": [
     { "row": "1 需求与不变式", "cells": { "think-ought-vs-is": { "kind": "主", "files": ["skills/requirement-and-invariants/SKILL.md"] } } },
     { "row": "2 领域影响", "cells": { "think-ought-vs-is": { "kind": "行", "files": ["skills/domain-impact-analysis/SKILL.md"] } } },
     { "row": "3 调研与复用", "cells": { "think-ought-vs-is": { "kind": "主", "files": ["skills/tech-research-and-reuse/SKILL.md"] } } },
-    { "row": "4 形式化守护", "cells": {} },
+    { "row": "4 形式化守护", "cells": { "think-model-first": { "kind": "主", "files": ["skills/formal-guard/SKILL.md"] } } },
     {
       "row": "5 细化设计",
       "cells": {
@@ -23,7 +37,8 @@
           "kind": "空",
           "files": ["skills/detailed-domain-design/SKILL.md"],
           "slots": { "skills/detailed-domain-design/design-template.md": ["- 应然：", "- 实然：", "- 差异："] }
-        }
+        },
+        "think-model-first": { "kind": "主", "files": ["skills/detailed-domain-design/SKILL.md"] }
       }
     },
     { "row": "6 正式落盘", "cells": {} },
@@ -37,6 +52,22 @@
           "slots": {
             "skills/context-pack/slice-kickoff-template.md": ["  - 应然：", "  - 实然：", "  - 差异："],
             "skills/spec-and-plan/plan-template.md": ["  - 应然：", "  - 实然：", "  - 差异："]
+          }
+        },
+        "think-model-first": {
+          "kind": "空",
+          "files": ["skills/context-pack/SKILL.md"],
+          "slots": {
+            "skills/context-pack/slice-kickoff-template.md": ["  - 全化表：", "  - 领域模型：", "  - 对象模型："],
+            "skills/spec-and-plan/plan-template.md": ["  - 全化表："]
+          }
+        },
+        "think-right-then-well": {
+          "kind": "空",
+          "files": ["skills/context-pack/SKILL.md"],
+          "slots": {
+            "skills/context-pack/slice-kickoff-template.md": ["  1. 做对：", "  2. 做好一轮："],
+            "skills/spec-and-plan/plan-template.md": ["  1. 做对：", "  2. 做好一轮："]
           }
         }
       }
@@ -57,16 +88,36 @@
         "think-ought-vs-is": {
           "kind": "行",
           "files": ["skills/one-lesson-rule/SKILL.md", "skills/one-lesson-rule/review-record-template.md", "skills/delegate-brief/sentinel-brief-template.md"]
+        },
+        "think-right-then-well": {
+          "kind": "行",
+          "files": ["skills/one-lesson-rule/SKILL.md", "skills/one-lesson-rule/review-record-template.md", "skills/delegate-brief/sentinel-brief-template.md"]
         }
       }
     },
-    { "row": "11 切片收口", "cells": { "think-ought-vs-is": { "kind": "行", "files": ["skills/slice-closeout/SKILL.md"] } } },
+    {
+      "row": "11 切片收口",
+      "cells": {
+        "think-ought-vs-is": { "kind": "行", "files": ["skills/slice-closeout/SKILL.md"] },
+        "think-right-then-well": { "kind": "主", "files": ["skills/slice-closeout/SKILL.md", "skills/slice-closeout/closeout-checklist.md"] }
+      }
+    },
     { "row": "12 汇报", "cells": { "think-ought-vs-is": { "kind": "主", "files": ["skills/progress-artifacts/SKILL.md"] } } },
     { "row": "13 清理", "cells": {} },
-    { "row": "不够格的小活", "cells": { "think-ought-vs-is": { "kind": "行", "files": ["skills/single-session-dev-flow/SKILL.md"] } } },
+    {
+      "row": "不够格的小活",
+      "cells": {
+        "think-ought-vs-is": { "kind": "行", "files": ["skills/single-session-dev-flow/SKILL.md"] },
+        "think-right-then-well": { "kind": "行", "files": ["skills/single-session-dev-flow/SKILL.md"] }
+      }
+    },
     {
       "row": "压缩之后",
-      "cells": { "think-ought-vs-is": { "kind": "空", "slots": { "skills/spec-and-plan/plan-template.md": ["找差异 `think-ought-vs-is`"] } } }
+      "cells": {
+        "think-ought-vs-is": { "kind": "空", "slots": { "skills/spec-and-plan/plan-template.md": ["找差异 `think-ought-vs-is`"] } },
+        "think-model-first": { "kind": "空", "slots": { "skills/spec-and-plan/plan-template.md": ["定形 `think-model-first`"] } },
+        "think-right-then-well": { "kind": "空", "slots": { "skills/spec-and-plan/plan-template.md": ["建 `think-right-then-well`"] } }
+      }
     }
   ]
 }

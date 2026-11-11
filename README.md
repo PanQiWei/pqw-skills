@@ -170,6 +170,8 @@ bash scripts/link-skills.sh
 流程回答现在走到哪一步，思维模型回答做这一步时怎么想。它们不属于某个环节，随时可以单独加载，不走这条流时也适用。
 
 - **[think-ought-vs-is](./skills/think-ought-vs-is/SKILL.md)**：应然与实然。先答三问：它应该是什么样，它现在是什么样，两者差在哪；差异就是全部工作。
+- **[think-model-first](./skills/think-model-first/SKILL.md)**：建模先于代码。状态与操作先写成偏函数并全化，再翻成领域模型与对象模型，然后写代码。
+- **[think-right-then-well](./skills/think-right-then-well/SKILL.md)**：先做对，再做好。做对只求验收标准逐条过；做好一轮不加能力只改实现，由读数、变异与品味核对单判。
 
 ## 写作技能
 

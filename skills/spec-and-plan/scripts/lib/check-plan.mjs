@@ -161,7 +161,7 @@ function checkDocsTable(file, sec) {
 /** 进度总览里「思维模型：」一行开头。有这一行的是新模板，开工包的思维模型栏按缺陷核；没有的是旧模板，只给提示。 */
 export const MODELS_LINE_PREFIX = "思维模型：";
 /** 开工包里思维模型的栏：上下文地图「切片开工包」一行里标「空」的格在 plan 模板里的栏名。字面与 ../plan-template.md 是同一份契约，用例把两处钉在一起。 */
-export const KICKOFF_FIELDS = ["应然", "实然", "差异"];
+export const KICKOFF_FIELDS = ["应然", "实然", "差异", "全化表", "做对", "做好一轮"];
 /** 列表项的正文：去掉「- 」「1. 」与勾选框。不是列表项返回 null。 */
 const itemText = (line) => /^\s*(?:[-*]|\d+\.)\s+(?:\[[ x]\]\s+)?(.*)$/.exec(line)?.[1] ?? null;
 /** 一栏答过：「- 栏名：」或「1. 栏名：」后有内容，且不是整条尖括号占位。 */
