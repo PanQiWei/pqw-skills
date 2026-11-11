@@ -26,6 +26,7 @@ pqw-skills/
 │   ├── social-preview.png    仓库的社交预览图，1280×640；在 GitHub 的 Settings 里上传
 │   └── gen-icons.sh          用 ImageMagick 画出上面两张图，视觉规范同信息图
 ├── plugin.json               给 Codex 与 Cursor 的通用清单（Agent Plugins 格式）；版本与 .claude-plugin/plugin.json 同步
+├── kimi.plugin.json          给 Kimi Code 的插件清单；版本同样同步
 ├── .claude-plugin/
 │   ├── plugin.json           插件清单：名字、版本、skills 数组逐个列出技能目录
 │   └── marketplace.json      仓库自带的单插件市场，供 claude plugin marketplace add

@@ -1,5 +1,15 @@
 # pqw-skills
 
+## 0.22.2
+
+多两个原生支持的宿主：Kimi Code 与 DeepSeek Harness（DSH）。技能正文没有变。
+
+Kimi Code：新增根 `kimi.plugin.json`，是 Kimi Code 自己的插件清单。在会话里 `/plugins install https://github.com/PanQiWei/pqw-skills` 就装上全套，它从 GitHub 取默认分支；地址换成发行页可以固定版本。清单字段照 Kimi Code 2.2.0 的解析代码核过；没有在真实会话里装过。
+
+DSH：它没有安装技能的命令，从固定目录发现技能。README 写了装进 `~/.dsh/skills` 的两行命令，以及项目级的 `.agents/skills`。目录与规则照 DSH 官方的技能子系统文档；没有在真实 DSH 里跑过。
+
+`one-lesson-rule` 的宿主表加这两行。`check-repo` 把 `kimi.plugin.json` 也纳入版本一致性。图标与社交预览图按 kami 规范重画（Charter 字、细线、象牙色卡片），由 `assets/gen-icons.sh` 生成。
+
 ## 0.22.1
 
 让人找得到、装得上。技能正文没有变。

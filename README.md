@@ -7,12 +7,12 @@ claude plugin marketplace add PanQiWei/pqw-skills
 claude plugin install pqw-skills@pqw
 ```
 
-Codex、Cursor、Copilot、Gemini 的装法见[安装](#安装)。装好后问一句「这套流怎么用」，它会教你。
+Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装)。装好后问一句「这套流怎么用」，它会教你。
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.22.1-informational.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.22.2-informational.svg)](./CHANGELOG.md)
 [![Skills](https://img.shields.io/badge/skills-25-success.svg)](#技能)
-[![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#安装)
+[![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Kimi%20Code%20%7C%20DSH%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#安装)
 [![Language](https://img.shields.io/badge/lang-%E4%B8%AD%E6%96%87%20%7C%20English-lightgrey.svg)](./README_EN.md)
 
 [English](./README_EN.md)
@@ -153,6 +153,8 @@ Codex、Cursor、Copilot、Gemini 的装法见[安装](#安装)。装好后问�
 | Codex | `@pqw` 市场 | 是，启动时 |
 | GitHub Copilot CLI | `@pqw` 市场 | 是，需一次性开 `autoUpdate` |
 | VS Code | Chat: Install Plugin From Source | 是，每天 |
+| Kimi Code | `/plugins install`，托管副本 | 否，重跑命令 |
+| DeepSeek Harness（DSH） | 复制进它的技能目录 | 否，拉取后重新复制 |
 | Gemini CLI | `gemini skills install`，复制文件 | 否，重跑命令 |
 | Cursor 及其他 | skills.sh，复制文件 | 否，`npx skills update` |
 
@@ -165,7 +167,7 @@ claude plugin install pqw-skills@pqw
 
 ### Codex
 
-Codex 没有 `.codex-plugin/` 时读 `.claude-plugin/`，同一份清单直接可用。
+Codex 读仓库自带的市场清单；插件的展示信息在根 `plugin.json`。
 
 ```bash
 codex plugin marketplace add PanQiWei/pqw-skills
@@ -190,6 +192,27 @@ copilot plugin install pqw-skills@pqw
 ```
 
 VS Code 里运行 **Chat: Install Plugin From Source**，填 `https://github.com/PanQiWei/pqw-skills`。
+
+### Kimi Code
+
+仓库根有 Kimi Code 的插件清单 `kimi.plugin.json`。在 Kimi Code 会话里输入：
+
+```text
+/plugins install https://github.com/PanQiWei/pqw-skills
+```
+
+它从 GitHub 取默认分支，复制成托管副本。要固定版本，把地址换成发行页，例如 `https://github.com/PanQiWei/pqw-skills/releases/tag/v0.22.2`。更新时重跑同一条命令，再 `/plugins reload`。
+
+### DeepSeek Harness（DSH）
+
+DSH 没有安装技能的命令，它从固定的目录里发现技能：项目里的 `.dsh/skills` 与 `.agents/skills`，用户级的 `~/.dsh/skills` 与 `~/.agents/skills`。每个技能是这些目录下的一个直属子目录。装到用户级：
+
+```bash
+git clone https://github.com/PanQiWei/pqw-skills ~/.pqw-skills
+mkdir -p ~/.dsh/skills && cp -R ~/.pqw-skills/skills/. ~/.dsh/skills/
+```
+
+更新时在 `~/.pqw-skills` 里 `git pull`，再跑一次第二行。只想装进一个项目，就把目标换成项目根的 `.agents/skills`。只有带技能能力的 profile 会加载它们（终端界面、web、headless、acp、sdk）；`sdk-minimal` 不加载技能。
 
 ### Gemini CLI
 

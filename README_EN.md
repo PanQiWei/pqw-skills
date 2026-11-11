@@ -7,12 +7,12 @@ claude plugin marketplace add PanQiWei/pqw-skills
 claude plugin install pqw-skills@pqw
 ```
 
-For Codex, Cursor, Copilot and Gemini, see [Install](#install). After the install, ask "how do I use this flow" and the agent teaches you.
+For Codex, Cursor, Kimi Code, DSH, Copilot and Gemini, see [Install](#install). After the install, ask "how do I use this flow" and the agent teaches you.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.22.1-informational.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.22.2-informational.svg)](./CHANGELOG.md)
 [![Skills](https://img.shields.io/badge/skills-25-success.svg)](#skills)
-[![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#install)
+[![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Kimi%20Code%20%7C%20DSH%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#install)
 [![Language](https://img.shields.io/badge/lang-%E4%B8%AD%E6%96%87%20%7C%20English-lightgrey.svg)](./README.md)
 
 [中文](./README.md)
@@ -155,6 +155,8 @@ The repository ships its own marketplace (`.claude-plugin/marketplace.json`), na
 | Codex | `@pqw` marketplace | yes, at startup |
 | GitHub Copilot CLI | `@pqw` marketplace | yes, after enabling `autoUpdate` once |
 | VS Code | Chat: Install Plugin From Source | yes, daily |
+| Kimi Code | `/plugins install`, managed copy | no, rerun the command |
+| DeepSeek Harness (DSH) | copy into its skill directory | no, pull and copy again |
 | Gemini CLI | `gemini skills install`, copies files | no, rerun the command |
 | Cursor and others | skills.sh, copies files | no, `npx skills update` |
 
@@ -167,7 +169,7 @@ claude plugin install pqw-skills@pqw
 
 ### Codex
 
-Codex reads `.claude-plugin/` when there is no `.codex-plugin/`, so the same manifest works as is.
+Codex reads the marketplace manifest in this repository. The display data for the plugin is in the root `plugin.json`.
 
 ```bash
 codex plugin marketplace add PanQiWei/pqw-skills
@@ -192,6 +194,27 @@ Then add this once to `~/.copilot/settings.json`:
 ```
 
 In VS Code run **Chat: Install Plugin From Source** and enter `https://github.com/PanQiWei/pqw-skills`.
+
+### Kimi Code
+
+The repository root has a Kimi Code plugin manifest, `kimi.plugin.json`. In a Kimi Code session, type:
+
+```text
+/plugins install https://github.com/PanQiWei/pqw-skills
+```
+
+Kimi Code fetches the default branch from GitHub and keeps a managed copy. To pin a version, use a release page as the address, for example `https://github.com/PanQiWei/pqw-skills/releases/tag/v0.22.2`. To update, run the same command again, then `/plugins reload`.
+
+### DeepSeek Harness (DSH)
+
+DSH has no command that installs skills. It discovers skills in fixed directories: `.dsh/skills` and `.agents/skills` in the project, `~/.dsh/skills` and `~/.agents/skills` for the user. Each skill is a direct subdirectory there. To install for the user:
+
+```bash
+git clone https://github.com/PanQiWei/pqw-skills ~/.pqw-skills
+mkdir -p ~/.dsh/skills && cp -R ~/.pqw-skills/skills/. ~/.dsh/skills/
+```
+
+To update, run `git pull` in `~/.pqw-skills`, then run the second line again. To install into one project only, copy to `.agents/skills` in the project root. Only profiles with the skill capability load them (terminal UI, web, headless, acp, sdk). `sdk-minimal` does not load skills.
 
 ### Gemini CLI
 
