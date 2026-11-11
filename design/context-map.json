@@ -1,5 +1,5 @@
 {
-  "说明": "上下文地图：流程轴（行）与思维轴（列）交叉出的矩阵，是这张矩阵的唯一源。scripts/check-repo.mjs 按它核每一格。主：这个环节的产出本身就是这个模型的成果，不加指路行与空位，只在 files 里点名技能。行：files 里的每个文件含这个模型的指路行，一字不差。空：slots 里的每个文件含列出的每个空位；列了 files 的，那些文件另含指路行。没列出的格是有意留空的。entries 里的每个文件点到全部模型，人与代理从它们都能走到五个技能。models 的顺序就是放在一件事上的自然次序：拆、找差异、定形、建、证。README.md 的矩阵表照它生成，check-repo 逐行核。",
+  "说明": "上下文地图：流程轴（行）与思维轴（列）交叉出的矩阵，是这张矩阵的唯一源。scripts/check-repo.mjs 按它核每一格。主：这个环节的产出本身就是这个模型的成果，不加指路行与空位，只在 files 里点名技能。行：files 里的每个文件含这个模型的指路行，一字不差。空：slots 里的每个文件含列出的每个空位；列了 files 的，那些文件另含指路行。没列出的格是有意留空的。entries 里的每个文件点到全部模型，人与代理从它们都能走到五个技能。models 的顺序就是放在一件事上的自然次序：拆、找差异、定形、建、证。README.md 的矩阵表照它生成，check-repo 逐行核。crosscut 放流程轴上的横切技能，它们不是思维模型，不进矩阵：每个列出指路行与 cells，cells 的每一格按同样的「行」「空」核法兑现，技能正文同样不超过 bodyMaxLines 行。",
   "skeleton": ["## 三句动作", "## 各类工作里怎么用", "## 写在哪", "## 什么时候必须重做", "## 相邻的模型"],
   "bodyMaxLines": 50,
   "entries": ["skills/single-session-dev-flow/SKILL.md", "skills/teach-pqw-skills/SKILL.md", "README.md", "README_EN.md"],
@@ -38,6 +38,23 @@
       "question": "怎么知道它是真的",
       "hook": "每个结论带证据，证据要真的检验了它声称检验的东西。做法加载技能 `think-evidence`。",
       "marks": ["证真", "证伪"]
+    }
+  ],
+  "crosscut": [
+    {
+      "skill": "candid-friend",
+      "name": "诤友",
+      "question": "人这一侧的风险，说出来了没有",
+      "hook": "看到人这一侧的风险就说一次：提醒、依据、建议、选择。做法加载技能 `candid-friend`。",
+      "cells": [
+        { "row": "开工、够不够格、开新一程前", "kind": "行", "files": ["skills/single-session-dev-flow/SKILL.md"] },
+        {
+          "row": "1 需求与不变式",
+          "kind": "空",
+          "files": ["skills/requirement-and-invariants/SKILL.md"],
+          "slots": { "skills/requirement-and-invariants/requirement-template.md": ["## 值不值得做（质疑与答复）", "- 代理的结论：", "- 人的决定：", "- 不做与推迟的记录："] }
+        }
+      ]
     }
   ],
   "rows": [

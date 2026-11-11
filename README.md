@@ -97,15 +97,19 @@
 
 接入自己的项目时，在项目 AGENTS.md 的接入一节加一行「研发品味」，指向这五个技能，不走这条流的会话也看得到它们。写法见 `teach-pqw-skills` 的「接到自己的项目」。
 
+### 诤友，流程轴上横切
+
+- **[candid-friend](./skills/candid-friend/SKILL.md)**：诤友，直言一次，然后听你的。别的技能防代理的失败，它防人的失败：需求不清或没有使用证据、一程大过人在一个验收窗口里验得完的量、途中追加范围、上一程没验就开新的、离开前交接缺项。代理用固定四行对人说一次：提醒、依据、建议、你可以；人定了就照做，不打折扣，不附加条件。四个时机：接需求时问值不值得做，plan 写完时做尺寸核对并给分程建议，途中与收尾时截程交付与列出待人验收，人离开之前做睡前交接。它不是思维模型，不进上面的矩阵；放在哪些环节由 `design/context-map.json` 的 crosscut 一项登记，`check-repo` 一样逐处核。接需求时的问法综合自 gstack（github.com/garrytan/gstack）的 office-hours、plan-ceo-review 与 ETHOS，以及 Matt 的 grilling、triage、to-questionnaire、prototype、wayfinder；gstack 只是思想来源，不加载。引用 grilling、to-questionnaire（读安装路径）、prototype。
+
 ## 外部依赖
 
 | 技能 | 来源 | 版本 | 本机名 |
 | --- | --- | --- | --- |
 | poteto-mode、deslop、unslop、create-formal-verification-skill、statechart、maintain-formal-verification-skill、architect、sharpen、recall、show-me-your-work、ketchup、in-your-own-words、blast-radius、swarm、technical-writing、typescript-best-practices 及 principle 系列 | Claude Code 与 Codex 用 [michael-denyer/pstack-claude](https://github.com/michael-denyer/pstack-claude/tree/df9bc05b818e2457ac23d3343e96e4ff284dd9e9/plugins/pstack)；Cursor 用 [cursor/plugins](https://github.com/cursor/plugins/tree/1b6d44ff26d4e242f4e8f68c391e6d2f7ca16def) 的官方 pstack | port 0.9.132；Cursor 0.15.20 | `pstack:<name>` |
 | ub-mode | [unclebob/ub-mode](https://github.com/unclebob/ub-mode/tree/3da62bf3f)，只有一份 `SKILL.md`，放进宿主的用户技能目录 | 提交 3da62bf | `ub-mode` |
-| to-spec、to-tickets、research、domain-modeling、codebase-design、code-review、tdd、prototype、diagnosing-bugs、grilling、writing-for-agents | [mattpocock/skills](https://github.com/mattpocock/skills/tree/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d/skills) | 1.3.2，提交 4ae2317 | `mattpocock-skills:<name>` |
+| to-spec、to-tickets、to-questionnaire、research、domain-modeling、codebase-design、code-review、tdd、prototype、diagnosing-bugs、grilling、writing-for-agents | [mattpocock/skills](https://github.com/mattpocock/skills/tree/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d/skills) | 1.3.2，提交 4ae2317 | `mattpocock-skills:<name>` |
 
-引用外部技能的环节只写本仓库的补充，正文里用「加载技能 `<技能名>`」指向它们，怎么加载由宿主定。例外是 Matt 的 `to-spec` 与 `to-tickets`：它们声明了 `disable-model-invocation: true`，宿主不让模型用 Skill 工具调用，所以按已安装路径直接读正文，并在报告里写明读取方式。表里的版本是本仓库正文核对过的版本，升级时重新核对被引用的技能有没有改名或改行为。
+引用外部技能的环节只写本仓库的补充，正文里用「加载技能 `<技能名>`」指向它们，怎么加载由宿主定。例外是 Matt 的 `to-spec`、`to-tickets` 与 `to-questionnaire`：它们声明了 `disable-model-invocation: true`，宿主不让模型用 Skill 工具调用，所以按已安装路径直接读正文，并在报告里写明读取方式。表里的版本是本仓库正文核对过的版本，升级时重新核对被引用的技能有没有改名或改行为。
 
 技能正文与脚本本身不装 npm 包。只有 `slice-closeout` 的差分变异有依赖（`@stryker-mutator/core`、`@stryker-mutator/vitest-runner`，版本钉在 `skills/slice-closeout/scripts/package.json`）：它只支持用 vitest 的项目，优先用项目自己 `node_modules` 里的 Stryker，没有就 `npm ci --prefix <该 scripts 目录>` 装到技能目录；不满足时工具退出并说明。结构读数没有依赖。
 

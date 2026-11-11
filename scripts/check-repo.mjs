@@ -276,6 +276,14 @@ function checkReadmeMatrix(map) {
   ];
   for (const line of lines) if (!readme.split("\n").includes(line)) fail(MAP_CHECK, `README.md 的思维模型矩阵缺一行「${line}」：照 ${rel(CONTEXT_MAP)} 改`);
 }
+/** 流程轴上的横切技能：技能在、正文不超过 bodyMaxLines 行，cells 的每一格按与模型同样的核法兑现。 */
+function checkCrosscut(map, item) {
+  const md = join(config.skillsDir, item.skill, "SKILL.md");
+  if (!existsSync(md)) return fail(MAP_CHECK, `横切技能 ${item.skill} 没有 skills/${item.skill}/SKILL.md`);
+  const body = read(md).replace(/^---\n[\s\S]*?\n---\n/, "").trim().split("\n");
+  if (body.length > map.bodyMaxLines) fail(MAP_CHECK, `${rel(md)} 正文 ${body.length} 行，超过 ${map.bodyMaxLines} 行：细节挪到展开页`);
+  for (const cell of item.cells ?? []) checkMapCell(cell.row, item, cell);
+}
 function checkContextMap() {
   let map;
   try {
@@ -298,6 +306,7 @@ function checkContextMap() {
       else checkMapCell(row.row, model, cell);
     }
   }
+  for (const item of map.crosscut ?? []) checkCrosscut(map, item);
 }
 checkContextMap();
 

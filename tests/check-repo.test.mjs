@@ -138,6 +138,31 @@ test("上下文地图：entries 里的入口少点一个模型，报是哪个入
   } finally { dispose(dir); }
 });
 
+const CANDID_HOOK = "看到人这一侧的风险就说一次：提醒、依据、建议、选择。做法加载技能 `candid-friend`。";
+
+test("上下文地图：流程轴上的横切技能，删掉一处指路行或一个模板空位，报出是哪一格、哪个文件、缺什么", () => {
+  const dir = copyRepo();
+  try {
+    assert.deepEqual(mapReported(dir), []);
+    writeFileSync(join(dir, ENTRY), readFileSync(join(dir, ENTRY), "utf8").replaceAll(CANDID_HOOK, ""));
+    assert.deepEqual(mapReported(dir), [`开工、够不够格、开新一程前 × candid-friend：${ENTRY} 缺指路行「${CANDID_HOOK}」`]);
+    writeFileSync(join(dir, ENTRY), readFileSync(join(REPO_ROOT, ENTRY), "utf8"));
+    edit(dir, "skills/requirement-and-invariants/requirement-template.md", "- 人的决定：", "- 人说：");
+    assert.deepEqual(mapReported(dir), ["1 需求与不变式 × candid-friend：skills/requirement-and-invariants/requirement-template.md 缺空位「- 人的决定：」"]);
+  } finally { dispose(dir); }
+});
+
+test("上下文地图：横切技能的正文超过 50 行，或技能目录不在，各报一处", () => {
+  const dir = copyRepo();
+  try {
+    const skill = "skills/candid-friend/SKILL.md";
+    appendFileSync(join(dir, skill), "\n多出来的一行\n".repeat(30));
+    assert.deepEqual(mapReported(dir).filter((m) => m.startsWith(skill)).map((m) => m.replace(/\d+ 行，/, "N 行，")), [`${skill} 正文 N 行，超过 50 行：细节挪到展开页`]);
+    editMap(dir, (map) => { map.crosscut[0].skill = "no-such-skill"; });
+    assert.ok(mapReported(dir).includes("横切技能 no-such-skill 没有 skills/no-such-skill/SKILL.md"));
+  } finally { dispose(dir); }
+});
+
 test("上下文地图：标「主」的格，环节技能里没点技能名报一处；「主」格没列 files 也报", () => {
   const dir = copyRepo();
   try {
