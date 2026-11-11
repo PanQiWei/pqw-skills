@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { sections as releaseSections, summary as releaseSummary } from "./release-notes.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const home = homedir();
@@ -395,6 +396,25 @@ function checkConsumerContract() {
   if (same && contract.version !== previous.contract.version) fail(CONTRACT_CHECK, `${CONTRACT_PATH} 的内容与 ${previous.tag} 相同，version 却从 ${previous.contract.version} 变成 ${contract.version}：没有要消费项目跟着改的变化就不涨`);
 }
 checkConsumerContract();
+
+// ---- 11. 发版说明：CHANGELOG 最新一节合模板，它「细节」之前的部分就是 GitHub Release 的正文。
+// 只核最新一节：模板之前的旧节不回头改。
+function checkReleaseNotes() {
+  const CHECK = "发版说明";
+  const text = read(join(repo, "CHANGELOG.md"));
+  const first = text.split("\n").find((l) => l.startsWith("## "));
+  const latest = releaseSections(text)[0];
+  if (!latest || !latest.title || first !== `## ${latest.version} · ${latest.title}`) return fail(CHECK, "CHANGELOG.md 的第一节标题要写成「## <版本> · <一句标题>」");
+  const where = `CHANGELOG.md 的 ${latest.version} 一节`;
+  const pluginVersion = JSON.parse(read(config.pluginJson)).version;
+  if (latest.version !== pluginVersion) fail(CHECK, `CHANGELOG.md 最新一节是 ${latest.version}，清单的版本是 ${pluginVersion}`);
+  const body = releaseSummary(latest).split("\n");
+  if (!/^[\x20-\x7E]+$/.test(body[0] ?? "")) fail(CHECK, `${where}：标题下第一段要是一句英文`);
+  for (const lead of ["**要你动手的：**", "**接入约定：**"]) if (!body.some((l) => l.startsWith(lead))) fail(CHECK, `${where}：缺以「${lead}」开头的一行`);
+  const changes = body.indexOf("### 变了什么");
+  if (changes < 0 || !body.slice(changes + 1).some((l) => l.startsWith("- **"))) fail(CHECK, `${where}：「### 变了什么」下要有以「- **」开头的条目`);
+}
+checkReleaseNotes();
 
 // ---- 输出
 

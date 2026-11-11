@@ -1,6 +1,35 @@
 # pqw-skills
 
-## 0.24.0
+每一版一节，写法见 [DEVELOPMENT.md 的「发版」](./DEVELOPMENT.md#发版)。「细节」之前的部分就是 GitHub Release 的正文。
+
+## 0.24.1 · 发版说明有了模板
+
+Release notes now follow one template: what you get, what you must do, what changed.
+
+**要你动手的：** 不用，直接升级。
+**接入约定：** version 1，没变。
+
+### 变了什么
+
+- **发版说明的模板**：每一版先一句英文说它给你什么，再写要不要你动手、接入约定变没变，然后逐条列变化；长的来龙去脉放「细节」。
+- **`scripts/release-notes.mjs`**：从本文件取出某一版的 Release 标题与正文，发版时直接喂给 `gh release`。
+- **`check-repo`**：最新一节不合模板，或节的版本号与清单不一致，就报。
+- **历史**：0.22.0 到 0.24.0 的五节与对应的 GitHub Release 按新模板重写。
+
+## 0.24.0 · 接入约定有了版本
+
+The consumer contract is now versioned: a project pins one integer and no longer has to follow every release.
+
+**要你动手的：** 不用，直接升级。想少跟版本的项目可以改成只钉接入约定的 `version`。
+**接入约定：** version 1，首次引入。
+
+### 变了什么
+
+- **新增 `design/consumer-contract.json`**：列全消费项目要跟着改的三样（接入节的槽位名、交接信息包的节名、常驻卡片的哈希），带一个整数 `version`。
+- **`check-repo` 新增「接入约定」一项**：三样任何一样与约定文件对不上就报；与上一个发行 tag 相比，内容变了 `version` 必须涨，内容没变不许动。
+- **`teach-pqw-skills`**：「接到自己的项目」说明了只钉 `version` 的做法。
+
+### 细节
 
 接入约定有了版本，消费项目不必每一版都跟着动。
 
@@ -8,7 +37,20 @@
 
 `check-repo` 新增「接入约定」一项：槽位表、交接信息包模板的二级标题、常驻卡片任何一样与约定文件对不上就报；再拿约定文件和上一个带约定文件的发行 tag 比，内容变了 `version` 必须涨，内容没变 `version` 不许动。教学技能的「接到自己的项目」说明了这个钉法。
 
-## 0.23.0
+## 0.23.0 · 少等、少往返
+
+Less waiting and fewer round trips: long verification leaves the subagent, and independent reads go out in one step.
+
+**要你动手的：** 不用，直接升级。
+**接入约定：** 没变。
+
+### 变了什么
+
+- **`delegate-brief`**：长验证不留在子代理里，列成「待验证」交回，由派发者跑；子代理交回前结束自己起的后台进程；互不依赖的读取在同一步里一起发出。简报模板相应多三行。
+- **`slice-closeout`**：结构读数与差分变异跑得久时放后台，等的时候只做下一片的开工包。
+- **`context-pack`**：主代理自己读时，互不依赖的读取一步发出。
+
+### 细节
 
 少等、少往返。依据是一个真实项目一个月的会话计时：轮询等待 26 小时里有 22 小时发生在子代理内；子代理交回后被自己留下的后台进程叫醒，空转近 40 小时；84% 的步只带一个工具调用；主会话闲等后台验证约 28 小时。
 
@@ -18,7 +60,21 @@
 
 `context-pack`：主代理自己读时，互不依赖的读取在同一步里一起发出。
 
-## 0.22.2
+## 0.22.2 · Kimi Code 与 DSH
+
+Two more hosts are supported natively: Kimi Code and DeepSeek Harness (DSH).
+
+**要你动手的：** 不用，直接升级。
+**接入约定：** 没变。
+
+### 变了什么
+
+- **Kimi Code**：新增根 `kimi.plugin.json`；会话里 `/plugins install https://github.com/PanQiWei/pqw-skills` 装全套。在 Kimi Code 2.5.3 的真实会话里装过。
+- **DSH**：README 写了装进它的技能目录的两行命令。没有在真实 DSH 里跑过。
+- **`one-lesson-rule`**：宿主表加这两家。
+- **图标与社交预览图**：按 kami 规范重画，由 `assets/gen-icons.sh` 生成。
+
+### 细节
 
 多两个原生支持的宿主：Kimi Code 与 DeepSeek Harness（DSH）。技能正文没有变。
 
@@ -28,7 +84,21 @@ DSH：它没有安装技能的命令，从固定目录发现技能。README 写�
 
 `one-lesson-rule` 的宿主表加这两行。`check-repo` 把 `kimi.plugin.json` 也纳入版本一致性。图标与社交预览图按 kami 规范重画（Charter 字、细线、象牙色卡片），由 `assets/gen-icons.sh` 生成。
 
-## 0.22.1
+## 0.22.1 · 找得到、装得上
+
+Easier to find and to install: install commands on the first screen, manifests for Codex and Cursor, a plugin icon.
+
+**要你动手的：** 不用，直接升级。在本仓库里开发的人把 `npm ci` 换成 `npm install`。
+**接入约定：** 没变。
+
+### 变了什么
+
+- **README 首屏**：标题下先一句话，接着两行安装命令。中英两份同步。
+- **清单与图标**：新增根 `plugin.json`（给 Codex 与 Cursor）；Claude 的清单加 `displayName`、`homepage`、`icon`；新增图标与社交预览图。
+- **根目录不再提交 `package-lock.json`**：插件根的锁文件会让用户安装时装上本仓库的测试依赖。
+- **`check-repo`**：核各份清单的版本一致。
+
+### 细节
 
 让人找得到、装得上。技能正文没有变。
 
@@ -38,7 +108,22 @@ README 首屏：标题下先一句话说它给你什么，接着就是两行安�
 
 根目录不再提交 `package-lock.json`。仓库根就是插件根，Claude Code 在用户安装插件时会安装插件根锁文件里的包，官方目录的提交检查也会因此留审；这些包只有本仓库的测试用。`package.json` 里的版本本来就写死，开发时改用 `npm install`。
 
-## 0.22.0
+## 0.22.0 · 交接期与交棒
+
+Handoff becomes a stage, not a point: the design session sets the spec, sizes one run, hands it off and takes it back.
+
+**要你动手的：** 接入节加一格「跨会话协调用什么」；「交接信息包放哪」改名「交接信息包与路线图放哪」；项目自己的工单模板加「切片大纲」一节与预计收尾一行。
+**接入约定：** 变了（当时还没有版本号）。
+
+### 变了什么
+
+- **新技能 `pass-the-baton`（交棒）**：交接期四件事，定约、定程、交出、收回。设计会话是编排者，交付会话只知道自己这一程。
+- **交接信息包**：多一节「切片大纲」，「起点与风险」多一行预计收尾；包里只有这一程。
+- **`spec-and-plan`**：spec 在定约时写，plan 在交付期开头写；尺寸核对挪到定程。
+- **`candid-friend`**：四个时机都在设计会话里：接需求、定程、交出之前、收回。
+- **`check-plan`**：`--handoff -` 从标准输入读；新模板的包另核切片大纲与预计收尾。
+
+### 细节
 
 交接从一个点变成一个阶段，叫交接期。到 0.21.0 为止，流程表里交接是一行不带编号的「交接点」，写 spec 与 plan 的第 7 环节整个排在它后面，尺寸核对排在「plan 写完之后、第一个切片动手之前」，「分程建议」是 plan 模板的一节。实际分会话交接时看到两处毛病：交付会话拿到一份过大的包，人不在场，它只能回头找人商量分程，或者一直做下去；交接点核对单与交接信息包已经假定交接时 spec 写好了（「按 spec 的旧字面搜过」「责任分级照抄 spec」），流程表却把写 spec 排在交接之后，设计会话没法交出一份照抄 spec 的包。要人拍板的事，应该在人在场的时候，由持有上下文的那个会话来谈。
 

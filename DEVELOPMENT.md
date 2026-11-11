@@ -89,6 +89,42 @@ node skills/cleanup/scripts/cleanup.mjs --scope slice --prefix <前缀> --plan
 
 ## 发版
 
-1. `CHANGELOG.md` 加一条，`.claude-plugin/plugin.json` 改 `version`，`skills/slice-closeout/scripts/lib/version.mjs` 改 `TOOL_VERSION`，三处一起改；`check-repo` 核后两处一致。版本号变了托管路线才会重装，工具版本变了差分变异不再沿用旧历史。
-2. `README.md` 与 `README_EN.md` 的徽章同步版本。技能数量或矩阵变了，重跑两个生成脚本并核对故事图里的数字。每一版改了什么只记在 `CHANGELOG.md`，README 不设状态节。
-3. 两条检查通过后提交，打 tag `v<版本>`。
+1. `CHANGELOG.md` 最上面加一节，按下面的模板写。
+2. 版本号五处一起改：`.claude-plugin/plugin.json`、根 `plugin.json`、`kimi.plugin.json` 的 `version`，`skills/slice-closeout/scripts/lib/version.mjs` 的 `TOOL_VERSION`，两份 README 的徽章。`check-repo` 核前四处与 CHANGELOG 最新一节一致。版本号变了托管路线才会重装，工具版本变了差分变异不再沿用旧历史。
+3. 技能数量或矩阵变了，重跑两个生成脚本并核对故事图里的数字。每一版改了什么只记在 `CHANGELOG.md`，README 不设状态节。
+4. 两条检查通过后提交，打 tag `v<版本>`，推送。
+5. 建 GitHub Release，标题与正文都从 CHANGELOG 取，不另写：
+
+   ```bash
+   V=<版本>
+   node scripts/release-notes.mjs $V > /tmp/notes.md
+   gh release create v$V --title "$(node scripts/release-notes.mjs $V --title)" --notes-file /tmp/notes.md --latest
+   ```
+
+### 发版说明的模板
+
+每一节照这个形状写。「细节」之前的部分就是 Release 的正文，要让人一眼看完；来龙去脉、数据与兼容性放「细节」，没有就不写这一小节。
+
+```markdown
+## <版本> · <一句标题，说这一版是什么>
+
+<一句英文：使用者得到什么。>
+
+**要你动手的：** <升级的人要改什么；不用改写「不用，直接升级」。>
+**接入约定：** <version N，没变；或 version 从 N 到 M，并说项目要改哪一样。>
+
+### 变了什么
+
+- **<技能、文件或部位>**：<一句话说变化，写结果不写过程。>
+
+### 细节
+
+<可选。依据、数据、兼容性、没验证的地方。>
+```
+
+写法：
+
+- 标题不带版本以外的修饰，十个字上下。
+- 英文一句给搜索和不读中文的人，不翻译全文。
+- 「变了什么」一条一个部位，三到六条；没验证过的事在那一条里直说。
+- `check-repo` 的「发版说明」一项核最新一节：标题的形状、版本与清单一致、英文一句、两行固定行、至少一条变化。
