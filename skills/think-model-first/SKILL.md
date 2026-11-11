@@ -40,4 +40,4 @@ description: 思维模型：建模先于代码。写碰到状态与操作的代�
 
 ## 相邻的模型
 
-`think-ought-vs-is`：这件事的工作到底是什么。`think-orthogonal`：这个问题的空间怎么拆。`think-right-then-well`：按什么顺序建，怎样算好。`think-evidence`：怎么知道它是真的。
+`think-ought-vs-is`：这件事的工作到底是什么。`think-orthogonal`：这个问题的空间怎么拆。`think-right-then-well`：按什么顺序建，怎样算好。`think-evidence`：怎么知道它是真的。`think-closed-loop`：这件事该由谁做，一次做多大，多久看一次。

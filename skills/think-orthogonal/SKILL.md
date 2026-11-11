@@ -40,4 +40,4 @@ description: 思维模型：正交、分形、矩阵。列清单、拆设计、�
 
 ## 相邻的模型
 
-`think-ought-vs-is`：这件事的工作到底是什么。`think-model-first`：代码该长成什么形状。`think-right-then-well`：按什么顺序建，怎样算好。`think-evidence`：怎么知道它是真的。
+`think-ought-vs-is`：这件事的工作到底是什么。`think-model-first`：代码该长成什么形状。`think-right-then-well`：按什么顺序建，怎样算好。`think-evidence`：怎么知道它是真的。`think-closed-loop`：这件事该由谁做，一次做多大，多久看一次。

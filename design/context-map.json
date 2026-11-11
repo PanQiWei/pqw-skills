@@ -1,5 +1,5 @@
 {
-  "说明": "上下文地图：流程轴（行）与思维轴（列）交叉出的矩阵，是这张矩阵的唯一源。scripts/check-repo.mjs 按它核每一格。主：这个环节的产出本身就是这个模型的成果，不加指路行与空位，只在 files 里点名技能。行：files 里的每个文件含这个模型的指路行，一字不差。空：slots 里的每个文件含列出的每个空位；列了 files 的，那些文件另含指路行。没列出的格是有意留空的。entries 里的每个文件点到全部模型，人与代理从它们都能走到五个技能。models 的顺序就是放在一件事上的自然次序：拆、找差异、定形、建、证。README.md 的矩阵表照它生成，check-repo 逐行核。crosscut 放流程轴上的横切技能，它们不是思维模型，不进矩阵：每个列出指路行与 cells，cells 的每一格按同样的「行」「空」核法兑现，技能正文同样不超过 bodyMaxLines 行；entries 里的每个文件也点到它们。residentCard 是给消费项目原样放进常驻入口文件的卡片：分隔线以下点到每个模型与每个横切技能，每个列表项末尾是存在的技能名。",
+  "说明": "上下文地图：流程轴（行）与思维轴（列）交叉出的矩阵，是这张矩阵的唯一源。scripts/check-repo.mjs 按它核每一格。主：这个环节的产出本身就是这个模型的成果，不加指路行与空位，只在 files 里点名技能。行：files 里的每个文件含这个模型的指路行，一字不差。空：slots 里的每个文件含列出的每个空位；列了 files 的，那些文件另含指路行。没列出的格是有意留空的。entries 里的每个文件点到全部模型，人与代理从它们都能走到六个技能。models 的顺序：前五个是放在一件事上的自然次序，拆、找差异、定形、建、证；第六个闭环讲这件事在人和代理之间转手，排在证之后。README.md 的矩阵表照它生成，check-repo 逐行核。crosscut 放流程轴上的横切技能，它们不是思维模型，不进矩阵：每个列出指路行与 cells，cells 的每一格按同样的「行」「空」核法兑现，技能正文同样不超过 bodyMaxLines 行；entries 里的每个文件也点到它们。residentCard 是给消费项目原样放进常驻入口文件的卡片：分隔线以下点到每个模型与每个横切技能，每个列表项末尾是存在的技能名。",
   "residentCard": "skills/single-session-dev-flow/resident-card.md",
   "skeleton": ["## 三句动作", "## 各类工作里怎么用", "## 写在哪", "## 什么时候必须重做", "## 相邻的模型"],
   "bodyMaxLines": 50,
@@ -39,6 +39,13 @@
       "question": "怎么知道它是真的",
       "hook": "每个结论带证据，证据要真的检验了它声称检验的东西。做法加载技能 `think-evidence`。",
       "marks": ["证真", "证伪"]
+    },
+    {
+      "skill": "think-closed-loop",
+      "name": "闭环",
+      "question": "这件事该由谁做，一次做多大，多久看一次",
+      "hook": "转手会丢信息，回路越紧越稳，一块多大由接的一方验得完多少定。做法加载技能 `think-closed-loop`。",
+      "marks": ["转手", "回路"]
     }
   ],
   "crosscut": [
@@ -67,6 +74,7 @@
           "files": ["skills/spec-and-plan/SKILL.md", "skills/spec-and-plan/plan-template.md"],
           "slots": { "skills/spec-and-plan/plan-template.md": ["- 人的验收窗口：", "- 尺寸核对：", "- 停点与点名授权的动作：", "- **人怎么验：**", "## 分程建议", "- [ ] 待人验收已列出："] }
         },
+        { "row": "9 派发", "kind": "行", "files": ["skills/delegate-brief/SKILL.md"] },
         { "row": "10 哨兵回看", "kind": "行", "files": ["skills/one-lesson-rule/SKILL.md"] },
         {
           "row": "12 汇报",
@@ -119,10 +127,20 @@
         },
         "think-orthogonal": { "kind": "行", "files": ["skills/detailed-domain-design/SKILL.md"] },
         "think-model-first": { "kind": "主", "files": ["skills/detailed-domain-design/SKILL.md"] },
-        "think-evidence": { "kind": "行", "files": ["skills/detailed-domain-design/SKILL.md"] }
+        "think-evidence": { "kind": "行", "files": ["skills/detailed-domain-design/SKILL.md"] },
+        "think-closed-loop": { "kind": "行", "files": ["skills/detailed-domain-design/SKILL.md"] }
       }
     },
-    { "row": "6 正式落盘", "cells": {} },
+    { "row": "6 正式落盘", "cells": { "think-closed-loop": { "kind": "行", "files": ["skills/formal-docs-landing/SKILL.md"] } } },
+    {
+      "row": "交接点",
+      "cells": {
+        "think-closed-loop": {
+          "kind": "行",
+          "files": ["skills/single-session-dev-flow/SKILL.md", "skills/single-session-dev-flow/handoff-pack-template.md", "skills/candid-friend/run-size.md"]
+        }
+      }
+    },
     {
       "row": "7 spec 与 plan",
       "cells": {
@@ -162,7 +180,8 @@
             "skills/context-pack/slice-kickoff-template.md": ["  1. 做对：", "  2. 做好一轮："],
             "skills/spec-and-plan/plan-template.md": ["  1. 做对：", "  2. 做好一轮："]
           }
-        }
+        },
+        "think-closed-loop": { "kind": "行", "files": ["skills/context-pack/SKILL.md"] }
       }
     },
     {
@@ -173,7 +192,8 @@
           "files": ["skills/delegate-brief/SKILL.md"],
           "slots": { "skills/delegate-brief/brief-template.md": ["  - 应然：", "  - 实然：", "  - 候选差异："] }
         },
-        "think-evidence": { "kind": "主", "files": ["skills/delegate-brief/SKILL.md"] }
+        "think-evidence": { "kind": "主", "files": ["skills/delegate-brief/SKILL.md"] },
+        "think-closed-loop": { "kind": "主", "files": ["skills/delegate-brief/SKILL.md"] }
       }
     },
     {
@@ -187,7 +207,8 @@
           "kind": "行",
           "files": ["skills/one-lesson-rule/SKILL.md", "skills/one-lesson-rule/review-record-template.md", "skills/delegate-brief/sentinel-brief-template.md"]
         },
-        "think-evidence": { "kind": "主", "files": ["skills/one-lesson-rule/SKILL.md"] }
+        "think-evidence": { "kind": "主", "files": ["skills/one-lesson-rule/SKILL.md"] },
+        "think-closed-loop": { "kind": "主", "files": ["skills/one-lesson-rule/SKILL.md"] }
       }
     },
     {
@@ -198,7 +219,13 @@
         "think-evidence": { "kind": "主", "files": ["skills/slice-closeout/SKILL.md"] }
       }
     },
-    { "row": "12 汇报", "cells": { "think-ought-vs-is": { "kind": "主", "files": ["skills/progress-artifacts/SKILL.md"] } } },
+    {
+      "row": "12 汇报",
+      "cells": {
+        "think-ought-vs-is": { "kind": "主", "files": ["skills/progress-artifacts/SKILL.md"] },
+        "think-closed-loop": { "kind": "行", "files": ["skills/progress-artifacts/SKILL.md"] }
+      }
+    },
     { "row": "13 清理", "cells": {} },
     {
       "row": "不够格的小活",
@@ -215,7 +242,8 @@
         "think-orthogonal": { "kind": "空", "slots": { "skills/spec-and-plan/plan-template.md": ["拆 `think-orthogonal`"] } },
         "think-model-first": { "kind": "空", "slots": { "skills/spec-and-plan/plan-template.md": ["定形 `think-model-first`"] } },
         "think-right-then-well": { "kind": "空", "slots": { "skills/spec-and-plan/plan-template.md": ["建 `think-right-then-well`"] } },
-        "think-evidence": { "kind": "空", "slots": { "skills/spec-and-plan/plan-template.md": ["证 `think-evidence`"] } }
+        "think-evidence": { "kind": "空", "slots": { "skills/spec-and-plan/plan-template.md": ["证 `think-evidence`"] } },
+        "think-closed-loop": { "kind": "空", "slots": { "skills/spec-and-plan/plan-template.md": ["转手 `think-closed-loop`"] } }
       }
     }
   ]

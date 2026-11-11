@@ -40,4 +40,4 @@ description: 思维模型：用确定性证据说话。每个结论带证据或�
 
 ## 相邻的模型
 
-`think-ought-vs-is`：这件事的工作到底是什么。`think-orthogonal`：这个问题的空间怎么拆。`think-model-first`：代码该长成什么形状。`think-right-then-well`：按什么顺序建，怎样算好。
+`think-ought-vs-is`：这件事的工作到底是什么。`think-orthogonal`：这个问题的空间怎么拆。`think-model-first`：代码该长成什么形状。`think-right-then-well`：按什么顺序建，怎样算好。`think-closed-loop`：这件事该由谁做，一次做多大，多久看一次；转出去的结果怎么验，归本模型。

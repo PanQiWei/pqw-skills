@@ -42,4 +42,4 @@ description: 思维模型：应然与实然。做设计、实现、优化、重�
 
 ## 相邻的模型
 
-`think-orthogonal`：这个问题的空间怎么拆。`think-model-first`：代码该长成什么形状。`think-right-then-well`：按什么顺序建，怎样算好。`think-evidence`：怎么知道它是真的。
+`think-orthogonal`：这个问题的空间怎么拆。`think-model-first`：代码该长成什么形状。`think-right-then-well`：按什么顺序建，怎样算好。`think-evidence`：怎么知道它是真的。`think-closed-loop`：这件事该由谁做，一次做多大，多久看一次。

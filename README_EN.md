@@ -67,7 +67,7 @@ Implementation itself follows TDD, without over-design or over-optimization, car
 
 ### Thinking models, cross-cutting
 
-The flow axis answers "which step are we at, and what does it produce": the 13 stages above. The thinking axis answers "how do we think while doing this step": the five thinking models below. The two axes are independent. Any step can need any model, so the models are not stages. Each is a skill that can be loaded on its own at any time, also outside this flow. Type `/think-` to see all five.
+The flow axis answers "which step are we at, and what does it produce": the 13 stages above. The thinking axis answers "how do we think while doing this step": the six thinking models below. The two axes are independent. Any step can need any model, so the models are not stages. Each is a skill that can be loaded on its own at any time, also outside this flow. Type `/think-` to see all six.
 
 | Order | Skill | Question it answers | The three actions, in short |
 | --- | --- | --- | --- |
@@ -76,26 +76,30 @@ The flow axis answers "which step are we at, and what does it produce": the 13 s
 | Shape | [think-model-first](./skills/think-model-first/SKILL.md) | What shape should the code take? | Write states and operations as partial functions and make them total; translate them into a domain model and an object model, then write code |
 | Build | [think-right-then-well](./skills/think-right-then-well/SKILL.md) | In which order do we build, and what counts as good? | Make it right: pass every acceptance criterion. Then one round to make it well: no new capability, only a better implementation, judged by structure metrics, differential mutation and a taste checklist |
 | Prove | [think-evidence](./skills/think-evidence/SKILL.md) | How do we know it is true? | Every conclusion carries evidence or a label; the evidence must actually test what it claims to test; proofs establish truth, tests find defects |
+| Hand over | [think-closed-loop](./skills/think-closed-loop/SKILL.md) | Who should do this, how big is one piece, and how often do we look? | Every handover loses information, so work that needs much context you cannot write down stays with you; a tight loop is a stable loop; the size of a piece is what the receiver can verify |
 
-The two axes cross into the context map below. "Own" means the stage's output is itself the result of this model. "Slot" means the template has a fixed slot for it, so filling the template does the thinking. "Line" means a fixed pointer line, identical everywhere, sits at the step that needs the model. A blank cell is blank on purpose. The last row is the line in the plan's progress overview that lists the five skill names; after context compaction the agent reloads them from it. The single source is [design/context-map.json](./design/context-map.json); `check-repo` checks that every cell exists in the repository and that the Chinese README holds the same table.
+The first five are the natural order of work on one thing. The sixth, the closed loop, is about how the work changes hands: from the human to the main agent, from the main agent to a subagent, and from yourself before context compaction to yourself after it.
 
-| Stage | `think-orthogonal` | `think-ought-vs-is` | `think-model-first` | `think-right-then-well` | `think-evidence` |
-| --- | --- | --- | --- | --- | --- |
-| 1 Requirements and invariants | Line | Own |  |  |  |
-| 2 Domain impact | Own | Line |  |  |  |
-| 3 Research and reuse |  | Own |  |  |  |
-| 4 Formal guard | Line |  | Own |  | Own |
-| 5 Detailed design | Line | Slot | Own |  | Line |
-| 6 Formal docs |  |  |  |  |  |
-| 7 Spec and plan | Slot | Line |  |  | Own |
-| 8 Slice kickoff pack | Line | Slot | Slot | Slot |  |
-| 9 Delegation |  | Slot |  |  | Own |
-| 10 Sentinel review |  | Line |  | Line | Own |
-| 11 Slice closeout |  | Line |  | Own | Own |
-| 12 Reporting |  | Own |  |  |  |
-| 13 Cleanup |  |  |  |  |  |
-| Work that does not qualify |  | Line |  | Line | Line |
-| After compaction | Slot | Slot | Slot | Slot | Slot |
+The two axes cross into the context map below. "Own" means the stage's output is itself the result of this model. "Slot" means the template has a fixed slot for it, so filling the template does the thinking. "Line" means a fixed pointer line, identical everywhere, sits at the step that needs the model. A blank cell is blank on purpose. The last row is the line in the plan's progress overview that lists the six skill names; after context compaction the agent reloads them from it. The single source is [design/context-map.json](./design/context-map.json); `check-repo` checks that every cell exists in the repository and that the Chinese README holds the same table.
+
+| Stage | `think-orthogonal` | `think-ought-vs-is` | `think-model-first` | `think-right-then-well` | `think-evidence` | `think-closed-loop` |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 Requirements and invariants | Line | Own |  |  |  |  |
+| 2 Domain impact | Own | Line |  |  |  |  |
+| 3 Research and reuse |  | Own |  |  |  |  |
+| 4 Formal guard | Line |  | Own |  | Own |  |
+| 5 Detailed design | Line | Slot | Own |  | Line | Line |
+| 6 Formal docs |  |  |  |  |  | Line |
+| Handoff point |  |  |  |  |  | Line |
+| 7 Spec and plan | Slot | Line |  |  | Own |  |
+| 8 Slice kickoff pack | Line | Slot | Slot | Slot |  | Line |
+| 9 Delegation |  | Slot |  |  | Own | Own |
+| 10 Sentinel review |  | Line |  | Line | Own | Own |
+| 11 Slice closeout |  | Line |  | Own | Own |  |
+| 12 Reporting |  | Own |  |  |  | Line |
+| 13 Cleanup |  |  |  |  |  |  |
+| Work that does not qualify |  | Line |  | Line | Line |  |
+| After compaction | Slot | Slot | Slot | Slot | Slot | Slot |
 
 When you connect your own project, copy the [resident card](./skills/single-session-dev-flow/resident-card.md) verbatim into the project's always-loaded entry file, for example the root AGENTS.md: one sentence for each thinking model and one for the candid friend, each ending with the skill name. Sessions that do not run this flow then see them too. Re-sync that block after each upgrade; the project does not write a second copy by hand. The wording is in `teach-pqw-skills`, under connecting your own project.
 
