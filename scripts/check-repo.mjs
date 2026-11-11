@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 仓库一致性检查。只读，纯 Node，无依赖。退出 0 全部通过；退出 1 有失败；退出 2 用法错误。
-// 核的是 AGENTS.md 布局与写作规则里能机器化的那部分：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、写代码的四条只有一处正文、圈外的问题只有一处正文。
+// 核的是 AGENTS.md 布局与写作规则里能机器化的那部分：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、写代码的四条只有一处正文、圈外的问题只有一处正文、上下文地图的每一格兑现。
 
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
@@ -188,10 +188,11 @@ function checkToolVersion() {
 }
 checkToolVersion();
 
-// ---- 8. 写代码的四条只有一处正文：入口技能那一节。别处提到这几个短语的行必须带指向它的链接，防止第二份正文长出来。
+// ---- 8. 写代码的四条只有一处索引：入口技能那一节，四句结论各指向所属的思维模型技能。别处提到这几个短语的行必须带指向它的链接，或带某个思维模型的指路行；思维模型技能自己的目录是正文所在，免检。
 const FOUR_RULES_ENTRY = join(config.skillsDir, "single-session-dev-flow/SKILL.md");
 const FOUR_RULES_PHRASES = ["先做对", "再做好", "找本质解"];
 const FOUR_RULES_LINK = "SKILL.md#写代码的四条";
+const THINK_HOOK_MARK = "加载技能 `think-";
 function checkFourRules() {
   const entry = read(FOUR_RULES_ENTRY);
   if (!entry.includes("\n## 写代码的四条\n")) fail("四条只有一处正文", `${rel(FOUR_RULES_ENTRY)} 缺「## 写代码的四条」一节`);
@@ -200,9 +201,9 @@ function checkFourRules() {
   }
   if (!frontmatter(entry).description?.includes("写代码的四条")) fail("四条只有一处正文", `${rel(FOUR_RULES_ENTRY)} 的 description 没有提到「写代码的四条」`);
   for (const file of walkMd(config.skillsDir)) {
-    if (file === FOUR_RULES_ENTRY) continue;
+    if (file === FOUR_RULES_ENTRY || rel(file).startsWith("skills/think-")) continue;
     read(file).split("\n").forEach((line, i) => {
-      if (FOUR_RULES_PHRASES.some((p) => line.includes(p)) && !line.includes(FOUR_RULES_LINK)) fail("四条只有一处正文", `${rel(file)}:${i + 1} 提到四条却没有链到入口那一节`);
+      if (FOUR_RULES_PHRASES.some((p) => line.includes(p)) && !line.includes(FOUR_RULES_LINK) && !line.includes(THINK_HOOK_MARK)) fail("四条只有一处正文", `${rel(file)}:${i + 1} 提到四条却没有链到入口那一节`);
     });
   }
 }
@@ -230,6 +231,63 @@ function checkOutOfScope() {
   }
 }
 checkOutOfScope();
+
+// ---- 10. 上下文地图：design/context-map.json 的每一格在仓库里兑现（主：files 点名技能；行：files 含指路行；空：slots 的空位都在，列了 files 的另含指路行）；每个思维模型技能长成同一副骨架；模型的正文只在它自己的目录里，别处同时出现两个标志词的行必须点技能名。
+const CONTEXT_MAP = join(repo, "design", "context-map.json");
+const MAP_CHECK = "上下文地图";
+const MAP_KINDS = ["主", "行", "空"];
+const hasText = (file, needle) => existsSync(join(repo, file)) && read(join(repo, file)).includes(needle);
+function checkModelSkeleton(map, model) {
+  const md = join(config.skillsDir, model.skill, "SKILL.md");
+  if (!existsSync(md)) return fail(MAP_CHECK, `模型 ${model.skill} 没有 skills/${model.skill}/SKILL.md`);
+  const text = read(md);
+  if (!frontmatter(text)?.description?.startsWith("思维模型：")) fail(MAP_CHECK, `${rel(md)} 的 description 不以「思维模型：」领头`);
+  const body = text.replace(/^---\n[\s\S]*?\n---\n/, "").trim().split("\n");
+  if (body.length > map.bodyMaxLines) fail(MAP_CHECK, `${rel(md)} 正文 ${body.length} 行，超过 ${map.bodyMaxLines} 行：细节挪到展开页`);
+  for (const heading of map.skeleton) if (!body.includes(heading)) fail(MAP_CHECK, `${rel(md)} 缺「${heading}」一节`);
+  for (const other of map.models) if (other !== model && !text.includes(`\`${other.skill}\``)) fail(MAP_CHECK, `${rel(md)} 的相邻模型没有点到 \`${other.skill}\``);
+}
+function checkMapCell(row, model, cell) {
+  const at = `${row} × ${model.skill}`;
+  if (!MAP_KINDS.includes(cell.kind)) return fail(MAP_CHECK, `${at}：kind「${cell.kind}」不是 ${MAP_KINDS.join("、")} 之一`);
+  if (cell.kind !== "空" && !cell.files?.length) fail(MAP_CHECK, `${at}：标「${cell.kind}」却没有列 files`);
+  if (cell.kind === "空" && !Object.keys(cell.slots ?? {}).length) fail(MAP_CHECK, `${at}：标「空」却没有列 slots`);
+  const name = `\`${model.skill}\``;
+  if (cell.kind === "主") for (const file of cell.files ?? []) { if (!hasText(file, name)) fail(MAP_CHECK, `${at}：${file} 没有点名 ${name}`); }
+  else for (const file of cell.files ?? []) if (!hasText(file, model.hook)) fail(MAP_CHECK, `${at}：${file} 缺指路行「${model.hook}」`);
+  for (const [file, slots] of Object.entries(cell.slots ?? {})) for (const slot of slots) if (!hasText(file, slot)) fail(MAP_CHECK, `${at}：${file} 缺空位「${slot}」`);
+}
+function checkRestatement(model) {
+  const own = join(config.skillsDir, model.skill) + "/";
+  for (const file of walkMd(config.skillsDir)) {
+    if (file.startsWith(own)) continue;
+    read(file).split("\n").forEach((line, i) => {
+      if (model.marks.filter((mark) => line.includes(mark)).length >= 2 && !line.includes(`\`${model.skill}\``)) fail(MAP_CHECK, `${rel(file)}:${i + 1} 复述了「${model.name}」却没有点技能名 \`${model.skill}\``);
+    });
+  }
+}
+function checkContextMap() {
+  let map;
+  try {
+    map = JSON.parse(read(CONTEXT_MAP));
+  } catch (e) {
+    return fail(MAP_CHECK, `读不了 ${rel(CONTEXT_MAP)}：${e.message}`);
+  }
+  const bySkill = new Map(map.models.map((m) => [m.skill, m]));
+  for (const model of map.models) {
+    checkModelSkeleton(map, model);
+    if (model.marks?.length) checkRestatement(model);
+  }
+  for (const s of skills) if (s.startsWith("think-") && !bySkill.has(s)) fail(MAP_CHECK, `skills/${s} 不在 ${rel(CONTEXT_MAP)} 的 models 里`);
+  for (const row of map.rows) {
+    for (const [skill, cell] of Object.entries(row.cells)) {
+      const model = bySkill.get(skill);
+      if (!model) fail(MAP_CHECK, `${row.row}：列了不在 models 里的 ${skill}`);
+      else checkMapCell(row.row, model, cell);
+    }
+  }
+}
+checkContextMap();
 
 // ---- 输出
 

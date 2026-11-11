@@ -165,6 +165,12 @@ bash scripts/link-skills.sh
 
 本插件不打包 pstack、ub-mode 与 mattpocock/skills，按它们各自的说明安装。
 
+## 思维模型
+
+流程回答现在走到哪一步，思维模型回答做这一步时怎么想。它们不属于某个环节，随时可以单独加载，不走这条流时也适用。
+
+- **[think-ought-vs-is](./skills/think-ought-vs-is/SKILL.md)**：应然与实然。先答三问：它应该是什么样，它现在是什么样，两者差在哪；差异就是全部工作。
+
 ## 写作技能
 
 不属于某个环节，写文档的环节都会用到。

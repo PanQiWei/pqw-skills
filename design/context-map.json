@@ -1,0 +1,72 @@
+{
+  "说明": "上下文地图：流程轴（行）与思维轴（列）交叉出的矩阵，是这张矩阵的唯一源。scripts/check-repo.mjs 按它核每一格。主：这个环节的产出本身就是这个模型的成果，不加指路行与空位，只在 files 里点名技能。行：files 里的每个文件含这个模型的指路行，一字不差。空：slots 里的每个文件含列出的每个空位；列了 files 的，那些文件另含指路行。没列出的格是有意留空的。",
+  "skeleton": ["## 三句动作", "## 各类工作里怎么用", "## 写在哪", "## 什么时候必须重做", "## 相邻的模型"],
+  "bodyMaxLines": 50,
+  "models": [
+    {
+      "skill": "think-ought-vs-is",
+      "name": "应然与实然",
+      "question": "这件事的工作到底是什么",
+      "hook": "先答三问：应然、实然、差异。做法加载技能 `think-ought-vs-is`。",
+      "marks": ["应然", "实然"]
+    }
+  ],
+  "rows": [
+    { "row": "1 需求与不变式", "cells": { "think-ought-vs-is": { "kind": "主", "files": ["skills/requirement-and-invariants/SKILL.md"] } } },
+    { "row": "2 领域影响", "cells": { "think-ought-vs-is": { "kind": "行", "files": ["skills/domain-impact-analysis/SKILL.md"] } } },
+    { "row": "3 调研与复用", "cells": { "think-ought-vs-is": { "kind": "主", "files": ["skills/tech-research-and-reuse/SKILL.md"] } } },
+    { "row": "4 形式化守护", "cells": {} },
+    {
+      "row": "5 细化设计",
+      "cells": {
+        "think-ought-vs-is": {
+          "kind": "空",
+          "files": ["skills/detailed-domain-design/SKILL.md"],
+          "slots": { "skills/detailed-domain-design/design-template.md": ["- 应然：", "- 实然：", "- 差异："] }
+        }
+      }
+    },
+    { "row": "6 正式落盘", "cells": {} },
+    { "row": "7 spec 与 plan", "cells": { "think-ought-vs-is": { "kind": "行", "files": ["skills/spec-and-plan/SKILL.md"] } } },
+    {
+      "row": "8 切片开工包",
+      "cells": {
+        "think-ought-vs-is": {
+          "kind": "空",
+          "files": ["skills/context-pack/SKILL.md"],
+          "slots": {
+            "skills/context-pack/slice-kickoff-template.md": ["  - 应然：", "  - 实然：", "  - 差异："],
+            "skills/spec-and-plan/plan-template.md": ["  - 应然：", "  - 实然：", "  - 差异："]
+          }
+        }
+      }
+    },
+    {
+      "row": "9 派发",
+      "cells": {
+        "think-ought-vs-is": {
+          "kind": "空",
+          "files": ["skills/delegate-brief/SKILL.md"],
+          "slots": { "skills/delegate-brief/brief-template.md": ["  - 应然：", "  - 实然：", "  - 候选差异："] }
+        }
+      }
+    },
+    {
+      "row": "10 哨兵回看",
+      "cells": {
+        "think-ought-vs-is": {
+          "kind": "行",
+          "files": ["skills/one-lesson-rule/SKILL.md", "skills/one-lesson-rule/review-record-template.md", "skills/delegate-brief/sentinel-brief-template.md"]
+        }
+      }
+    },
+    { "row": "11 切片收口", "cells": { "think-ought-vs-is": { "kind": "行", "files": ["skills/slice-closeout/SKILL.md"] } } },
+    { "row": "12 汇报", "cells": { "think-ought-vs-is": { "kind": "主", "files": ["skills/progress-artifacts/SKILL.md"] } } },
+    { "row": "13 清理", "cells": {} },
+    { "row": "不够格的小活", "cells": { "think-ought-vs-is": { "kind": "行", "files": ["skills/single-session-dev-flow/SKILL.md"] } } },
+    {
+      "row": "压缩之后",
+      "cells": { "think-ought-vs-is": { "kind": "空", "slots": { "skills/spec-and-plan/plan-template.md": ["找差异 `think-ought-vs-is`"] } } }
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { checkFiles, checkHandoff, checkPlan, checkSpec, sections, PLAN_SECTIONS, SPEC_SECTIONS } from "../skills/spec-and-plan/scripts/lib/check-plan.mjs";
+import { checkFiles, checkHandoff, checkPlan, checkSpec, planHints, sections, KICKOFF_FIELDS, MODELS_LINE_PREFIX, PLAN_SECTIONS, SPEC_SECTIONS } from "../skills/spec-and-plan/scripts/lib/check-plan.mjs";
 
 const SCRIPT = new URL("../skills/spec-and-plan/scripts/check-plan.mjs", import.meta.url).pathname;
 const TEMPLATE = new URL("../skills/spec-and-plan/plan-template.md", import.meta.url).pathname;
@@ -23,6 +23,7 @@ const GOOD_PLAN = `# 示例 交付计划（revision 1）
 进度：[■■■■■□□□□□] 1/2 切片已完成 · 更新 2026-11-08T10:00Z · head 0123abc
 当前：切片 02 开工包
 预计收尾：2026-11-08T12:00Z · 依据：剩一片，预算 2 小时
+思维模型：拆 \`think-orthogonal\` · 找差异 \`think-ought-vs-is\` · 定形 \`think-model-first\` · 建 \`think-right-then-well\` · 证 \`think-evidence\`
 
 | 切片 | 交付的行为 | 对应验收 | 状态 |
 | --- | --- | --- | --- |
@@ -410,7 +411,8 @@ test("新缺陷的行号：预计收尾格式错指向那一行，收口缺合�
   const no = GOOD_PLAN.replace("- [ ] 改动成员的合入检查：\n", "");
   const lines = no.split("\n");
   assert.deepEqual(checkPlan(no).map((d) => d.line), [lines.findIndex((l, i) => l.startsWith("**收口**") && i > lines.indexOf("### 02：第二片")) + 1]);
-  const before = GOOD_PLAN.replace("**开工包**：开工时填。", "**开工包**：开工时填。\n\n- [ ] 改动成员的合入检查：写在开工包里").replace("- [ ] 改动成员的合入检查：\n- [ ] 提交", "- [ ] 提交");
+  // 开工包里多了一项就算填了；用旧模板，只看收口这一类缺陷。
+  const before = OLD_PLAN.replace("**开工包**：开工时填。", "**开工包**：开工时填。\n\n- [ ] 改动成员的合入检查：写在开工包里").replace("- [ ] 改动成员的合入检查：\n- [ ] 提交", "- [ ] 提交");
   assert.deepEqual(checkPlan(before).map((d) => d.message), ["切片 02 收口缺「改动成员的合入检查」"]);
   const tail = GOOD_PLAN.replace("| 哨兵 | 哨兵，45 分钟，4 轮 | 理由二 | 便宜档 | 2026-11-08T08:00Z | 第 2/4 轮 |\n\n处置 1", "| 哨兵 | 哨兵，45 分钟，4 轮 | 理由二 | 便宜档 | 2026-11-08T08:00Z | 运行中 |\n\n处置 1");
   assert.deepEqual(checkPlan(tail.replace(/\n\n处置 1[^]*?\n\n## 一程目标/, "\n## 一程目标")).map((d) => d.message.split("：")[0]), ["子代理「哨兵」的状态「运行中」不以状态词开头"]);
@@ -422,4 +424,62 @@ test("checkFiles 把时钟传给 plan 与 spec 的核对", () => {
   const read = (p) => ({ plan: late, spec: lateSpec })[p];
   assert.equal(checkFiles({ plan: "plan", spec: "spec", now: Date.parse("2026-11-08T10:30Z") }, read).length, 2);
   assert.equal(checkFiles({ plan: "plan", spec: "spec", now: Date.parse("2026-11-08T11:00Z") }, read).length, 0);
+});
+
+/** GOOD_PLAN 是新模板：进度总览带「思维模型：」一行。去掉这一行就是旧模板。 */
+const NEW_PLAN = GOOD_PLAN;
+const OLD_PLAN = GOOD_PLAN.split("\n").filter((l) => !l.startsWith(MODELS_LINE_PREFIX)).join("\n");
+/** 切片 02 的开工包：先填一栏别的，再按给的栏名各填一行。 */
+const packOf = (fields) => ["**开工包**", "", "- 上下文增量：读 a.ts", ...fields.map((f) => `  - ${f}：答${f}`)].join("\n");
+const withPack = (plan, fields) => plan.replace("**开工包**：开工时填。", packOf(fields));
+const missing = (names) => names.map((n) => `切片 02 未收口、开工包已填，缺「${n}」一栏：按 plan 模板在开工包里补「${n}：」一行`);
+
+test("开工包的思维模型栏：plan 模板里每一栏都在，核对器与模板是同一份契约", () => {
+  assert.ok(readFileSync(TEMPLATE, "utf8").split("\n").some((l) => l.startsWith(MODELS_LINE_PREFIX)), "plan 模板的进度总览有「思维模型：」一行");
+  const pack = readFileSync(TEMPLATE, "utf8").split("**开工包**")[1].split("**收口**")[0];
+  for (const f of KICKOFF_FIELDS) assert.match(pack, new RegExp(`^\\s*(?:-|\\d+\\.) ${f}：`, "m"), `plan 模板的开工包缺「${f}：」一栏`);
+});
+
+test("开工包的思维模型栏：未收口且开工包已填的切片缺哪栏报哪栏；栏齐了、开工包没填、已完成或跳过的不报", () => {
+  const messages = (text) => checkPlan(text).map((d) => d.message);
+  assert.deepEqual(messages(NEW_PLAN), [], "开工包没填的切片不查");
+  assert.deepEqual(messages(withPack(NEW_PLAN, [])), missing(KICKOFF_FIELDS), "填了别的栏、思维模型栏一栏没写，逐栏报");
+  const complete = withPack(NEW_PLAN, KICKOFF_FIELDS);
+  assert.deepEqual(messages(complete), [], "栏齐了通过");
+  const [first, ...rest] = KICKOFF_FIELDS;
+  assert.deepEqual(messages(withPack(NEW_PLAN, rest)), missing([first]), "少一栏报那一栏");
+  assert.deepEqual(messages(complete.replace(`- ${first}：答${first}`, `- ${first}：<本片做完后应该成立什么>`)), missing([first]), "模板占位符不算答过");
+  assert.deepEqual(messages(complete.replace(`- ${first}：答${first}`, `- ${first}：`)), missing([first]), "冒号后空着不算答过");
+  const untouched = NEW_PLAN.replace("**开工包**：开工时填。", "**开工包**\n\n- 上下文增量：<本片额外需要的文件>\n- 技术细节设计与验证：<类型、签名>；关键位置：<路径>\n- 细化的推进方案：\n  - [ ] 做对：<完成判据>");
+  assert.deepEqual(messages(untouched), [], "照抄模板没改的开工包算没填");
+  const afterCloseout = withPack(NEW_PLAN, []).replace("- [ ] 提交", `- [ ] 提交\n${KICKOFF_FIELDS.map((f) => `  - ${f}：答${f}`).join("\n")}`);
+  assert.deepEqual(messages(afterCloseout), missing(KICKOFF_FIELDS), "写在收口之后的不算开工包里的");
+  for (const status of ["已完成 0123abc", "跳过（范围外）"]) assert.deepEqual(messages(withPack(NEW_PLAN, []).replace("| 02 | 第二片 | C2 | 待做 |", `| 02 | 第二片 | C2 | ${status} |`)), [], `${status} 的切片不查`);
+  assert.deepEqual(messages(withPack(NEW_PLAN, []).replace("| 02 | 第二片 | C2 | 待做 |", "| 02 | 第二片 | C2 | 受阻（等人） |")), missing(KICKOFF_FIELDS), "受阻也是未收口");
+});
+
+test("旧模板：进度总览没有「思维模型：」一行时开工包的思维模型栏不报缺陷，只给一条提示；命令面照样退出 0", () => {
+  const old = withPack(OLD_PLAN, []);
+  assert.deepEqual(checkPlan(old), []);
+  const hints = planHints(old);
+  assert.equal(hints.length, 1);
+  assert.equal(hints[0].line, OLD_PLAN.split("\n").indexOf("## 进度总览") + 1);
+  assert.equal(hints[0].message, `进度总览没有「思维模型：」一行，按旧模板核，开工包的思维模型栏只提示、不报缺陷。照 plan 模板加上这一行，上下文压缩之后按它重新加载思维模型技能；加上之后要补：切片 02 缺${KICKOFF_FIELDS.map((f) => `「${f}」`).join("")}`);
+  assert.equal(planHints(OLD_PLAN)[0].message.split("；")[0], hints[0].message.split("；")[0], "没有要补的切片时只说缺这一行");
+  assert.ok(!planHints(OLD_PLAN)[0].message.includes("；加上之后"));
+  assert.deepEqual(planHints(NEW_PLAN), [], "新模板没有提示");
+  const dir = mkdtempSync(join(tmpdir(), "pqw-check-plan-"));
+  try {
+    writeFileSync(join(dir, "plan.md"), old);
+    const text = run(["--plan", join(dir, "plan.md"), "--now", "2026-11-08T11:00Z"]);
+    assert.equal(text.status, 0, text.stdout);
+    assert.ok(text.stdout.includes(` 提示：${hints[0].message}`), text.stdout);
+    assert.ok(text.stdout.trimEnd().endsWith("check-plan：结构合模板，1 条提示"), text.stdout);
+    const json = run(["--plan", join(dir, "plan.md"), "--now", "2026-11-08T11:00Z", "--format", "json"]);
+    assert.equal(json.status, 0);
+    const parsed = JSON.parse(json.stdout);
+    assert.equal(parsed.ok, true);
+    assert.deepEqual(parsed.defects, []);
+    assert.deepEqual(parsed.hints.map((h) => h.message), [hints[0].message]);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

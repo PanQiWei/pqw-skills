@@ -33,6 +33,7 @@
     "./skills/progress-artifacts",
     "./skills/cleanup",
     "./skills/teach-pqw-skills",
+    "./skills/think-ought-vs-is",
     "./skills/clear-writing",
     "./skills/write-agents-md"
   ]

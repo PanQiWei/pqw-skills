@@ -125,6 +125,11 @@ export function sliceTableIds(sec) {
   return sec.lines.map((l) => /^\|\s*(\d+)\s*\|/.exec(l.trim())?.[1]).filter(Boolean);
 }
 
+/** 切片表里每个切片号的状态格。 */
+export function sliceStatuses(sec) {
+  return new Map(sec.lines.map(cellsOf).filter((c) => /^\d+$/.test(c?.[0] ?? "")).map((c) => [c[0], c[3] ?? ""]));
+}
+
 /** 一程目标：两个小标题都在，各有正文。 */
 function checkNarrative(file, sec) {
   const defects = [];
@@ -153,6 +158,43 @@ function checkDocsTable(file, sec) {
   return defects;
 }
 
+/** 进度总览里「思维模型：」一行开头。有这一行的是新模板，开工包的思维模型栏按缺陷核；没有的是旧模板，只给提示。 */
+export const MODELS_LINE_PREFIX = "思维模型：";
+/** 开工包里思维模型的栏：上下文地图「切片开工包」一行里标「空」的格在 plan 模板里的栏名。字面与 ../plan-template.md 是同一份契约，用例把两处钉在一起。 */
+export const KICKOFF_FIELDS = ["应然", "实然", "差异"];
+/** 列表项的正文：去掉「- 」「1. 」与勾选框。不是列表项返回 null。 */
+const itemText = (line) => /^\s*(?:[-*]|\d+\.)\s+(?:\[[ x]\]\s+)?(.*)$/.exec(line)?.[1] ?? null;
+/** 一栏答过：「- 栏名：」或「1. 栏名：」后有内容，且不是整条尖括号占位。 */
+const answered = (pack, name) => pack.some((l) => { const m = new RegExp(`^\\s*(?:-|\\d+\\.) ${name}：(.*)$`).exec(l); return m !== null && m[1].trim() !== "" && !isPlaceholder(m[1].trim()); });
+/** 开工包已填：至少一个列表项有了自己写的内容，冒号后不空、也没有尖括号占位。照抄模板没改的不算。 */
+const packFilled = (pack) => pack.some((l) => {
+  const text = itemText(l);
+  if (text === null || /<[^>]*>/.test(text)) return false;
+  return text.slice(text.indexOf("：") + 1).trim() !== "";
+});
+/** 收口了的切片：已完成或跳过。其余（待做、进行中、受阻）都算未收口。 */
+const closed = (status) => /^(已完成|跳过)/.test(status ?? "");
+
+/** 切片的开工包：从「**开工包**」到「**收口**」之前。没有开工包返回 null。 */
+function packOf(body) {
+  const from = body.findIndex((l) => l.startsWith("**开工包**"));
+  if (from < 0) return null;
+  const to = body.findIndex((l) => l.startsWith("**收口**"));
+  return { from, lines: body.slice(from + 1, to < 0 ? undefined : to) };
+}
+
+/** 未收口且开工包已填的切片缺的思维模型栏。 */
+function missingFields(body, status) {
+  const pack = packOf(body);
+  if (!pack || closed(status) || !packFilled(pack.lines)) return { from: pack?.from ?? 0, names: [] };
+  return { from: pack.from, names: KICKOFF_FIELDS.filter((name) => !answered(pack.lines, name)) };
+}
+
+function kickoffDefects(file, id, body, at, status) {
+  const { from, names } = missingFields(body, status);
+  return names.map((name) => ({ file, line: at + from, message: `切片 ${id} 未收口、开工包已填，缺「${name}」一栏：按 plan 模板在开工包里补「${name}：」一行` }));
+}
+
 /** 一个切片节自己的结构缺陷：意义段、开工包、收口，收口里有「做好一轮」。at 是切片标题的行号。 */
 function sliceDefects(file, id, body, at) {
   const defects = [];
@@ -167,18 +209,41 @@ function sliceDefects(file, id, body, at) {
   return defects;
 }
 
-/** 切片节：每个 ### NN： 的结构缺陷，加上切片号与切片表一致。 */
-function checkSlices(file, sec, tableIds) {
+/** 切片节里的每个切片：{ id, line, body }，line 是切片标题的行号。 */
+function sliceBlocks(sec) {
+  const heads = [];
+  sec.lines.forEach((l, i) => { const m = /^### (\d+)：/.exec(l); if (m) heads.push({ id: m[1], at: i }); });
+  return heads.map((h, k) => ({ id: h.id, line: sec.start + h.at, body: sec.lines.slice(h.at, heads[k + 1]?.at ?? sec.lines.length) }));
+}
+
+/** 切片节：每个 ### NN： 的结构缺陷，加上切片号与切片表一致。newTemplate 为真时核开工包的思维模型栏。 */
+function checkSlices(file, sec, tableIds, statuses, newTemplate) {
   const defects = [];
-  const blocks = [];
-  sec.lines.forEach((l, i) => { const m = /^### (\d+)：/.exec(l); if (m) blocks.push({ id: m[1], at: i }); });
-  blocks.forEach((b, k) => {
-    const line = sec.start + b.at;
-    defects.push(...sliceDefects(file, b.id, sec.lines.slice(b.at, blocks[k + 1]?.at ?? sec.lines.length), line));
-    if (!tableIds.includes(b.id)) defects.push({ file, line, message: `切片 ${b.id} 不在切片表里` });
-  });
+  const blocks = sliceBlocks(sec);
+  for (const b of blocks) {
+    defects.push(...sliceDefects(file, b.id, b.body, b.line));
+    if (newTemplate) defects.push(...kickoffDefects(file, b.id, b.body, b.line, statuses.get(b.id)));
+    if (!tableIds.includes(b.id)) defects.push({ file, line: b.line, message: `切片 ${b.id} 不在切片表里` });
+  }
   for (const id of tableIds) if (!blocks.some((b) => b.id === id)) defects.push({ file, line: null, message: `切片表里的切片 ${id} 没有自己的「### ${id}：」节` });
   return defects;
+}
+
+const hasModelsLine = (overview) => overview.lines.some((l) => l.startsWith(MODELS_LINE_PREFIX));
+
+/**
+ * 提示：不算缺陷、不改退出码的几条。现在只有一类：旧模板的 plan 没有「思维模型：」一行，
+ * 开工包的思维模型栏不按缺陷核，提示加上这一行，并列出加上之后要补的栏。已有的 plan 不因模板升级而无故变红。
+ */
+export function planHints(text, file = "plan.md") {
+  const secs = sections(text);
+  const overview = byTitle(secs, "进度总览");
+  if (!overview || hasModelsLine(overview)) return [];
+  const slices = byTitle(secs, "切片");
+  const statuses = sliceStatuses(overview);
+  const owed = slices ? sliceBlocks(slices).map((b) => ({ id: b.id, names: missingFields(b.body, statuses.get(b.id)).names })).filter((s) => s.names.length) : [];
+  const tail = owed.length ? `；加上之后要补：${owed.map((s) => `切片 ${s.id} 缺${s.names.map((n) => `「${n}」`).join("")}`).join("，")}` : "";
+  return [{ file, line: overview.start, message: `进度总览没有「${MODELS_LINE_PREFIX}」一行，按旧模板核，开工包的思维模型栏只提示、不报缺陷。照 plan 模板加上这一行，上下文压缩之后按它重新加载思维模型技能${tail}` }];
 }
 
 /** 处置编号从 1 起按出现顺序连续。 */
@@ -207,7 +272,7 @@ export function checkPlan(text, file = "plan.md", { now = Date.now() } = {}) {
   const docs = byTitle(secs, "文档维护表");
   if (docs) defects.push(...checkDocsTable(file, docs));
   const slices = byTitle(secs, "切片");
-  if (slices) defects.push(...checkSlices(file, slices, overview ? sliceTableIds(overview) : []));
+  if (slices) defects.push(...checkSlices(file, slices, overview ? sliceTableIds(overview) : [], overview ? sliceStatuses(overview) : new Map(), overview ? hasModelsLine(overview) : false));
   defects.push(...checkDisposals(file, text));
   defects.push(...futureTimeDefects(file, text, now));
   return defects;
@@ -306,9 +371,14 @@ export function checkFiles({ plan, spec, handoff, now = Date.now() }, read) {
   ];
 }
 
-/** 文本输出：每条「文件:行 缺陷」，末尾一行汇总。 */
-export function formatDefects(defects) {
-  const lines = defects.map((d) => `${d.file}${d.line === null ? "" : `:${d.line}`} ${d.message}`);
-  lines.push(defects.length === 0 ? "check-plan：结构合模板" : `check-plan：${defects.length} 处缺陷`);
+/** 命令面给了 plan 时的提示；spec 与交接信息包没有提示。 */
+export const hintFiles = ({ plan }, read) => (plan ? planHints(read(plan), plan) : []);
+
+/** 文本输出：每条「文件:行 缺陷」，再每条「文件:行 提示：…」，末尾一行汇总。提示不算缺陷。 */
+export function formatDefects(defects, hints = []) {
+  const at = (d) => `${d.file}${d.line === null ? "" : `:${d.line}`}`;
+  const lines = [...defects.map((d) => `${at(d)} ${d.message}`), ...hints.map((h) => `${at(h)} 提示：${h.message}`)];
+  const tail = hints.length ? `，${hints.length} 条提示` : "";
+  lines.push(defects.length === 0 ? `check-plan：结构合模板${tail}` : `check-plan：${defects.length} 处缺陷${tail}`);
   return lines.join("\n");
 }
