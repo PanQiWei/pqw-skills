@@ -101,6 +101,8 @@ description: 教人用 pqw-skills：讲这条流的心智模型、哲学与协�
 
 接入节之外，项目把 pqw-skills 发行的[常驻卡片](../single-session-dev-flow/resident-card.md)原样放进自己的常驻入口文件，例如根 AGENTS.md：分隔线以下九行，六个思维模型各一句，诤友一句，每句末尾是技能名。常驻入口文件每个会话都读，小修、原型这些不走流的工作也看得到它们。升级 pqw-skills 之后重新同步这一段。项目不手写第二份，自己的品味写在卡片之外，不重讲这几个模型的做法。
 
+项目要跟着 pqw-skills 改的只有三样：上表的槽位名、交接信息包的节名、常驻卡片。它们合起来是接入约定，列在仓库的 `design/consumer-contract.json`，带一个整数 `version`。项目只钉这个 `version`：它不变的发行版直接换用，不必改项目自己的文件；它涨了，才回来改接入节、工单模板或卡片。
+
 外部依赖按 README 的依赖表装：pstack、ub-mode、mattpocock/skills。
 
 ## 回复

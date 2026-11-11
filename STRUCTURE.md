@@ -30,7 +30,7 @@ pqw-skills/
 ├── .claude-plugin/
 │   ├── plugin.json           插件清单：名字、版本、skills 数组逐个列出技能目录
 │   └── marketplace.json      仓库自带的单插件市场，供 claude plugin marketplace add
-├── design/                   设计文档：环节映射、自带资产与接入点、吸收的外部经验；context-map.json 是上下文地图（流程轴乘思维轴的矩阵）的唯一源
+├── design/                   设计文档：环节映射、自带资产与接入点、吸收的外部经验；context-map.json 是上下文地图（流程轴乘思维轴的矩阵）的唯一源；consumer-contract.json 是接入约定（槽位名、交接信息包的节、常驻卡片）与它的版本，消费项目只钉这个版本
 ├── scripts/
 │   ├── link-skills.sh        本机开发：把每个技能与元技能软链进 ~/.claude/skills 与 ~/.agents/skills
 │   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、工具版本常量与 plugin.json 一致、写代码的四条只有一处索引、上下文地图每一格兑现（含横切技能、阶段技能与常驻卡片）

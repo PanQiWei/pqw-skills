@@ -230,3 +230,44 @@ test("版本常量：根目录两份清单（plugin.json、kimi.plugin.json）�
     ]);
   } finally { dispose(dir); }
 });
+
+const CONTRACT = "design/consumer-contract.json";
+const CONTRACT_CHECK = "[接入约定]";
+const TEACH = "skills/teach-pqw-skills/SKILL.md";
+
+test("接入约定：仓库本身不报；槽位表、交接信息包的节、常驻卡片任何一样与约定文件对不上，各报一处", () => {
+  const dir = copyRepo();
+  try {
+    assert.deepEqual(reported(run(dir), CONTRACT_CHECK), []);
+    edit(dir, TEACH, "| 文档检查命令 |", "| 文档核对命令 |");
+    edit(dir, "skills/pass-the-baton/handoff-pack-template.md", "\n## 四问\n", "\n## 五问\n");
+    appendFileSync(join(dir, "skills/single-session-dev-flow/resident-card.md"), "- 多出来的一行。\n");
+    assert.deepEqual(reported(run(dir), CONTRACT_CHECK), [
+      `${CONTRACT} 的 slots 与 ${TEACH} 的槽位表不一致：约定里多「文档检查命令」，表里多「文档核对命令」`,
+      `${CONTRACT} 的 handoffSections 与交接信息包模板的二级标题不一致：约定里多「四问」，模板里多「五问」`,
+      `${CONTRACT} 的 residentCardSha256 与常驻卡片的内容不一致`,
+    ]);
+  } finally { dispose(dir); }
+});
+
+test("接入约定：与上一个发行 tag 相比，内容变了而 version 没涨报一处；涨了不报；内容没变而 version 变了也报", () => {
+  const dir = copyRepo();
+  const git = (...a) => spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...a], { cwd: dir, encoding: "utf8" });
+  const setVersion = (n) => {
+    const c = JSON.parse(readFileSync(join(dir, CONTRACT), "utf8"));
+    writeFileSync(join(dir, CONTRACT), `${JSON.stringify({ ...c, version: n }, null, 2)}\n`);
+  };
+  try {
+    const base = JSON.parse(readFileSync(join(dir, CONTRACT), "utf8")).version;
+    git("init", "-q"); git("add", "-A"); git("commit", "-q", "-m", "x"); git("tag", "v99.0.0");
+    assert.deepEqual(reported(run(dir), CONTRACT_CHECK), []);
+    edit(dir, TEACH, "| 文档检查命令 |", "| 文档核对命令 |");
+    edit(dir, CONTRACT, '"文档检查命令"', '"文档核对命令"');
+    assert.deepEqual(reported(run(dir), CONTRACT_CHECK), [`${CONTRACT} 的内容与 v99.0.0 不同，version 却没有涨（仍是 ${base}）：消费项目要跟着改的变化必须涨 version`]);
+    setVersion(base + 1);
+    assert.deepEqual(reported(run(dir), CONTRACT_CHECK), []);
+    edit(dir, TEACH, "| 文档核对命令 |", "| 文档检查命令 |");
+    edit(dir, CONTRACT, '"文档核对命令"', '"文档检查命令"');
+    assert.deepEqual(reported(run(dir), CONTRACT_CHECK), [`${CONTRACT} 的内容与 v99.0.0 相同，version 却从 ${base} 变成 ${base + 1}：没有要消费项目跟着改的变化就不涨`]);
+  } finally { dispose(dir); }
+});

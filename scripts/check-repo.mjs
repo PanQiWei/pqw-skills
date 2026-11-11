@@ -6,6 +6,8 @@ import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
+import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const home = homedir();
@@ -331,6 +333,68 @@ function checkContextMap() {
   for (const item of map.stages ?? []) checkAxisSkill(item, map.stageMaxLines, "阶段技能");
 }
 checkContextMap();
+
+// ---- 10. 接入约定：消费项目要跟着改的东西只有三样，槽位名、交接信息包的节、常驻卡片。
+// design/consumer-contract.json 把它们列全并带一个整数 version；三样任何一样变了，这份文件就得跟着改，version 就得涨。
+// 消费项目只钉 version：version 不变的发行版可以直接换用，不必改项目自己的文件。
+const CONTRACT_CHECK = "接入约定";
+const CONTRACT_PATH = "design/consumer-contract.json";
+const TEACH_PATH = "skills/teach-pqw-skills/SKILL.md";
+const HANDOFF_TEMPLATE_PATH = "skills/pass-the-baton/handoff-pack-template.md";
+const CARD_PATH = "skills/single-session-dev-flow/resident-card.md";
+
+/** 接入节的槽位名：教学技能里「| 槽位 | 谁用 |」表的第一列，去掉括号里的说明。 */
+function liveSlots() {
+  const lines = read(join(repo, TEACH_PATH)).split("\n");
+  const head = lines.findIndex((l) => l.startsWith("| 槽位 | 谁用 |"));
+  const names = [];
+  for (let i = head + 2; head >= 0 && lines[i]?.startsWith("| "); i++) names.push(lines[i].split("|")[1].trim().split("（")[0].trim());
+  return names;
+}
+/** 常驻卡片分隔线以下的部分，首尾空行去掉、末尾留一个换行：消费项目原样放进入口文件的就是这一段。 */
+function liveCardSha() {
+  const lines = read(join(repo, CARD_PATH)).split("\n");
+  const body = `${lines.slice(lines.indexOf("---") + 1).join("\n").replace(/^\n+|\n+$/g, "")}\n`;
+  return createHash("sha256").update(body).digest("hex");
+}
+const listDiff = (contract, live, liveName) => {
+  const extra = contract.filter((x) => !live.includes(x)).map((x) => `「${x}」`).join("");
+  const missing = live.filter((x) => !contract.includes(x)).map((x) => `「${x}」`).join("");
+  if (!extra && !missing) return contract.join("\n") === live.join("\n") ? null : "顺序不同";
+  return [extra && `约定里多${extra}`, missing && `${liveName}里多${missing}`].filter(Boolean).join("，");
+};
+/** 上一个带约定文件的发行 tag 与它的约定；不在 Git 仓库里或没有这样的 tag 时返回 null。 */
+function previousContract() {
+  const git = (...a) => spawnSync("git", ["-C", repo, ...a], { encoding: "utf8" });
+  if (git("rev-parse", "--show-toplevel").status !== 0) return null;
+  for (const tag of git("tag", "--list", "v*", "--sort=-v:refname").stdout.split("\n").filter(Boolean)) {
+    const shown = git("show", `${tag}:${CONTRACT_PATH}`);
+    if (shown.status === 0) return { tag, contract: JSON.parse(shown.stdout) };
+  }
+  return null;
+}
+function checkConsumerContract() {
+  let contract;
+  try {
+    contract = JSON.parse(read(join(repo, CONTRACT_PATH)));
+  } catch (e) {
+    return fail(CONTRACT_CHECK, `读不了 ${CONTRACT_PATH}：${e.message}`);
+  }
+  const slots = listDiff(contract.slots ?? [], liveSlots(), "表");
+  if (slots) fail(CONTRACT_CHECK, `${CONTRACT_PATH} 的 slots 与 ${TEACH_PATH} 的槽位表不一致：${slots}`);
+  const headings = read(join(repo, HANDOFF_TEMPLATE_PATH)).split("\n").filter((l) => l.startsWith("## ")).map((l) => l.slice(3).trim());
+  const sections = listDiff(contract.handoffSections ?? [], headings, "模板");
+  if (sections) fail(CONTRACT_CHECK, `${CONTRACT_PATH} 的 handoffSections 与交接信息包模板的二级标题不一致：${sections}`);
+  if (contract.residentCardSha256 !== liveCardSha()) fail(CONTRACT_CHECK, `${CONTRACT_PATH} 的 residentCardSha256 与常驻卡片的内容不一致`);
+  if (!Number.isInteger(contract.version)) return fail(CONTRACT_CHECK, `${CONTRACT_PATH} 的 version 要是整数`);
+  const previous = previousContract();
+  if (!previous) return;
+  const body = ({ version: _version, ...rest }) => JSON.stringify(rest);
+  const same = body(contract) === body(previous.contract);
+  if (!same && contract.version <= previous.contract.version) fail(CONTRACT_CHECK, `${CONTRACT_PATH} 的内容与 ${previous.tag} 不同，version 却没有涨（仍是 ${contract.version}）：消费项目要跟着改的变化必须涨 version`);
+  if (same && contract.version !== previous.contract.version) fail(CONTRACT_CHECK, `${CONTRACT_PATH} 的内容与 ${previous.tag} 相同，version 却从 ${previous.contract.version} 变成 ${contract.version}：没有要消费项目跟着改的变化就不涨`);
+}
+checkConsumerContract();
 
 // ---- 输出
 
