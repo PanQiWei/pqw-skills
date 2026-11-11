@@ -16,7 +16,10 @@ pqw-skills/
 ├── .gitignore
 ├── .github/                  PR 模板与 issue 模板
 ├── assets/
-│   └── flow.svg              README 里的流程图，手写 SVG，带深色模式样式
+│   ├── story.svg             README 开头的故事图：没有它、有它、你得到的六样；手写 SVG，kami 的视觉规范
+│   ├── map.svg               README 的全景图：两条轴的矩阵与全部技能、脚本；由 gen-map.mjs 生成
+│   ├── gen-map.mjs           生成 map.svg，矩阵从 design/context-map.json 读
+│   └── flow.svg              旧的流程图，只有 README_EN.md 还在用
 ├── .claude-plugin/
 │   ├── plugin.json           插件清单：名字、版本、skills 数组逐个列出技能目录
 │   └── marketplace.json      仓库自带的单插件市场，供 claude plugin marketplace add

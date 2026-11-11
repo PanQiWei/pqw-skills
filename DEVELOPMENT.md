@@ -58,12 +58,18 @@ node skills/cleanup/scripts/cleanup.mjs --scope slice --prefix <前缀> --plan
 
 清理脚本默认只列不删，只有 `--apply` 才动手。哨兵的宿主接法见 `skills/one-lesson-rule/hosts.md`。
 
-## 改流程图
+## 改 README 的图
 
-`assets/flow.svg` 是手写 SVG，带深色模式样式。改完本地看一眼：
+README 开头两张信息图用 kami 的视觉规范（github.com/tw93/kami）：羊皮纸底 `#f5f4ed`，只有墨蓝 `#1B365D` 一个强调色，其余是暖灰，中文衬线字，细线，圆角不超过 6，不用阴影、渐变和第二种颜色。图自带底色，不做深色版。
+
+- `assets/story.svg`：故事图，手写 SVG。文字不会自动换行，改字时按字数核每行的宽度。
+- `assets/map.svg`：全景图，由 `node assets/gen-map.mjs` 生成，矩阵从 `design/context-map.json` 读。改了上下文地图、增删技能或脚本之后重跑。
+- `assets/flow.svg`：旧的流程图，手写 SVG，带深色模式样式，只有 `README_EN.md` 还在用。
+
+改完本地看一眼，窗口高度取 SVG 的 `height`：
 
 ```bash
-<chromium> --headless --no-sandbox --disable-gpu --hide-scrollbars --window-size=1100,620 --screenshot=/tmp/flow.png file://$PWD/assets/flow.svg
+<chromium> --headless --no-sandbox --disable-gpu --hide-scrollbars --window-size=960,1500 --screenshot=/tmp/story.png file://$PWD/assets/story.svg
 ```
 
 本机没有 `rsvg-convert` 时用 Playwright 缓存里的 Chromium 即可。

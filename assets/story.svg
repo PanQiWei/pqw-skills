@@ -1,0 +1,229 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1500" width="960" height="1500" role="img" aria-label="pqw-skills 用一张图讲清：没有它时一程长活的结局，有它时同一程怎么走，以及你得到的六样东西">
+  <title>把一程长活，放心交给 agent</title>
+  <style>
+    /* kami 的皮肤：羊皮纸底、一个墨蓝强调色、暖灰、衬线字、细线、开口箭头。色值都取自 kami 的 tokens。 */
+    svg { --bg:#f5f4ed; --ivory:#faf9f5; --ink:#141413; --mut:#504e49; --stone:#6b6a64; --line:#d8d5c8; --card:#faf9f5; --store:#EAE9E2; --brand:#1B365D; --tint:#EEF2F7;
+          --human:#141413; --humanbg:#faf9f5; --agent:#1B365D; --agentbg:#EEF2F7; --pain:#141413; --painbg:#EAE9E2; --good:#1B365D; --goodbg:#EEF2F7; }
+    text { font-family: "TsangerJinKai02", "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", "STSong", Charter, Georgia, serif; fill: var(--ink); }
+    .bg { fill: var(--bg); }
+    .eyebrow { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; font-weight: 600; fill: var(--brand); letter-spacing: 3px; }
+    .title { font-size: 36px; font-weight: 600; }
+    .sub { font-size: 17px; fill: var(--mut); }
+    .act { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 600; letter-spacing: 2.5px; }
+    .h2 { font-size: 22px; font-weight: 600; }
+    .h3 { font-size: 15px; font-weight: 600; }
+    .b { font-size: 13px; fill: var(--mut); }
+    .bi { font-size: 13px; }
+    .s { font-size: 12px; fill: var(--stone); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; letter-spacing: 0.5px; }
+    .big { font-size: 24px; font-weight: 600; }
+    .num { font-size: 30px; font-weight: 600; }
+    .card { fill: var(--card); stroke: var(--line); stroke-width: 1; }
+    .rule { stroke: var(--line); stroke-width: 1; }
+    .brandrule { stroke: var(--brand); stroke-width: 0.8; }
+    .pain { fill: var(--pain); } .painbg { fill: var(--ink); stroke: var(--ink); stroke-width: 1; } .painln { stroke: var(--ink); fill: none; stroke-width: 1.5; }
+    .human { fill: var(--human); } .humanbg { fill: var(--humanbg); stroke: var(--human); stroke-width: 1; } .humanln { stroke: var(--human); fill: none; }
+    .agent { fill: var(--agent); } .agentbg { fill: var(--agentbg); stroke: var(--agent); stroke-width: 1; } .agentln { stroke: var(--agent); fill: none; stroke-width: 1.5; }
+    .good { fill: var(--good); } .goodbg { fill: var(--goodbg); stroke: var(--good); stroke-width: 1; }
+    .chip { fill: var(--ivory); stroke: var(--line); stroke-width: 1; }
+    .arr { stroke: var(--mut); stroke-width: 1.4; fill: none; stroke-linecap: round; }
+    .inv { fill: var(--ivory); }
+    .invmut { fill: var(--line); }
+  </style>
+  <defs>
+    <marker id="m" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M2,1 L8,5 L2,9" fill="none" stroke="#504e49" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+    <marker id="ma" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M2,1 L8,5 L2,9" fill="none" stroke="#1B365D" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="960" height="1500"/>
+
+  <!-- 标题 -->
+  <text class="eyebrow" x="40" y="52">PQW-SKILLS</text>
+  <text class="title" x="40" y="98">把一程长活，放心交给 agent</text>
+  <text class="sub" x="40" y="130">你定边界，它自己做完，你回来只验收。</text>
+  <circle class="human" cx="760" cy="92" r="6"/><text class="b" x="772" y="97">你</text>
+  <circle class="agent" cx="812" cy="92" r="6"/><text class="b" x="824" y="97">agent</text>
+  <line class="brandrule" x1="40" y1="156" x2="920" y2="156"/>
+
+  <!-- 第一幕 -->
+  <text class="act" x="40" y="194" style="fill:var(--stone)">第一幕</text>
+  <text class="h2" x="104" y="196">没有它：一程长活常见的结局</text>
+
+  <g>
+    <rect class="card" x="40" y="216" width="164" height="96" rx="6"/>
+    <text class="h3" x="56" y="246">一句话就开工</text>
+    <text class="b" x="56" y="270">需求没问清，</text><text class="b" x="56" y="290">agent 边做边猜边界</text>
+
+    <rect class="card" x="219" y="216" width="164" height="96" rx="6"/>
+    <text class="h3" x="235" y="246">做到一半偏了</text>
+    <text class="b" x="235" y="270">没人看见，</text><text class="b" x="235" y="290">越做越远</text>
+
+    <rect class="card" x="398" y="216" width="164" height="96" rx="6"/>
+    <text class="h3" x="414" y="246">同一处修三遍</text>
+    <text class="b" x="414" y="270">补丁叠着补丁，</text><text class="b" x="414" y="290">没人回头看前提</text>
+
+    <rect class="card" x="577" y="216" width="164" height="96" rx="6"/>
+    <text class="h3" x="593" y="246">报告写「全部完成」</text>
+    <text class="b" x="593" y="270">它自己说的，</text><text class="b" x="593" y="290">没有证据</text>
+
+    <rect class="painbg" x="756" y="216" width="164" height="96" rx="6"/>
+    <text class="h3 inv" x="772" y="246">你花一天返工</text>
+    <text class="b invmut" x="772" y="270">最贵的那一样，</text><text class="b invmut" x="772" y="290">是你的时间</text>
+
+    <path class="arr" d="M204,264 L217,264" marker-end="url(#m)"/>
+    <path class="arr" d="M383,264 L396,264" marker-end="url(#m)"/>
+    <path class="arr" d="M562,264 L575,264" marker-end="url(#m)"/>
+    <path class="arr" d="M741,264 L754,264" marker-end="url(#m)"/>
+  </g>
+
+  <!-- 偏离曲线 -->
+  <path fill="#EAE9E2" d="M40,392 L40,386 C300,382 560,370 740,346 C820,335 880,328 920,324 L920,392 Z" style="stroke:none"/>
+  <path class="painln" d="M40,386 C300,382 560,370 740,346 C820,335 880,328 920,324"/>
+  <text class="s pain" x="40" y="408">偏离</text>
+  <text class="s" x="84" y="408">你离开得越久，它偏得越远，返工越贵</text>
+  <text class="s pain" x="920" y="408" text-anchor="end">返工成本</text>
+
+  <line class="rule" x1="40" y1="432" x2="920" y2="432"/>
+
+  <!-- 第二幕 -->
+  <text class="act agent" x="40" y="470">第二幕</text>
+  <text class="h2" x="104" y="472">有它：同一程是这样走的</text>
+
+  <!-- 注意力条 -->
+  <text class="s human" x="40" y="508">你的注意力</text>
+  <rect class="human" x="116" y="496" width="302" height="14" rx="3"/>
+  <rect class="human" x="418" y="502" width="394" height="2"/>
+  <rect class="human" x="812" y="496" width="108" height="14" rx="3"/>
+  <text class="s" x="267" y="530" text-anchor="middle">在场，定边界</text>
+  <text class="s" x="644" y="530" text-anchor="middle">抽离，去做别的事</text>
+  <text class="s" x="866" y="530" text-anchor="middle">回来，验收</text>
+
+  <!-- 定义期 -->
+  <rect class="humanbg" x="40" y="546" width="378" height="250" rx="6"/>
+  <text class="h3 human" x="58" y="576">定义期 · 你主导</text>
+  <text class="s" x="400" y="576" text-anchor="end">六步，顺序不能跳</text>
+  <g>
+    <rect class="chip" x="58" y="592" width="166" height="36" rx="6"/><text class="bi" x="70" y="615">1  需求与不变式</text>
+    <rect class="chip" x="234" y="592" width="166" height="36" rx="6"/><text class="bi" x="246" y="615">2  领域影响与边界</text>
+    <rect class="chip" x="58" y="636" width="166" height="36" rx="6"/><text class="bi" x="70" y="659">3  调研与复用</text>
+    <rect class="chip" x="234" y="636" width="166" height="36" rx="6"/><text class="bi" x="246" y="659">4  形式化守护</text>
+    <rect class="chip" x="58" y="680" width="166" height="36" rx="6"/><text class="bi" x="70" y="703">5  细化领域设计</text>
+    <rect class="chip" x="234" y="680" width="166" height="36" rx="6"/><text class="bi" x="246" y="703">6  正式落盘</text>
+  </g>
+  <text class="b" x="58" y="744">每一步回答一个问题，产出是下一步的输入。</text>
+  <text class="b" x="58" y="766">agent 会先问一遍：这个需求值不值得做。</text>
+
+  <!-- 交接点 -->
+  <text class="s" x="456" y="622" text-anchor="middle" style="font-weight:700;fill:var(--ink)">交接点</text>
+  <path d="M456,640 L472,666 L456,692 L440,666 Z" class="good"/>
+  <text class="s" x="456" y="714" text-anchor="middle">进了文档</text>
+  <text class="s" x="456" y="732" text-anchor="middle">过了评审</text>
+
+  <!-- 交付期 -->
+  <rect class="agentbg" x="494" y="546" width="300" height="250" rx="6"/>
+  <text class="h3 agent" x="510" y="576">交付期 · agent 自主</text>
+  <text class="s" x="510" y="600">spec 定边界，plan 切成片，每片走一圈：</text>
+  <g>
+    <rect class="chip" x="510" y="616" width="50" height="34" rx="6"/><text class="s" x="535" y="638" text-anchor="middle" style="fill:var(--ink)">开工包</text>
+    <rect class="chip" x="568" y="616" width="50" height="34" rx="6"/><text class="s" x="593" y="638" text-anchor="middle" style="fill:var(--ink)">做对</text>
+    <rect class="chip" x="626" y="616" width="50" height="34" rx="6"/><text class="s" x="651" y="638" text-anchor="middle" style="fill:var(--ink)">做好</text>
+    <rect class="chip" x="684" y="616" width="50" height="34" rx="6"/><text class="s" x="709" y="638" text-anchor="middle" style="fill:var(--ink)">收口</text>
+    <rect class="chip" x="742" y="616" width="40" height="34" rx="6"/><text class="s" x="762" y="638" text-anchor="middle" style="fill:var(--ink)">汇报</text>
+    <path class="arr" d="M560,633 L566,633" marker-end="url(#m)"/>
+    <path class="arr" d="M618,633 L624,633" marker-end="url(#m)"/>
+    <path class="arr" d="M676,633 L682,633" marker-end="url(#m)"/>
+    <path class="arr" d="M734,633 L740,633" marker-end="url(#m)"/>
+    <path class="agentln" d="M762,650 C762,678 535,678 535,653" stroke-dasharray="5 4" marker-end="url(#ma)"/>
+    <text class="s agent" x="648" y="694" text-anchor="middle">下一片</text>
+  </g>
+  <circle class="agentln" cx="526" cy="738" r="14"/>
+  <path class="agentln" d="M526,729 L526,738 L533,742"/>
+  <text class="bi" x="550" y="734">哨兵每 45 分钟从顶层回看</text>
+  <text class="s" x="550" y="754">偏离、兜圈、上下文腐化，当场拉回</text>
+  <text class="s" x="510" y="782">完成只认证据：测试、读数、变异、逐条对照</text>
+
+  <!-- 验收 -->
+  <rect class="humanbg" x="812" y="546" width="108" height="250" rx="6"/>
+  <text class="h3 human" x="826" y="576">你回来</text>
+  <text class="bi" x="826" y="616">看汇报件</text>
+  <text class="s" x="826" y="636">架构图、demo</text>
+  <text class="bi" x="826" y="676">上手验</text>
+  <text class="s" x="826" y="696">每片几分钟</text>
+  <text class="bi" x="826" y="736">定下一程</text>
+  <text class="s" x="826" y="756">验过再往下</text>
+
+  <path class="arr" d="M418,666 L438,666"/>
+  <path class="arr" d="M474,666 L492,666" marker-end="url(#m)"/>
+  <path class="arr" d="M794,666 L810,666" marker-end="url(#m)"/>
+
+  <line class="rule" x1="40" y1="826" x2="920" y2="826"/>
+
+  <!-- 第三幕 -->
+  <text class="act agent" x="40" y="864">第三幕</text>
+  <text class="h2" x="104" y="866">你得到的六样</text>
+
+  <g>
+    <rect class="card" x="40" y="886" width="280" height="186" rx="6"/>
+    <text class="big" x="58" y="926">不白做</text>
+    <text class="bi" x="58" y="958">需求先过四问：有人在等吗、</text>
+    <text class="bi" x="58" y="980">今天怎么应付、谁用、最小做到哪。</text>
+    <text class="bi" x="58" y="1002">它直言一次，然后听你的。</text>
+    <text class="mono agent" x="58" y="1050">candid-friend</text>
+
+    <rect class="card" x="340" y="886" width="280" height="186" rx="6"/>
+    <text class="big" x="358" y="926">不猜边界</text>
+    <text class="bi" x="358" y="958">动手前六步把不确定性消掉。</text>
+    <text class="bi" x="358" y="980">交接点是物理条件：知识进了文档、</text>
+    <text class="bi" x="358" y="1002">过了评审，才算定好。</text>
+    <text class="mono agent" x="358" y="1050">定义期六个技能</text>
+
+    <rect class="card" x="640" y="886" width="280" height="186" rx="6"/>
+    <text class="big" x="658" y="926">不乱想</text>
+    <text class="bi" x="658" y="958">它带着六个想法做每件事：拆、</text>
+    <text class="bi" x="658" y="980">找差异、定形、建、证、转手。</text>
+    <text class="bi" x="658" y="1002">写在产出里，不靠它自觉。</text>
+    <text class="mono agent" x="658" y="1050">think-*</text>
+
+    <rect class="card" x="40" y="1092" width="280" height="186" rx="6"/>
+    <text class="big" x="58" y="1132">不走偏</text>
+    <text class="bi" x="58" y="1164">一个独立的哨兵定时回看，</text>
+    <text class="bi" x="58" y="1186">不让 agent 自己判自己。</text>
+    <text class="bi" x="58" y="1208">偏了当场拉回，不等到早上。</text>
+    <text class="mono agent" x="58" y="1256">one-lesson-rule</text>
+
+    <rect class="card" x="340" y="1092" width="280" height="186" rx="6"/>
+    <text class="big" x="358" y="1132">不自夸</text>
+    <text class="bi" x="358" y="1164">完成只认证据：测试先红后绿、</text>
+    <text class="bi" x="358" y="1186">结构读数、差分变异、逐条对照。</text>
+    <text class="bi" x="358" y="1208">不认「我做完了」。</text>
+    <text class="mono agent" x="358" y="1256">slice-closeout</text>
+
+    <rect class="card" x="640" y="1092" width="280" height="186" rx="6"/>
+    <text class="big" x="658" y="1132">不透支你</text>
+    <text class="bi" x="658" y="1164">一程多大，看你验得完多少。</text>
+    <text class="bi" x="658" y="1186">超了它会建议分成几程。</text>
+    <text class="bi" x="658" y="1208">夜里交活，有睡前交接与晨间交付。</text>
+    <text class="mono agent" x="658" y="1256">candid-friend</text>
+  </g>
+
+  <line class="rule" x1="40" y1="1306" x2="920" y2="1306"/>
+
+  <!-- 一次对照 -->
+  <rect class="card" x="40" y="1330" width="560" height="134" rx="6"/>
+  <text class="h3" x="58" y="1360">一次对照：同一个需求，只换技能版本</text>
+  <text class="s" x="58" y="1380">需求是「给下载任务加暂停与继续」，让 agent 写切片开工包</text>
+  <rect class="chip" x="58" y="1394" width="252" height="54" rx="6"/>
+  <text class="s" x="70" y="1416" style="font-weight:700">没有思维模型</text>
+  <text class="s" x="70" y="1436">状态转移用文字列，非法情况一句带过</text>
+  <rect class="goodbg" x="322" y="1394" width="260" height="54" rx="6"/>
+  <text class="s good" x="334" y="1416" style="font-weight:700">有思维模型</text>
+  <text class="s" x="334" y="1436" style="fill:var(--ink)">6×5 全化表，30 格逐格有答复</text>
+
+  <!-- 数字 -->
+  <rect class="card" x="620" y="1330" width="300" height="134" rx="6"/>
+  <text class="num" x="650" y="1376">24</text><text class="s" x="696" y="1374">个技能</text>
+  <text class="num" x="790" y="1376">13</text><text class="s" x="836" y="1374">个环节</text>
+  <text class="num" x="650" y="1432">6</text><text class="s" x="676" y="1430">个思维模型</text>
+  <text class="num" x="790" y="1432">5</text><text class="s" x="816" y="1430">个宿主可装</text>
+  <text class="s" x="650" y="1452">Claude Code · Codex · Cursor · Copilot · Gemini</text>
+</svg>
