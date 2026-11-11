@@ -2,6 +2,22 @@
 
 每一版一节，写法见 [DEVELOPMENT.md 的「发版」](./DEVELOPMENT.md#发版)。「细节」之前的部分就是 GitHub Release 的正文。
 
+## 0.25.1 · 没人确认过的清单，交之前回到原文核
+
+The unattended card now ends with a check against the original task text, not against the agent's own summary of it.
+
+**要你动手的：** 不用，直接升级。已经把无人卡片抄进常驻入口文件的，重抄一次分隔线以下的部分。
+**接入约定：** version 1，没变。
+
+### 变了什么
+
+- **无人卡片的最后一遍核对换了依据**：重读任务说明原文，逐句答它要求了什么、哪段实现满足它、哪条证据检验的正是它。原来对着要求清单核。
+- **无人卡片开头多一句**：开工先加载 `single-session-dev-flow`，只取「写代码的四条」和「没有人在场」一条。
+
+### 细节
+
+有人在场时，验收标准是人确认过的，对着它收口没有问题。没有人时，要求清单是代理自己从任务说明归纳的；归纳时漏掉或读反的一句，后面的实现、测试和交付声明都跟着漏，对着清单核不出来。这和「转手会丢信息」是同一件事，只是发生在自己身上。在一次无人运行里看到过这个现象：流程每一步都走了，任务说明里一句话的要求仍然做反了。那一次只是一个样本，改动的依据是上面的结构，不是那一次的结果。
+
 ## 0.25.0 · 没有人在场时怎么用
 
 An unattended card: how to run the flow when no human is present to ask or to verify, as in batch jobs and automated evaluation.
