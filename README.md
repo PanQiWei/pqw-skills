@@ -201,7 +201,7 @@ VS Code 里运行 **Chat: Install Plugin From Source**，填 `https://github.com
 /plugins install https://github.com/PanQiWei/pqw-skills
 ```
 
-它从 GitHub 取默认分支，复制成托管副本。要固定版本，把地址换成发行页，例如 `https://github.com/PanQiWei/pqw-skills/releases/tag/v0.22.2`。更新时重跑同一条命令，再 `/plugins reload`。
+它会先问一次是否信任这个第三方插件，然后取最新的发行版，复制成托管副本；装完 `/new` 或 `/reload` 生效。技能以 `/skill:pqw-skills:<名字>` 出现。要固定版本，把地址换成发行页，例如 `https://github.com/PanQiWei/pqw-skills/releases/tag/v0.22.2`。更新时重跑同一条命令。
 
 ### DeepSeek Harness（DSH）
 

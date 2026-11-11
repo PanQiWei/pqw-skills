@@ -203,7 +203,7 @@ The repository root has a Kimi Code plugin manifest, `kimi.plugin.json`. In a Ki
 /plugins install https://github.com/PanQiWei/pqw-skills
 ```
 
-Kimi Code fetches the default branch from GitHub and keeps a managed copy. To pin a version, use a release page as the address, for example `https://github.com/PanQiWei/pqw-skills/releases/tag/v0.22.2`. To update, run the same command again, then `/plugins reload`.
+Kimi Code asks once whether you trust this third-party plugin. Then it fetches the latest release and keeps a managed copy. Run `/new` or `/reload` to apply it. The skills appear as `/skill:pqw-skills:<name>`. To pin a version, use a release page as the address, for example `https://github.com/PanQiWei/pqw-skills/releases/tag/v0.22.2`. To update, run the same command again.
 
 ### DeepSeek Harness (DSH)
 
