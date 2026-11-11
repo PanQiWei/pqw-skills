@@ -23,7 +23,8 @@ pqw-skills/
 │   ├── gen-map.mjs           生成两份全景图，矩阵从 design/context-map.json 读
 │   ├── gen-story-en.mjs      把 story.svg 的文字逐条换成英文
 │   ├── icon.png              插件图标，1024 见方；三份清单都指它
-│   └── social-preview.png    仓库的社交预览图，1280×640；在 GitHub 的 Settings 里上传
+│   ├── social-preview.png    仓库的社交预览图，1280×640；在 GitHub 的 Settings 里上传
+│   └── gen-icons.sh          用 ImageMagick 画出上面两张图，视觉规范同信息图
 ├── plugin.json               给 Codex 与 Cursor 的通用清单（Agent Plugins 格式）；版本与 .claude-plugin/plugin.json 同步
 ├── .claude-plugin/
 │   ├── plugin.json           插件清单：名字、版本、skills 数组逐个列出技能目录
