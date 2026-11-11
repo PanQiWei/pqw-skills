@@ -31,7 +31,11 @@ export const PROGRESS_RE = /^进度：\[[■□]{10}\] \d+\/\d+ 切片已完成.
 /** 预计收尾一行：人打开 plan 就能看到还要多久。它是将来的时刻，不受「不晚于时钟」约束。 */
 export const ETA_RE = /^预计收尾：\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z · 依据：\S.*$/;
 export const DISPOSAL_RE = /^处置 (\d+)（/;
-export const AGENTS_TABLE_HEADER = "| 子代理 | 用途 | 派发理由（派发门三条之一） | 模型与档位 | 开始 | 状态 |";
+/** 子代理表的表头。token 一列加在最后，哨兵按位置读的开始与状态两列不动；核对器按表头名取列，旧表头（没有 token）照样认。 */
+export const AGENTS_TABLE_HEADER = "| 子代理 | 用途 | 派发理由（派发门三条之一） | 模型与档位 | 开始 | 状态 | token |";
+export const TOKEN_COLUMN = "token";
+/** 结束了的子代理：状态是已合回或已结束，token 要从完成通知里抄进来。 */
+const FINISHED_RE = /^(已合回|已结束)(?=$|[ ：（])/;
 /** 子代理表的状态以状态词开头，说明写在后面的括号或冒号里。哨兵只按状态词判「在跑」，说明里出现「第 n/N 轮」不会被误读。 */
 export const AGENT_STATUS_RE = /^(进行中|待验收|已合回|已丢弃|停下|已结束|第 \d+\/\d+ 轮)(?=$|[ ：（])/;
 const AGENT_STATUS_WORDS = "进行中、待验收、已合回、已丢弃、停下、已结束、第 n/N 轮";
@@ -95,15 +99,31 @@ function checkOverview(file, sec) {
   return defects;
 }
 
-/** 子代理表每行的状态格以状态词开头。表从表头起到第一行非表格行止。 */
+/**
+ * 子代理表：表头首两格是「子代理」「用途」的那张表。按表头名取「状态」与「token」两列；
+ * rows 是 [{ cells, line }]，从表头下的分隔行之后到第一行非表格行止，line 是 1 起的行号。没有这张表返回 null。
+ */
+function agentTable(sec) {
+  const at = sec.lines.findIndex((l) => { const c = cellsOf(l); return c?.[0] === "子代理" && c[1] === "用途"; });
+  if (at < 0) return null;
+  const header = cellsOf(sec.lines[at]);
+  const rows = [];
+  for (let i = at + 2; i < sec.lines.length && cellsOf(sec.lines[i]); i++) rows.push({ cells: cellsOf(sec.lines[i]), line: sec.start + i });
+  return { line: sec.start + at, status: header.indexOf("状态"), token: header.indexOf(TOKEN_COLUMN), rows };
+}
+
+/** 子代理表每行的状态格以状态词开头；有 token 一列的新模板，结束了的行 token 不能空。 */
 function agentStatusDefects(file, sec) {
-  const at = sec.lines.findIndex((l) => l.trim() === AGENTS_TABLE_HEADER);
-  if (at < 0) return [];
+  const table = agentTable(sec);
+  if (!table) return [];
   const defects = [];
-  for (let i = at + 2; i < sec.lines.length && cellsOf(sec.lines[i]); i++) {
-    const cells = cellsOf(sec.lines[i]);
-    const status = cells[5] ?? "";
-    if (!AGENT_STATUS_RE.test(status)) defects.push({ file, line: sec.start + i, message: `子代理「${cells[0]}」的状态「${status}」不以状态词开头：状态词是 ${AGENT_STATUS_WORDS}，说明写在后面的括号或冒号里` });
+  for (const { cells, line } of table.rows) {
+    const status = cells[table.status] ?? "";
+    if (!AGENT_STATUS_RE.test(status)) defects.push({ file, line, message: `子代理「${cells[0]}」的状态「${status}」不以状态词开头：状态词是 ${AGENT_STATUS_WORDS}，说明写在后面的括号或冒号里` });
+    else if (table.token >= 0 && FINISHED_RE.test(status)) {
+      const token = cells[table.token] ?? "";
+      if (token === "" || isPlaceholder(token)) defects.push({ file, line, message: `子代理「${cells[0]}」状态是「${status}」，token 一格是空的：从完成通知里抄这个子代理用了多少 token` });
+    }
   }
   return defects;
 }
@@ -160,6 +180,8 @@ function checkDocsTable(file, sec) {
 
 /** 进度总览里「思维模型：」一行开头。有这一行的是新模板，开工包的思维模型栏按缺陷核；没有的是旧模板，只给提示。 */
 export const MODELS_LINE_PREFIX = "思维模型：";
+/** 「思维模型：」一行列的技能名：六个思维模型加流程轴上横切的诤友。字面与 ../plan-template.md 是同一份契约；旧 plan 少了名字只提示。 */
+export const MODEL_SKILLS = ["think-orthogonal", "think-ought-vs-is", "think-model-first", "think-right-then-well", "think-evidence", "think-closed-loop", "candid-friend"];
 /** 开工包里思维模型的栏：上下文地图「切片开工包」一行里标「空」的格在 plan 模板里的栏名。字面与 ../plan-template.md 是同一份契约，用例把两处钉在一起。 */
 export const KICKOFF_FIELDS = ["应然", "实然", "差异", "全化表", "做对", "做好一轮"];
 /** 列表项的正文：去掉「- 」「1. 」与勾选框。不是列表项返回 null。 */
@@ -271,7 +293,8 @@ function noHumanCheckHints(file, secs) {
 
 /**
  * 提示：不算缺陷、不改退出码的几条。旧模板的 plan 没有「思维模型：」一行，开工包的思维模型栏不按缺陷核，
- * 提示加上这一行，并列出加上之后要补的栏；没有「人的验收窗口」一行，预计收尾对窗口不按缺陷核，提示加上它。
+ * 提示加上这一行，并列出加上之后要补的栏；有这一行但少了模板列的技能名，提示补上；子代理表没有 token 一列，
+ * 结束了的行不核 token，提示加上这一列；没有「人的验收窗口」一行，预计收尾对窗口不按缺陷核，提示加上它。
  * 有窗口一行的新模板，切片写「人怎么验：无」的给提示。已有的 plan 不因模板升级而无故变红。
  */
 export function planHints(text, file = "plan.md") {
@@ -285,7 +308,13 @@ export function planHints(text, file = "plan.md") {
     const owed = slices ? sliceBlocks(slices).map((b) => ({ id: b.id, names: missingFields(b.body, statuses.get(b.id)).names })).filter((s) => s.names.length) : [];
     const tail = owed.length ? `；加上之后要补：${owed.map((s) => `切片 ${s.id} 缺${s.names.map((n) => `「${n}」`).join("")}`).join("，")}` : "";
     hints.push({ file, line: overview.start, message: `进度总览没有「${MODELS_LINE_PREFIX}」一行，按旧模板核，开工包的思维模型栏只提示、不报缺陷。照 plan 模板加上这一行，上下文压缩之后按它重新加载思维模型技能${tail}` });
+  } else {
+    const at = overview.lines.findIndex((l) => l.startsWith(MODELS_LINE_PREFIX));
+    const missing = MODEL_SKILLS.filter((name) => !overview.lines[at].includes(`\`${name}\``));
+    if (missing.length) hints.push({ file, line: overview.start + at, message: `进度总览的「${MODELS_LINE_PREFIX}」一行没有${missing.map((n) => `\`${n}\``).join("、")}，按旧模板核，只提示、不报缺陷。照 plan 模板补上，上下文压缩之后按这一行重新加载` });
   }
+  const agents = agentTable(overview);
+  if (agents && agents.token < 0) hints.push({ file, line: agents.line, message: `子代理表没有「${TOKEN_COLUMN}」一列，按旧模板核，token 只提示、不报缺陷。照 plan 模板在表的最后加这一列，数从完成通知里抄` });
   const budget = byTitle(secs, "预算与回看");
   if (!text.split("\n").some((l) => l.startsWith(WINDOW_LINE_PREFIX))) hints.push({ file, line: budget?.start ?? overview.start, message: `「预算与回看」没有「${WINDOW_LINE_PREFIX}」一行，按旧模板核，预计收尾对人的验收窗口只提示、不报缺陷。照 plan 模板加上这一行，写人什么时候回来、有多少时间上手验收` });
   else hints.push(...noHumanCheckHints(file, secs));

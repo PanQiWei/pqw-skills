@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { checkFiles, checkHandoff, checkPlan, checkSpec, planHints, sections, KICKOFF_FIELDS, MODELS_LINE_PREFIX, PLAN_SECTIONS, SPEC_SECTIONS, WINDOW_LINE_PREFIX, WINDOW_RE } from "../skills/spec-and-plan/scripts/lib/check-plan.mjs";
+import { checkFiles, checkHandoff, checkPlan, checkSpec, planHints, sections, KICKOFF_FIELDS, MODEL_SKILLS, MODELS_LINE_PREFIX, PLAN_SECTIONS, TOKEN_COLUMN, SPEC_SECTIONS, WINDOW_LINE_PREFIX, WINDOW_RE } from "../skills/spec-and-plan/scripts/lib/check-plan.mjs";
 
 const SCRIPT = new URL("../skills/spec-and-plan/scripts/check-plan.mjs", import.meta.url).pathname;
 const TEMPLATE = new URL("../skills/spec-and-plan/plan-template.md", import.meta.url).pathname;
@@ -23,17 +23,17 @@ const GOOD_PLAN = `# 示例 交付计划（revision 1）
 进度：[■■■■■□□□□□] 1/2 切片已完成 · 更新 2026-11-08T10:00Z · head 0123abc
 当前：切片 02 开工包
 预计收尾：2026-11-08T12:00Z · 依据：剩一片，预算 2 小时
-思维模型：拆 \`think-orthogonal\` · 找差异 \`think-ought-vs-is\` · 定形 \`think-model-first\` · 建 \`think-right-then-well\` · 证 \`think-evidence\`
+思维模型：拆 \`think-orthogonal\` · 找差异 \`think-ought-vs-is\` · 定形 \`think-model-first\` · 建 \`think-right-then-well\` · 证 \`think-evidence\` · 转手 \`think-closed-loop\` · 对人 \`candid-friend\`
 
 | 切片 | 交付的行为 | 对应验收 | 状态 |
 | --- | --- | --- | --- |
 | 01 | 第一片 | C1 | 已完成 0123abc |
 | 02 | 第二片 | C2 | 待做 |
 
-| 子代理 | 用途 | 派发理由（派发门三条之一） | 模型与档位 | 开始 | 状态 |
-| --- | --- | --- | --- | --- | --- |
-| 写者 | 切片 01 | 理由二 | 默认档 | 2026-11-08T08:00Z | 已合回 0123abc |
-| 哨兵 | 哨兵，45 分钟，4 轮 | 理由二 | 便宜档 | 2026-11-08T08:00Z | 第 2/4 轮 |
+| 子代理 | 用途 | 派发理由（派发门三条之一） | 模型与档位 | 开始 | 状态 | token |
+| --- | --- | --- | --- | --- | --- | --- |
+| 写者 | 切片 01 | 理由二 | 默认档 | 2026-11-08T08:00Z | 已合回 0123abc | 43 万 |
+| 哨兵 | 哨兵，45 分钟，4 轮 | 理由二 | 便宜档 | 2026-11-08T08:00Z | 第 2/4 轮 |  |
 
 处置 1（2026-11-08T09:00Z）：继续；无信号。
 处置 2（2026-11-08T09:45Z）：继续；无信号。
@@ -353,7 +353,7 @@ test("预计收尾：进度总览要有「预计收尾：<UTC> · 依据：<一�
 });
 
 test("子代理表：状态以固定状态词开头，说明放在后面；「第 3/5 轮后因限流终止」这类写法报缺陷", () => {
-  const withStatus = (s) => GOOD_PLAN.replace("| 第 2/4 轮 |", `| ${s} |`);
+  const withStatus = (s) => GOOD_PLAN.replace("| 第 2/4 轮 |  |", `| ${s} | 2 万 |`);
   for (const ok of ["进行中", "待验收", "已合回 0123abc", "已丢弃", "停下（第 3/5 轮后限流）", "已结束", "第 4/4 轮", "进行中：第二轮修复"]) assert.deepEqual(checkPlan(withStatus(ok)), [], ok);
   for (const bad of ["第 3/5 轮后因限流终止", "运行中", "终止", ""]) {
     const d = checkPlan(withStatus(bad));
@@ -415,7 +415,8 @@ test("新缺陷的行号：预计收尾格式错指向那一行，收口缺合�
   // 开工包里多了一项就算填了；用旧模板，只看收口这一类缺陷。
   const before = OLD_PLAN.replace("**开工包**：开工时填。", "**开工包**：开工时填。\n\n- [ ] 改动成员的合入检查：写在开工包里").replace("- [ ] 改动成员的合入检查：\n- [ ] 提交", "- [ ] 提交");
   assert.deepEqual(checkPlan(before).map((d) => d.message), ["切片 02 收口缺「改动成员的合入检查」"]);
-  const tail = GOOD_PLAN.replace("| 哨兵 | 哨兵，45 分钟，4 轮 | 理由二 | 便宜档 | 2026-11-08T08:00Z | 第 2/4 轮 |\n\n处置 1", "| 哨兵 | 哨兵，45 分钟，4 轮 | 理由二 | 便宜档 | 2026-11-08T08:00Z | 运行中 |\n\n处置 1");
+  const tail = GOOD_PLAN.replace("| 哨兵 | 哨兵，45 分钟，4 轮 | 理由二 | 便宜档 | 2026-11-08T08:00Z | 第 2/4 轮 |  |\n\n处置 1", "| 哨兵 | 哨兵，45 分钟，4 轮 | 理由二 | 便宜档 | 2026-11-08T08:00Z | 运行中 |  |\n\n处置 1");
+  assert.notEqual(tail, GOOD_PLAN, "替换要命中子代理表的哨兵行");
   assert.deepEqual(checkPlan(tail.replace(/\n\n处置 1[^]*?\n\n## 一程目标/, "\n## 一程目标")).map((d) => d.message.split("：")[0]), ["子代理「哨兵」的状态「运行中」不以状态词开头"]);
 });
 
@@ -531,4 +532,57 @@ test("人怎么验：新模板里切片写「无」给一条提示，不报缺�
   assert.deepEqual(planHints(none).map((h) => [h.line, h.message]), [[none.split("\n").indexOf("- **人怎么验：** 无") + 1, "切片 02 的「人怎么验」写的是无：人上手看不到这片的行为，它只是中间产物，考虑并进能看到的那一片"]]);
   assert.deepEqual(planHints(none.replace("- **人怎么验：** 无", "- **人怎么验：** 无需命令，打开页面看；约 5 分钟")), [], "「无需」不是无");
   assert.deepEqual(planHints(none.split("\n").filter((l) => !l.startsWith(WINDOW_LINE_PREFIX)).join("\n")).length, 1, "旧模板只提示缺窗口一行");
+});
+
+/** 0.20.0 模板的 plan：子代理表没有 token 一列，思维模型一行没有 think-closed-loop。 */
+const PLAN_020 = GOOD_PLAN.replace(" · 转手 `think-closed-loop`", "")
+  .replace("| 状态 | token |\n| --- | --- | --- | --- | --- | --- | --- |", "| 状态 |\n| --- | --- | --- | --- | --- | --- |")
+  .replace("| 已合回 0123abc | 43 万 |", "| 已合回 0123abc |").replace("| 第 2/4 轮 |  |", "| 第 2/4 轮 |");
+const TOKEN_HINT = "子代理表没有「token」一列，按旧模板核，token 只提示、不报缺陷。照 plan 模板在表的最后加这一列，数从完成通知里抄";
+const modelsHint = (names) => `进度总览的「思维模型：」一行没有${names.map((n) => `\`${n}\``).join("、")}，按旧模板核，只提示、不报缺陷。照 plan 模板补上，上下文压缩之后按这一行重新加载`;
+
+test("子代理表的 token 一列与思维模型一行的技能名：plan 模板里都在，核对器与模板是同一份契约", () => {
+  const template = readFileSync(TEMPLATE, "utf8");
+  const header = template.split("\n").find((l) => l.startsWith("| 子代理 | 用途 |"));
+  assert.ok(header, "plan 模板有子代理表");
+  assert.ok(header.trim().endsWith(`| 状态 | ${TOKEN_COLUMN} |`), `token 一列在最后、状态之后，哨兵按位置读状态不受影响：${header}`);
+  const models = template.split("\n").find((l) => l.startsWith(MODELS_LINE_PREFIX));
+  for (const name of MODEL_SKILLS) assert.ok(models.includes(`\`${name}\``), `plan 模板的思维模型一行缺 ${name}`);
+  assert.ok(MODEL_SKILLS.includes("think-closed-loop") && MODEL_SKILLS.includes("candid-friend"));
+  assert.deepEqual(planHints(instantiate(TEMPLATE)).map((h) => h.message).filter((m) => m.includes("token") || m.includes("思维模型")), [], "模板实例化后没有这两类提示");
+});
+
+test("token：新模板里状态是已合回或已结束的行，token 不能空，占位不算；进行中、第 n/N 轮的行可以空；行号指向那一行", () => {
+  assert.deepEqual(checkPlan(GOOD_PLAN), []);
+  const noToken = GOOD_PLAN.replace("| 已合回 0123abc | 43 万 |", "| 已合回 0123abc |  |");
+  const row = (text, name) => text.split("\n").findIndex((l) => l.startsWith(`| ${name} |`)) + 1;
+  assert.deepEqual(checkPlan(noToken).map((d) => [d.line, d.message]), [[row(noToken, "写者"), "子代理「写者」状态是「已合回 0123abc」，token 一格是空的：从完成通知里抄这个子代理用了多少 token"]]);
+  assert.deepEqual(checkPlan(noToken.replace("| 已合回 0123abc |  |", "| 已合回 0123abc | <token> |")).map((d) => d.message.split("，")[0]), ["子代理「写者」状态是「已合回 0123abc」"]);
+  const ended = GOOD_PLAN.replace("| 第 2/4 轮 |  |", "| 已结束 |  |");
+  assert.deepEqual(checkPlan(ended).map((d) => d.message), ["子代理「哨兵」状态是「已结束」，token 一格是空的：从完成通知里抄这个子代理用了多少 token"]);
+  for (const s of ["进行中", "待验收", "已丢弃", "停下（限流）"]) assert.deepEqual(checkPlan(GOOD_PLAN.replace("| 第 2/4 轮 |  |", `| ${s} |  |`)), [], s);
+});
+
+test("子代理表按表头名取状态与 token：列换了顺序照样核", () => {
+  const swapped = GOOD_PLAN.replace("| 开始 | 状态 | token |", "| 开始 | token | 状态 |")
+    .replace("| 已合回 0123abc | 43 万 |", "| 43 万 | 已合回 0123abc |").replace("| 第 2/4 轮 |  |", "|  | 运行中 |");
+  assert.deepEqual(checkPlan(swapped).map((d) => d.message.split("：")[0]), ["子代理「哨兵」的状态「运行中」不以状态词开头"]);
+});
+
+test("0.20.0 模板的 plan：没有 token 一列、思维模型一行没有闭环，不报新缺陷，只给两条提示；0.19.0 的再多一个名字；命令面照样退出 0", () => {
+  assert.deepEqual(checkPlan(PLAN_020), []);
+  assert.notEqual(PLAN_020.includes(TOKEN_COLUMN), true, "PLAN_020 的子代理表没有 token 一列");
+  assert.deepEqual(planHints(PLAN_020).map((h) => h.message), [modelsHint(["think-closed-loop"]), TOKEN_HINT]);
+  const plan019 = PLAN_020.replace(" · 对人 `candid-friend`", "");
+  assert.deepEqual(planHints(plan019).map((h) => h.message), [modelsHint(["think-closed-loop", "candid-friend"]), TOKEN_HINT]);
+  assert.equal(planHints(PLAN_020)[0].line, PLAN_020.split("\n").findIndex((l) => l.startsWith(MODELS_LINE_PREFIX)) + 1);
+  assert.equal(planHints(PLAN_020)[1].line, PLAN_020.split("\n").findIndex((l) => l.startsWith("| 子代理 | 用途 |")) + 1);
+  assert.deepEqual(planHints(PLAN_020.replace(/\n\| 子代理 \| 用途 [^]*?\n\n/, "\n\n")).map((h) => h.message), [modelsHint(["think-closed-loop"])], "没有子代理表就不提 token");
+  const dir = mkdtempSync(join(tmpdir(), "pqw-check-plan-"));
+  try {
+    writeFileSync(join(dir, "plan.md"), PLAN_020);
+    const text = run(["--plan", join(dir, "plan.md"), "--now", "2026-11-08T11:00Z"]);
+    assert.equal(text.status, 0, text.stdout);
+    assert.ok(text.stdout.trimEnd().endsWith("check-plan：结构合模板，2 条提示"), text.stdout);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
