@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 仓库一致性检查。只读，纯 Node，无依赖。退出 0 全部通过；退出 1 有失败；退出 2 用法错误。
-// 核的是 AGENTS.md 布局与写作规则里能机器化的那部分：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、写代码的四条只有一处正文、圈外的问题只有一处正文、上下文地图的每一格兑现。
+// 核的是 AGENTS.md 布局与写作规则里能机器化的那部分：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、写代码的四条只有一处正文、圈外的问题只有一处正文、上下文地图的每一格兑现（含流程轴上的横切技能与常驻卡片）。
 
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
@@ -232,7 +232,7 @@ function checkOutOfScope() {
 }
 checkOutOfScope();
 
-// ---- 10. 上下文地图：design/context-map.json 的每一格在仓库里兑现（主：files 点名技能；行：files 含指路行；空：slots 的空位都在，列了 files 的另含指路行）；每个思维模型技能长成同一副骨架；模型的正文只在它自己的目录里，别处同时出现两个标志词的行必须点技能名。
+// ---- 10. 上下文地图：design/context-map.json 的每一格在仓库里兑现（主：files 点名技能；行：files 含指路行；空：slots 的空位都在，列了 files 的另含指路行）；每个思维模型技能长成同一副骨架；模型的正文只在它自己的目录里，别处同时出现两个标志词的行必须点技能名；流程轴上的横切技能（crosscut）按同样的核法核它的各格与正文行数；常驻卡片点到全部模型与横切技能，每行末尾的技能名存在。
 const CONTEXT_MAP = join(repo, "design", "context-map.json");
 const MAP_CHECK = "上下文地图";
 const MAP_KINDS = ["主", "行", "空"];
@@ -284,6 +284,19 @@ function checkCrosscut(map, item) {
   if (body.length > map.bodyMaxLines) fail(MAP_CHECK, `${rel(md)} 正文 ${body.length} 行，超过 ${map.bodyMaxLines} 行：细节挪到展开页`);
   for (const cell of item.cells ?? []) checkMapCell(cell.row, item, cell);
 }
+/** 常驻卡片：分隔线以下给项目原样放进常驻入口文件。它点到地图里每个思维模型与横切技能；每个列表项末尾是反引号括起的技能名，且技能存在。 */
+function checkResidentCard(map) {
+  if (!map.residentCard) return;
+  if (!existsSync(join(repo, map.residentCard))) return fail(MAP_CHECK, `常驻卡片 ${map.residentCard} 不存在`);
+  const card = read(join(repo, map.residentCard)).split("\n---\n").slice(-1)[0];
+  for (const { skill } of [...map.models, ...(map.crosscut ?? [])]) if (!card.includes(`\`${skill}\``)) fail(MAP_CHECK, `常驻卡片 ${map.residentCard} 没有点到 \`${skill}\``);
+  card.split("\n").forEach((line) => {
+    if (!line.startsWith("- ")) return;
+    const name = /`([a-z0-9-]+)`$/.exec(line.trimEnd())?.[1];
+    if (!name) fail(MAP_CHECK, `常驻卡片 ${map.residentCard} 的「${line}」末尾不是技能名`);
+    else if (!skills.includes(name)) fail(MAP_CHECK, `常驻卡片 ${map.residentCard} 的「${line}」末尾的 \`${name}\` 不是发行技能`);
+  });
+}
 function checkContextMap() {
   let map;
   try {
@@ -299,6 +312,8 @@ function checkContextMap() {
   for (const s of skills) if (s.startsWith("think-") && !bySkill.has(s)) fail(MAP_CHECK, `skills/${s} 不在 ${rel(CONTEXT_MAP)} 的 models 里`);
   checkReadmeMatrix(map);
   for (const entry of map.entries ?? []) for (const model of map.models) if (!hasText(entry, model.skill)) fail(MAP_CHECK, `${entry} 没有点到 ${model.skill}：从这个入口走不到这个思维模型`);
+  for (const entry of map.entries ?? []) for (const item of map.crosscut ?? []) if (!hasText(entry, item.skill)) fail(MAP_CHECK, `${entry} 没有点到 ${item.skill}：从这个入口走不到这个横切技能`);
+  checkResidentCard(map);
   for (const row of map.rows) {
     for (const [skill, cell] of Object.entries(row.cells)) {
       const model = bySkill.get(skill);

@@ -23,10 +23,10 @@ pqw-skills/
 ├── design/                   设计文档：环节映射、自带资产与接入点、吸收的外部经验；context-map.json 是上下文地图（流程轴乘思维轴的矩阵）的唯一源
 ├── scripts/
 │   ├── link-skills.sh        本机开发：把每个技能与元技能软链进 ~/.claude/skills 与 ~/.agents/skills
-│   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、工具版本常量与 plugin.json 一致、写代码的四条只有一处索引、上下文地图每一格兑现
+│   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、工具版本常量与 plugin.json 一致、写代码的四条只有一处索引、上下文地图每一格兑现（含横切技能与常驻卡片）
 ├── tests/                    仓库测试，vitest；根 package.json 钉依赖，npm ci 后直接跑
 └── skills/
-    ├── single-session-dev-flow/   总入口；handoff-checklist.md、handoff-pack-template.md
+    ├── single-session-dev-flow/   总入口；handoff-checklist.md、handoff-pack-template.md、resident-card.md（常驻卡片，消费项目原样放进常驻入口文件）
     ├── teach-pqw-skills/             教人用这套流；mental-models.md、who-does-what.md、prompting.md
     ├── requirement-and-invariants/   requirement-template.md
     ├── domain-impact-analysis/       impact-template.md
@@ -46,6 +46,7 @@ pqw-skills/
     ├── think-model-first/            思维模型，横切；partial-and-total.md、translate.md、how-deep.md
     ├── think-right-then-well/        思维模型，横切；two-rounds.md、taste-checklist.md
     ├── think-evidence/               思维模型，横切；what-counts.md、tests-and-proofs.md、acceptance.md
+    ├── candid-friend/                诤友，流程轴上横切；worth-doing.md、run-size.md、midway-and-closing.md、overnight.md
     ├── clear-writing/                写作，横切
     └── write-agents-md/              AGENTS.md 的撰写与治理，横切
 ```
@@ -66,9 +67,11 @@ pqw-skills/
 ## 技能的两类
 
 - **自定义**：正文在本仓库，例如 `formal-guard`、`one-lesson-rule`。
-- **引用外部**：正文只写本仓库的补充，用「加载技能 `<外部技能>`」指向 pstack、ub-mode、mattpocock 的技能，不复制它们的正文；Matt 的 `to-spec`、`to-tickets` 禁止模型调用，改为按已安装路径直接读正文。外部技能的名字和版本登记在 `README.md` 的依赖表。
+- **引用外部**：正文只写本仓库的补充，用「加载技能 `<外部技能>`」指向 pstack、ub-mode、mattpocock 的技能，不复制它们的正文；Matt 的 `to-spec`、`to-tickets`、`to-questionnaire` 禁止模型调用，改为按已安装路径直接读正文。外部技能的名字和版本登记在 `README.md` 的依赖表。
 
 另有五个横切的思维模型技能，`think-` 前缀，全部自定义。它们不是环节，回答「做这一步时怎么想」；每个长成同一副骨架：一个问题、三句动作、按工作类型的表、写在哪、什么时候必须重做、相邻的模型，正文 50 行以内，细节放至多五页展开。环节技能在要用到的那一步上放一句一字不差的指路行或模板空位，不复述做法。哪个环节用哪个模型，唯一源是 `design/context-map.json`，`check-repo` 第 10 段按它逐格核，并核骨架、防复述、核 README 的矩阵表与入口能走到五个技能。
+
+另有一个流程轴上横切的技能 `candid-friend`（诤友），自定义。它不是思维模型，不用 `think-` 前缀，不进矩阵：它管代理对人说什么，看到人这一侧的风险说一次，人定了就照做。它放在哪些环节、模板里有哪些空位，登记在 `design/context-map.json` 的 `crosscut`，`check-repo` 按同样的核法核。五个模型与诤友各一句，压成 `single-session-dev-flow/resident-card.md` 这份常驻卡片，`check-repo` 核它点到每个技能。
 
 ## 适用范围
 

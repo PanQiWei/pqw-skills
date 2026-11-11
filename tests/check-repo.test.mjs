@@ -173,3 +173,26 @@ test("上下文地图：标「主」的格，环节技能里没点技能名报�
     assert.deepEqual(mapReported(dir), ["12 汇报 × think-ought-vs-is：标「主」却没有列 files"]);
   } finally { dispose(dir); }
 });
+
+const CARD = "skills/single-session-dev-flow/resident-card.md";
+
+test("常驻卡片：仓库本身不报；少点一个技能、一行末尾不是技能名、末尾的技能不存在，各报一处", () => {
+  const dir = copyRepo();
+  try {
+    assert.deepEqual(mapReported(dir), []);
+    const line = "- **对人。** 看到需求不清、不值得做，或一程大过人验得完的量，说一次，带依据和建议。人定了就照做。`candid-friend`";
+    edit(dir, CARD, line, "- **对人。** 说一次，人定了就照做。");
+    assert.deepEqual(mapReported(dir), [`常驻卡片 ${CARD} 没有点到 \`candid-friend\``, `常驻卡片 ${CARD} 的「- **对人。** 说一次，人定了就照做。」末尾不是技能名`]);
+    edit(dir, CARD, "- **对人。** 说一次，人定了就照做。", `${line.replace("`candid-friend`", "`candid-friend` `no-such-skill`")}`);
+    assert.deepEqual(mapReported(dir), [`常驻卡片 ${CARD} 的「${line} \`no-such-skill\`」末尾的 \`no-such-skill\` 不是发行技能`]);
+  } finally { dispose(dir); }
+});
+
+test("上下文地图：entries 里的入口没点到横切技能，报是哪个入口、哪个技能", () => {
+  const dir = copyRepo();
+  try {
+    const teach = "skills/teach-pqw-skills/SKILL.md";
+    writeFileSync(join(dir, teach), readFileSync(join(dir, teach), "utf8").replaceAll("candid-friend", "那个技能"));
+    assert.ok(mapReported(dir).includes(`${teach} 没有点到 candid-friend：从这个入口走不到这个横切技能`));
+  } finally { dispose(dir); }
+});

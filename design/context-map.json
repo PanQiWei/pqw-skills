@@ -1,5 +1,6 @@
 {
-  "说明": "上下文地图：流程轴（行）与思维轴（列）交叉出的矩阵，是这张矩阵的唯一源。scripts/check-repo.mjs 按它核每一格。主：这个环节的产出本身就是这个模型的成果，不加指路行与空位，只在 files 里点名技能。行：files 里的每个文件含这个模型的指路行，一字不差。空：slots 里的每个文件含列出的每个空位；列了 files 的，那些文件另含指路行。没列出的格是有意留空的。entries 里的每个文件点到全部模型，人与代理从它们都能走到五个技能。models 的顺序就是放在一件事上的自然次序：拆、找差异、定形、建、证。README.md 的矩阵表照它生成，check-repo 逐行核。crosscut 放流程轴上的横切技能，它们不是思维模型，不进矩阵：每个列出指路行与 cells，cells 的每一格按同样的「行」「空」核法兑现，技能正文同样不超过 bodyMaxLines 行。",
+  "说明": "上下文地图：流程轴（行）与思维轴（列）交叉出的矩阵，是这张矩阵的唯一源。scripts/check-repo.mjs 按它核每一格。主：这个环节的产出本身就是这个模型的成果，不加指路行与空位，只在 files 里点名技能。行：files 里的每个文件含这个模型的指路行，一字不差。空：slots 里的每个文件含列出的每个空位；列了 files 的，那些文件另含指路行。没列出的格是有意留空的。entries 里的每个文件点到全部模型，人与代理从它们都能走到五个技能。models 的顺序就是放在一件事上的自然次序：拆、找差异、定形、建、证。README.md 的矩阵表照它生成，check-repo 逐行核。crosscut 放流程轴上的横切技能，它们不是思维模型，不进矩阵：每个列出指路行与 cells，cells 的每一格按同样的「行」「空」核法兑现，技能正文同样不超过 bodyMaxLines 行；entries 里的每个文件也点到它们。residentCard 是给消费项目原样放进常驻入口文件的卡片：分隔线以下点到每个模型与每个横切技能，每个列表项末尾是存在的技能名。",
+  "residentCard": "skills/single-session-dev-flow/resident-card.md",
   "skeleton": ["## 三句动作", "## 各类工作里怎么用", "## 写在哪", "## 什么时候必须重做", "## 相邻的模型"],
   "bodyMaxLines": 50,
   "entries": ["skills/single-session-dev-flow/SKILL.md", "skills/teach-pqw-skills/SKILL.md", "README.md", "README_EN.md"],
@@ -79,7 +80,8 @@
           "files": ["skills/cleanup/SKILL.md"],
           "slots": { "skills/cleanup/checklist-template.md": ["## 待人验收"] }
         },
-        { "row": "压缩之后", "kind": "空", "slots": { "skills/spec-and-plan/plan-template.md": ["对人 `candid-friend`"] } }
+        { "row": "压缩之后", "kind": "空", "slots": { "skills/spec-and-plan/plan-template.md": ["对人 `candid-friend`"] } },
+        { "row": "教人", "kind": "行", "files": ["skills/teach-pqw-skills/SKILL.md", "skills/teach-pqw-skills/mental-models.md"] }
       ]
     }
   ],
