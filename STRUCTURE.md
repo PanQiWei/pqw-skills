@@ -21,7 +21,10 @@ pqw-skills/
 │   ├── map.svg               README 的全景图：两条轴的矩阵与全部技能、脚本；由 gen-map.mjs 生成
 │   ├── map-en.svg            英文全景图，同一个脚本生成
 │   ├── gen-map.mjs           生成两份全景图，矩阵从 design/context-map.json 读
-│   └── gen-story-en.mjs      把 story.svg 的文字逐条换成英文
+│   ├── gen-story-en.mjs      把 story.svg 的文字逐条换成英文
+│   ├── icon.png              插件图标，1024 见方；三份清单都指它
+│   └── social-preview.png    仓库的社交预览图，1280×640；在 GitHub 的 Settings 里上传
+├── plugin.json               给 Codex 与 Cursor 的通用清单（Agent Plugins 格式）；版本与 .claude-plugin/plugin.json 同步
 ├── .claude-plugin/
 │   ├── plugin.json           插件清单：名字、版本、skills 数组逐个列出技能目录
 │   └── marketplace.json      仓库自带的单插件市场，供 claude plugin marketplace add
@@ -29,7 +32,7 @@ pqw-skills/
 ├── scripts/
 │   ├── link-skills.sh        本机开发：把每个技能与元技能软链进 ~/.claude/skills 与 ~/.agents/skills
 │   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、工具版本常量与 plugin.json 一致、写代码的四条只有一处索引、上下文地图每一格兑现（含横切技能、阶段技能与常驻卡片）
-├── tests/                    仓库测试，vitest；根 package.json 钉依赖，npm ci 后直接跑
+├── tests/                    仓库测试，vitest；根 package.json 钉依赖，npm install 后直接跑；根目录不提交锁文件
 └── skills/
     ├── single-session-dev-flow/   总入口；resident-card.md（常驻卡片，消费项目原样放进常驻入口文件）
     ├── teach-pqw-skills/             教人用这套流；mental-models.md、who-does-what.md、prompting.md

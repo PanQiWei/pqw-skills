@@ -1,7 +1,16 @@
 # pqw-skills
 
+把一程长活，放心交给 agent：你和它先把边界定清，一次交出一程，它按切片自主交付，你回来验收。给 Claude Code、Codex、Cursor 等 coding agent 的 25 个技能。
+
+```bash
+claude plugin marketplace add PanQiWei/pqw-skills
+claude plugin install pqw-skills@pqw
+```
+
+Codex、Cursor、Copilot、Gemini 的装法见[安装](#安装)。装好后问一句「这套流怎么用」，它会教你。
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.22.0-informational.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.22.1-informational.svg)](./CHANGELOG.md)
 [![Skills](https://img.shields.io/badge/skills-25-success.svg)](#技能)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#安装)
 [![Language](https://img.shields.io/badge/lang-%E4%B8%AD%E6%96%87%20%7C%20English-lightgrey.svg)](./README_EN.md)

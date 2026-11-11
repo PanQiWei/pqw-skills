@@ -1,5 +1,15 @@
 # pqw-skills
 
+## 0.22.1
+
+让人找得到、装得上。技能正文没有变。
+
+README 首屏：标题下先一句话说它给你什么，接着就是两行安装命令，再是徽章与故事图。以前安装在第 135 行。中英两份同步。
+
+清单与图标：新增根 `plugin.json`，Agent Plugins 格式，给 Codex 与 Cursor 用，带 Codex 的展示字段；`.claude-plugin/plugin.json` 加 `displayName`、`homepage`、`icon`，描述改成中英各一句。新增 `assets/icon.png`（1024 见方）与 `assets/social-preview.png`（1280×640）。`check-repo` 多核一条：根 `plugin.json` 的版本与 `.claude-plugin/plugin.json` 一致。
+
+根目录不再提交 `package-lock.json`。仓库根就是插件根，Claude Code 在用户安装插件时会安装插件根锁文件里的包，官方目录的提交检查也会因此留审；这些包只有本仓库的测试用。`package.json` 里的版本本来就写死，开发时改用 `npm install`。
+
 ## 0.22.0
 
 交接从一个点变成一个阶段，叫交接期。到 0.21.0 为止，流程表里交接是一行不带编号的「交接点」，写 spec 与 plan 的第 7 环节整个排在它后面，尺寸核对排在「plan 写完之后、第一个切片动手之前」，「分程建议」是 plan 模板的一节。实际分会话交接时看到两处毛病：交付会话拿到一份过大的包，人不在场，它只能回头找人商量分程，或者一直做下去；交接点核对单与交接信息包已经假定交接时 spec 写好了（「按 spec 的旧字面搜过」「责任分级照抄 spec」），流程表却把写 spec 排在交接之后，设计会话没法交出一份照抄 spec 的包。要人拍板的事，应该在人在场的时候，由持有上下文的那个会话来谈。

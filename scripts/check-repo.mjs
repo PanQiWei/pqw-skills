@@ -182,6 +182,9 @@ function checkToolVersion() {
     const toolVersion = /TOOL_VERSION = "([^"]+)"/.exec(read(join(repo, "skills/slice-closeout/scripts/lib/version.mjs")))?.[1];
     const pluginVersion = JSON.parse(read(config.pluginJson)).version;
     if (toolVersion !== pluginVersion) fail("版本常量", `scripts/lib/version.mjs 的 TOOL_VERSION ${toolVersion} 与 plugin.json 的 ${pluginVersion} 不一致`);
+    // 根 plugin.json 是给 Codex 与 Cursor 的通用清单，版本跟着 Claude 的清单走。
+    const portableVersion = JSON.parse(read(join(repo, "plugin.json"))).version;
+    if (portableVersion !== pluginVersion) fail("版本常量", `plugin.json 的版本 ${portableVersion} 与 .claude-plugin/plugin.json 的 ${pluginVersion} 不一致`);
   } catch (e) {
     fail("版本常量", e.message);
   }

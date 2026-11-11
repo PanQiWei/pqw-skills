@@ -1,7 +1,16 @@
 # pqw-skills
 
+Hand a long run to your agent, and trust it: you set the boundaries together, hand off one run at a time, the agent delivers in slices, and you come back to verify. 25 agent skills for Claude Code, Codex, Cursor and other coding agents.
+
+```bash
+claude plugin marketplace add PanQiWei/pqw-skills
+claude plugin install pqw-skills@pqw
+```
+
+For Codex, Cursor, Copilot and Gemini, see [Install](#install). After the install, ask "how do I use this flow" and the agent teaches you.
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.22.0-informational.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.22.1-informational.svg)](./CHANGELOG.md)
 [![Skills](https://img.shields.io/badge/skills-25-success.svg)](#skills)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#install)
 [![Language](https://img.shields.io/badge/lang-%E4%B8%AD%E6%96%87%20%7C%20English-lightgrey.svg)](./README.md)

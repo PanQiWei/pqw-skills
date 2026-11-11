@@ -216,3 +216,13 @@ test("上下文地图：entries 里的入口没点到横切技能，报是哪个
     assert.ok(mapReported(dir).includes(`${teach} 没有点到 candid-friend：从这个入口走不到这个横切技能`));
   } finally { dispose(dir); }
 });
+
+test("版本常量：根 plugin.json 的版本与 .claude-plugin/plugin.json 不一致时报一处；一致时不报", () => {
+  const dir = copyRepo();
+  try {
+    assert.deepEqual(reported(run(dir), "[版本常量]"), []);
+    const version = JSON.parse(readFileSync(join(dir, ".claude-plugin/plugin.json"), "utf8")).version;
+    edit(dir, "plugin.json", `"version": "${version}"`, '"version": "0.0.1"');
+    assert.deepEqual(reported(run(dir), "[版本常量]"), [`plugin.json 的版本 0.0.1 与 .claude-plugin/plugin.json 的 ${version} 不一致`]);
+  } finally { dispose(dir); }
+});

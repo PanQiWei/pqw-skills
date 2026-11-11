@@ -19,13 +19,13 @@ bash scripts/link-skills.sh
 ## 一致性检查与测试
 
 ```bash
-npm ci
+npm install
 node scripts/check-repo.mjs
 claude plugin validate .
 npx vitest run
 ```
 
-`tests/` 用 vitest 跑、`node:assert/strict` 断言，夹具在系统临时目录建小 Git 仓库。根 `package.json` 钉着测试链的依赖（vitest、覆盖率插件、Stryker 两个包、typescript），`npm ci` 之后用例从仓库根的 `node_modules` 解析 typescript 与 Stryker；`PQW_TS`、`PQW_STRYKER_MODULES` 两个环境变量仍可覆盖，取不到时相关用例跳过并打印原因。命令面用例真起子进程，整套约半分钟；真起 Stryker 的几条占大头。
+`tests/` 用 vitest 跑、`node:assert/strict` 断言，夹具在系统临时目录建小 Git 仓库。根 `package.json` 钉着测试链的依赖（vitest、覆盖率插件、Stryker 两个包、typescript），版本写死，不带范围；`npm install` 之后用例从仓库根的 `node_modules` 解析 typescript 与 Stryker。根目录不提交 `package-lock.json`：仓库根就是插件根，Claude Code 在用户安装插件时会安装插件根锁文件里的包，官方目录也会因此留审，而这些包只有本仓库的测试用。`PQW_TS`、`PQW_STRYKER_MODULES` 两个环境变量仍可覆盖，取不到时相关用例跳过并打印原因。命令面用例真起子进程，整套约半分钟；真起 Stryker 的几条占大头。
 
 结构读数、差分变异、汇报件、demo 追加四个工具的逻辑在各自 `scripts/lib/` 下的函数里，`scripts/*.mjs` 只是命令面；哨兵、汇报件目录、清理三个脚本仍是单文件。改工具时用它自己量自己：
 

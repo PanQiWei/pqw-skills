@@ -1,7 +1,10 @@
 {
   "name": "pqw-skills",
-  "version": "0.22.0",
-  "description": "PanQiWei 与 Claude Code、Codex、Cursor 等 coding agent 协作沉淀出的单会话研发流：一个总入口技能，加上定义期与交付期各环节按需加载的技能。",
+  "displayName": "pqw-skills",
+  "version": "0.22.1",
+  "description": "A development flow for large changes: define with the human, hand off one run at a time, let the agent deliver in slices, then verify. 给 coding agent 的单会话研发流：定义期、交接期、交付期，加六个思维模型。",
+  "homepage": "https://github.com/PanQiWei/pqw-skills#readme",
+  "icon": "./assets/icon.png",
   "author": {
     "name": "PanQiWei",
     "url": "https://github.com/PanQiWei"
@@ -11,6 +14,9 @@
   "keywords": [
     "engineering",
     "skills",
+    "agent-skills",
+    "spec-driven-development",
+    "handoff",
     "ddd",
     "formal-methods",
     "delegation",
