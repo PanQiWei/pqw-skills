@@ -1,4 +1,4 @@
-// 核 plan 与 spec 的骨架是否仍合模板：节在不在、顺序对不对、表头齐不齐、进度行与处置行格式对不对、每片有没有意义段与收口、预计收尾超出人的验收窗口时有没有分程建议或人的决定、责任分级有没有带路径的重点行。
+// 核 plan、spec 与交接信息包的骨架是否仍合模板：节在不在、顺序对不对、表头齐不齐、进度行与处置行格式对不对、每片有没有意义段与收口、预计收尾超出人的验收窗口时有没有截程交付或人的决定、责任分级有没有带路径的重点行、交接信息包的切片大纲与尺寸。
 // 只核结构，不核内容好坏。必需节的字面与 ../plan-template.md、../spec-template.md 是同一份契约，改一处就改另一处；用例里有一条把两处钉在一起。
 
 /** plan 必需的二级节，按顺序。匹配按「以此开头」，允许标题后带括号说明。 */
@@ -13,8 +13,15 @@ const SECTION_HINTS = {
   责任分级: `在「## Out of Scope」之前加一张表，表头「${SCOPE_TABLE_HEADER}」，行为重点、次要、连带，格式见 spec 模板`,
   圈外发现: `在「## 顺序与并行」之前加一张表，表头「${FINDINGS_TABLE_HEADER}」，格式见 plan 模板`,
 };
-/** 交接信息包必需的二级节，按顺序。字面与 ../../single-session-dev-flow/handoff-pack-template.md 是同一份契约，用例把两处钉在一起。 */
+/** 交接信息包必需的二级节，按顺序。字面与 ../../pass-the-baton/handoff-pack-template.md 是同一份契约，用例把两处钉在一起。新模板在「验收标准」之后多一节切片大纲。 */
 export const HANDOFF_SECTIONS = ["目标", "依据", "不变式", "验收标准", "边界", "起点与风险", "已定事项", "只有人能定的待决", "四问"];
+export const OUTLINE_SECTION = "切片大纲";
+const HANDOFF_SECTIONS_WITH_OUTLINE = [...HANDOFF_SECTIONS.slice(0, 4), OUTLINE_SECTION, ...HANDOFF_SECTIONS.slice(4)];
+/** 切片大纲的表头：定程时写到够估时，人怎么验与验几分钟是尺寸核对的输入。 */
+export const OUTLINE_TABLE_HEADER = "| 切片 | 交付的行为 | 对应验收 | 人怎么验 | 验几分钟 | 预计做多久 |";
+/** 交接信息包「起点与风险」里的预计收尾一行。有这一行的是带切片大纲的新模板，切片大纲与尺寸按缺陷核；没有的只提示。 */
+export const HANDOFF_ETA_PREFIX = "- 预计收尾：";
+const HANDOFF_ETA_RE = /^- 预计收尾：(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?Z) · 依据：\S/;
 /** 起点一行：分支或引用、@、至少 7 位十六进制的提交号；分支与提交号可各自包在一对反引号里。 */
 export const HANDOFF_START_RE = /^- 起点：(?:`[^`\s]+`|[^\s`]+)@(?:`[0-9a-f]{7,40}`|[0-9a-f]{7,40})\s*$/;
 export const HANDOFF_START_MESSAGE = "起点一行应为「- 起点：<分支>@<提交号>」，提交号至少 7 位十六进制；分支与提交号可各自带反引号，例如「- 起点：main@0123abc」";
@@ -257,28 +264,29 @@ const hasModelsLine = (overview) => overview.lines.some((l) => l.startsWith(MODE
 export const WINDOW_LINE_PREFIX = "- 人的验收窗口：";
 /** 窗口一行：回来的 UTC 时刻，再写验收多久。只取回来的时刻，验收时长是给人读的。 */
 export const WINDOW_RE = /^- 人的验收窗口：回来 (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?Z) · 验收 \S/;
-/** 处置记录里人说就按一程做：处置行里有「按一程做」四个字。 */
-const ONE_RUN_RE = /^处置 \d+（.*按一程做/;
+/** 处置记录里预计收尾滑出窗口之后的出口：按规则截程交付，或人在定程时说过就按一程做。 */
+const WINDOW_EXIT_RE = /^处置 \d+（.*(?:截程交付|按一程做)/;
 /** 切片的「人怎么验」写「无」：这片人上手看不到。 */
 const NO_HUMAN_CHECK_RE = /^- \*\*人怎么验：\*\*\s*无(?:$|[。；，\s（])/;
+const WINDOW_FORMAT_MESSAGE = "人的验收窗口一行格式错：应为「- 人的验收窗口：回来 <UTC 时刻> · 验收 <分钟数> 分钟（<人的原话>）」";
 
-/** 分程建议一节写了：表里至少一行不全是尖括号占位。照抄模板没改的不算。 */
+/** 0.21.0 及以前的 plan 末尾的分程建议一节写了：表里至少一行不全是尖括号占位。照抄模板没改的不算。分程现在归交接期，这一节只为旧 plan 照样认。 */
 function splitWritten(secs) {
   const sec = byTitle(secs, "分程建议");
   return Boolean(sec?.lines.map(cellsOf).some((c) => c && /^\d+$/.test(c[0]) && c.slice(1).some((x) => x !== "" && !isPlaceholder(x))));
 }
 
-/** 人的验收窗口：一行在就核格式；预计收尾晚于回来的时刻时，要有写了的分程建议，或人说按一程做的处置。没有这一行的旧 plan 不核。 */
+/** 人的验收窗口：一行在就核格式；预计收尾晚于回来的时刻时，要有截程交付或按一程做的处置（旧 plan 写了分程建议也算）。没有这一行的旧 plan 不核。 */
 function windowDefects(file, text, secs) {
   const lines = text.split("\n");
   const at = lines.findIndex((l) => l.startsWith(WINDOW_LINE_PREFIX));
   if (at < 0) return [];
   const m = WINDOW_RE.exec(lines[at]);
-  if (!m) return [{ file, line: at + 1, message: "人的验收窗口一行格式错：应为「- 人的验收窗口：回来 <UTC 时刻> · 验收 <分钟数> 分钟（<人的原话>）」" }];
+  if (!m) return [{ file, line: at + 1, message: WINDOW_FORMAT_MESSAGE }];
   const eta = /^预计收尾：(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?Z)/m.exec(text)?.[1];
   if (!eta || Date.parse(eta) <= Date.parse(m[1])) return [];
-  if (splitWritten(secs) || lines.some((l) => ONE_RUN_RE.test(l))) return [];
-  return [{ file, line: at + 1, message: `预计收尾 ${eta} 晚于人回来的时刻 ${m[1]}：一程大过人验得完的量。在 plan 末尾写「## 分程建议」；人说就按一程做时，在处置记录里记一行「处置 <n>（<UTC 时刻>）：按一程做；人的原话：<>」` }];
+  if (splitWritten(secs) || lines.some((l) => WINDOW_EXIT_RE.test(l))) return [];
+  return [{ file, line: at + 1, message: `预计收尾 ${eta} 晚于人回来的时刻 ${m[1]}：滑出了人的验收窗口。按规则截程交付，在处置记录里记一行「处置 <n>（<UTC 时刻>）：截程交付；<交了哪几片，剩下的写进交付声明>」；交接信息包里人说过按一程做的，记一行「处置 <n>（<UTC 时刻>）：按一程做；人的原话：<>」` }];
 }
 
 /** 切片写「人怎么验：无」的提示：人上手看不到的片只是中间产物。 */
@@ -423,32 +431,105 @@ function fourQuestionDefects(file, sec) {
   });
 }
 
-/** 交接信息包：抬头、九节齐且顺序对、边界带责任分级表、起点一行带提交号、四问四条都有答案。 */
+/** 包是新模板：「起点与风险」那几行里有预计收尾一行。 */
+const isOutlinedHandoff = (text) => text.split("\n").some((l) => l.startsWith(HANDOFF_ETA_PREFIX));
+
+/** 切片大纲的行：表头之下、第一行非表格行之前，切片号一格不空的行，[{ cells, line }]。 */
+function outlineRows(sec) {
+  const at = sec.lines.findIndex((l) => l.trim() === OUTLINE_TABLE_HEADER);
+  if (at < 0) return null;
+  const rows = [];
+  for (let i = at + 2; i < sec.lines.length; i++) {
+    const cells = cellsOf(sec.lines[i]);
+    if (!cells) break;
+    if (cells[0] !== "") rows.push({ cells, line: sec.start + i });
+  }
+  return rows;
+}
+
+/** 切片大纲：表头在，至少一行有一格不是占位。 */
+function outlineDefects(file, sec) {
+  const rows = outlineRows(sec);
+  if (!rows) return [{ file, line: sec.start, message: `切片大纲缺表：表头「${OUTLINE_TABLE_HEADER}」，每片一行` }];
+  const written = rows.some((r) => r.cells.slice(1).some((c) => c !== "" && !isPlaceholder(c)));
+  return written ? [] : [{ file, line: sec.start, message: "切片大纲没有写：每片一行，写交付的行为、对应验收、人怎么验、验几分钟、预计做多久" }];
+}
+
+/** 包的尺寸：窗口一行与预计收尾一行在且合格式；预计收尾晚于人回来的时刻时，「已定事项」要有人说按一程做的一行。 */
+function handoffSizeDefects(file, text, secs) {
+  const lines = text.split("\n");
+  const defects = [];
+  const start = byTitle(secs, "起点与风险");
+  const windowAt = lines.findIndex((l) => l.startsWith(WINDOW_LINE_PREFIX));
+  const window = windowAt < 0 ? null : WINDOW_RE.exec(lines[windowAt]);
+  if (windowAt < 0) defects.push({ file, line: start?.start ?? 1, message: "起点与风险缺人的验收窗口一行：加「- 人的验收窗口：回来 <UTC 时刻> · 验收 <分钟数> 分钟（<人的原话>）」" });
+  else if (!window) defects.push({ file, line: windowAt + 1, message: WINDOW_FORMAT_MESSAGE });
+  const etaAt = lines.findIndex((l) => l.startsWith(HANDOFF_ETA_PREFIX));
+  const eta = HANDOFF_ETA_RE.exec(lines[etaAt]);
+  if (!eta) defects.push({ file, line: etaAt + 1, message: "预计收尾一行格式错：应为「- 预计收尾：<UTC 时刻> · 依据：<切片大纲的预计用时之和>」" });
+  if (!window || !eta || Date.parse(eta[1]) <= Date.parse(window[1])) return defects;
+  const decided = byTitle(secs, "已定事项");
+  if (decided && hasLine(decided, (l) => /^\s*-\s.*按一程做/.test(l))) return defects;
+  defects.push({ file, line: etaAt + 1, message: `预计收尾 ${eta[1]} 晚于人回来的时刻 ${window[1]}：一程大过人验得完的量。定程时分程，这份包只装第一程；人说就按一程做时，在「已定事项」记一行「- 按一程做；人的原话：<>」` });
+  return defects;
+}
+
+/**
+ * 交接信息包：抬头、各节齐且顺序对、边界带责任分级表、起点一行带提交号、四问四条都有答案。
+ * 有预计收尾一行的新模板另核：切片大纲一节在、表头对、写了；人的验收窗口与预计收尾合格式；预计收尾晚于窗口时有人的决定。
+ */
 export function checkHandoff(text, file = "handoff.md") {
   const defects = [];
   if (!/^# 交接信息包：.+$/m.test(text)) defects.push({ file, line: 1, message: "抬头应为「# 交接信息包：<一程名>」" });
   const secs = sections(text);
-  defects.push(...checkSectionOrder(file, secs, HANDOFF_SECTIONS));
+  const outlined = isOutlinedHandoff(text);
+  defects.push(...checkSectionOrder(file, secs, outlined ? HANDOFF_SECTIONS_WITH_OUTLINE : HANDOFF_SECTIONS));
+  const outline = byTitle(secs, OUTLINE_SECTION);
+  if (outlined && outline) defects.push(...outlineDefects(file, outline));
   const bounds = byTitle(secs, "边界");
   if (bounds && !hasLine(bounds, (l) => l.trim() === SCOPE_TABLE_HEADER)) defects.push({ file, line: bounds.start, message: `边界缺责任分级表：加一张与 spec「责任分级」同格式的表，表头「${SCOPE_TABLE_HEADER}」，写范围从它派生` });
   const start = byTitle(secs, "起点与风险");
   if (start && !hasLine(start, (l) => HANDOFF_START_RE.test(l))) defects.push({ file, line: start.start, message: HANDOFF_START_MESSAGE });
+  if (outlined) defects.push(...handoffSizeDefects(file, text, secs));
   const four = byTitle(secs, "四问");
   if (four) defects.push(...fourQuestionDefects(file, four));
   return defects;
 }
 
+/**
+ * 交接信息包的提示：不算缺陷、不改退出码。0.19.0 到 0.21.0 的模板没有预计收尾一行，切片大纲与尺寸不按缺陷核，提示加上；
+ * 新模板里切片大纲的「人怎么验」写无的，提示并进能看到的那一片。
+ */
+export function handoffHints(text, file = "handoff.md") {
+  const secs = sections(text);
+  if (!isOutlinedHandoff(text)) {
+    const start = byTitle(secs, "起点与风险");
+    return [{ file, line: start?.start ?? 1, message: `「起点与风险」没有「${HANDOFF_ETA_PREFIX}」一行，按旧模板核，切片大纲与尺寸只提示、不报缺陷。照交接信息包模板在「验收标准」之后加「## ${OUTLINE_SECTION}」，在「起点与风险」加预计收尾一行` }];
+  }
+  const outline = byTitle(secs, OUTLINE_SECTION);
+  const rows = outline ? outlineRows(outline) ?? [] : [];
+  return rows.filter((r) => /^无(?:$|[。；，\s（])/.test(r.cells[3] ?? ""))
+    .map((r) => ({ file, line: r.line, message: `切片 ${r.cells[0]} 的「人怎么验」写的是无：人上手看不到这片的行为，它只是中间产物，考虑并进能看到的那一片` }));
+}
+
+/** 路径写「-」表示从标准输入读，例如包在工单正文里时接上取正文的命令。缺陷里的文件名记「标准输入」。 */
+export const STDIN = "-";
+const labelOf = (path) => (path === STDIN ? "标准输入" : path);
+
 /** 命令面给了哪几份就核哪几份：{ plan, spec, handoff } 是路径，read 把路径读成文本。 */
 export function checkFiles({ plan, spec, handoff, now = Date.now() }, read) {
   return [
-    ...(plan ? checkPlan(read(plan), plan, { now }) : []),
-    ...(spec ? checkSpec(read(spec), spec, { now }) : []),
-    ...(handoff ? checkHandoff(read(handoff), handoff) : []),
+    ...(plan ? checkPlan(read(plan), labelOf(plan), { now }) : []),
+    ...(spec ? checkSpec(read(spec), labelOf(spec), { now }) : []),
+    ...(handoff ? checkHandoff(read(handoff), labelOf(handoff)) : []),
   ];
 }
 
-/** 命令面给了 plan 时的提示；spec 与交接信息包没有提示。 */
-export const hintFiles = ({ plan }, read) => (plan ? planHints(read(plan), plan) : []);
+/** 命令面给了 plan 或交接信息包时的提示；spec 没有提示。 */
+export const hintFiles = ({ plan, handoff }, read) => [
+  ...(plan ? planHints(read(plan), labelOf(plan)) : []),
+  ...(handoff ? handoffHints(read(handoff), labelOf(handoff)) : []),
+];
 
 /** 文本输出：每条「文件:行 缺陷」，再每条「文件:行 提示：…」，末尾一行汇总。提示不算缺陷。 */
 export function formatDefects(defects, hints = []) {

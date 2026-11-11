@@ -5,12 +5,12 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { checkFiles, checkHandoff, checkPlan, checkSpec, planHints, sections, KICKOFF_FIELDS, MODEL_SKILLS, MODELS_LINE_PREFIX, PLAN_SECTIONS, TOKEN_COLUMN, SPEC_SECTIONS, WINDOW_LINE_PREFIX, WINDOW_RE } from "../skills/spec-and-plan/scripts/lib/check-plan.mjs";
+import { checkFiles, checkHandoff, checkPlan, checkSpec, handoffHints, hintFiles, planHints, sections, HANDOFF_ETA_PREFIX, HANDOFF_SECTIONS, KICKOFF_FIELDS, MODEL_SKILLS, MODELS_LINE_PREFIX, OUTLINE_TABLE_HEADER, PLAN_SECTIONS, TOKEN_COLUMN, SPEC_SECTIONS, WINDOW_LINE_PREFIX, WINDOW_RE } from "../skills/spec-and-plan/scripts/lib/check-plan.mjs";
 
 const SCRIPT = new URL("../skills/spec-and-plan/scripts/check-plan.mjs", import.meta.url).pathname;
 const TEMPLATE = new URL("../skills/spec-and-plan/plan-template.md", import.meta.url).pathname;
 const SPEC_TEMPLATE = new URL("../skills/spec-and-plan/spec-template.md", import.meta.url).pathname;
-const HANDOFF_TEMPLATE = new URL("../skills/single-session-dev-flow/handoff-pack-template.md", import.meta.url).pathname;
+const HANDOFF_TEMPLATE = new URL("../skills/pass-the-baton/handoff-pack-template.md", import.meta.url).pathname;
 
 /** 模板正文（分隔线之后），把三个机读占位符换成合法值。 */
 const instantiate = (path) => readFileSync(path, "utf8").split("\n---\n").slice(1).join("\n---\n")
@@ -253,14 +253,87 @@ test("收口缺「做好一轮」报缺陷，行号指向那片的「**收口**�
   assert.deepEqual(checkPlan(GOOD_PLAN.replace("### 02：第二片", "见 ### 02：第二片")).map((d) => d.message), ["切片表里的切片 02 没有自己的「### 02：」节"], "切片标题要在行首");
 });
 
-/** 交接信息包模板实例化：起点填一个提交号，四问的占位换成答案。 */
+/** 交接信息包模板实例化：起点填一个提交号，人的验收窗口与预计收尾填时刻，切片大纲填一片，四问的占位换成答案。 */
+const OUTLINE_ROW = "| 01 | 第一片 | C1 | 跑一次 demo | 10 | 2 小时 |";
 const GOOD_HANDOFF = readFileSync(HANDOFF_TEMPLATE, "utf8").split("\n---\n").slice(1).join("\n---\n")
-  .replace("- 起点：<分支>@<完整提交号>", "- 起点：main@0123abc").replace(/？<>$/gm, "？答。");
+  .replace("- 起点：<分支>@<完整提交号>", "- 起点：main@0123abc").replace(/？<>$/gm, "？答。")
+  .replace("回来 <UTC 时刻>", "回来 2026-11-08T18:00Z").replace("- 预计收尾：<UTC 时刻>", "- 预计收尾：2026-11-08T12:00Z")
+  .replace("| 01 | <> | <> | <> | <> | <> |", OUTLINE_ROW);
+const START_MESSAGE = "起点一行应为「- 起点：<分支>@<提交号>」，提交号至少 7 位十六进制；分支与提交号可各自带反引号，例如「- 起点：main@0123abc」";
+const WINDOW_FORMAT = "人的验收窗口一行格式错：应为「- 人的验收窗口：回来 <UTC 时刻> · 验收 <分钟数> 分钟（<人的原话>）」";
+const HANDOFF_ETA_FORMAT = "预计收尾一行格式错：应为「- 预计收尾：<UTC 时刻> · 依据：<切片大纲的预计用时之和>」";
+const OUTLINE_EMPTY = "切片大纲没有写：每片一行，写交付的行为、对应验收、人怎么验、验几分钟、预计做多久";
 
-test("交接信息包：模板实例化后通过，把模板与核对器钉在一起；没填的模板报起点与四问", () => {
+test("交接信息包：模板实例化后通过，把模板与核对器钉在一起；没填的模板报起点、切片大纲、窗口、预计收尾与四问", () => {
   assert.deepEqual(checkHandoff(GOOD_HANDOFF).map((d) => d.message), []);
+  assert.deepEqual(handoffHints(GOOD_HANDOFF), [], "新模板没有提示");
   const raw = readFileSync(HANDOFF_TEMPLATE, "utf8").split("\n---\n").slice(1).join("\n---\n");
-  assert.deepEqual(checkHandoff(raw).map((d) => d.message), ["起点一行应为「- 起点：<分支>@<提交号>」，提交号至少 7 位十六进制；分支与提交号可各自带反引号，例如「- 起点：main@0123abc」", "四问第 1 条没有答案", "四问第 2 条没有答案", "四问第 3 条没有答案", "四问第 4 条没有答案"]);
+  assert.deepEqual(checkHandoff(raw).map((d) => d.message), [OUTLINE_EMPTY, START_MESSAGE, WINDOW_FORMAT, HANDOFF_ETA_FORMAT, "四问第 1 条没有答案", "四问第 2 条没有答案", "四问第 3 条没有答案", "四问第 4 条没有答案"]);
+  assert.ok(raw.split("\n").includes(OUTLINE_TABLE_HEADER), "模板的切片大纲带表头");
+  assert.ok(raw.split("\n").some((l) => l.startsWith(HANDOFF_ETA_PREFIX)), "模板的起点与风险有预计收尾一行");
+  const titles = sections(raw).map((s) => s.title).filter(Boolean);
+  assert.deepEqual(titles, [...HANDOFF_SECTIONS.slice(0, 4), "切片大纲", ...HANDOFF_SECTIONS.slice(4)], "新模板在验收标准之后多切片大纲一节");
+});
+
+test("交接信息包新模板：缺切片大纲一节报缺节；表头不对、表里只有占位各报一处，行号指向那一节", () => {
+  const lines = GOOD_HANDOFF.split("\n");
+  const outlineAt = lines.indexOf("## 切片大纲") + 1;
+  const noOutline = GOOD_HANDOFF.slice(0, GOOD_HANDOFF.indexOf("## 切片大纲")) + GOOD_HANDOFF.slice(GOOD_HANDOFF.indexOf("## 边界"));
+  assert.deepEqual(checkHandoff(noOutline).map((d) => d.message), ["缺节「## 切片大纲」"]);
+  assert.deepEqual(checkHandoff(GOOD_HANDOFF.replace(OUTLINE_TABLE_HEADER, "| 切片 | 行为 |")).map((d) => [d.line, d.message]), [[outlineAt, `切片大纲缺表：表头「${OUTLINE_TABLE_HEADER}」，每片一行`]]);
+  assert.deepEqual(checkHandoff(GOOD_HANDOFF.replace(OUTLINE_ROW, "| 01 | <> | <> | <> | <> | <> |")).map((d) => [d.line, d.message]), [[outlineAt, OUTLINE_EMPTY]]);
+  assert.deepEqual(checkHandoff(GOOD_HANDOFF.replace(OUTLINE_ROW, "| 01 | 第一片 | <> | <> | <> | <> |")), [], "有一格写了就算写了");
+  const moved = GOOD_HANDOFF.replace("## 切片大纲\n", "## 临时\n").replace("## 边界\n", "## 切片大纲\n").replace("## 临时\n", "## 边界\n");
+  assert.ok(checkHandoff(moved).some((d) => d.message === "节「## 边界」应在「## 切片大纲」之后"), "切片大纲在验收标准与边界之间");
+});
+
+test("交接信息包新模板：预计收尾晚于人回来的时刻，已定事项没有按一程做报一处，行号指向预计收尾一行；有就不报；窗口与预计收尾缺或格式错各报", () => {
+  const late = GOOD_HANDOFF.replace("- 预计收尾：2026-11-08T12:00Z", "- 预计收尾：2026-11-08T20:00Z");
+  const etaAt = (text) => text.split("\n").findIndex((l) => l.startsWith(HANDOFF_ETA_PREFIX)) + 1;
+  const over = "预计收尾 2026-11-08T20:00Z 晚于人回来的时刻 2026-11-08T18:00Z：一程大过人验得完的量。定程时分程，这份包只装第一程；人说就按一程做时，在「已定事项」记一行「- 按一程做；人的原话：<>」";
+  assert.deepEqual(checkHandoff(late).map((d) => [d.line, d.message]), [[etaAt(late), over]]);
+  assert.deepEqual(checkHandoff(late.replace("## 已定事项\n\n", "## 已定事项\n\n- 按一程做；人的原话：就一程\n")), [], "人说按一程做");
+  assert.deepEqual(checkHandoff(late.replace("## 目标\n\n", "## 目标\n\n按一程做。\n")).map((d) => d.message), [over], "已定事项之外的按一程做不算");
+  const startAt = GOOD_HANDOFF.split("\n").indexOf("## 起点与风险") + 1;
+  const noWindow = GOOD_HANDOFF.split("\n").filter((l) => !l.startsWith(WINDOW_LINE_PREFIX)).join("\n");
+  assert.deepEqual(checkHandoff(noWindow).map((d) => [d.line, d.message]), [[startAt, "起点与风险缺人的验收窗口一行：加「- 人的验收窗口：回来 <UTC 时刻> · 验收 <分钟数> 分钟（<人的原话>）」"]]);
+  assert.deepEqual(checkHandoff(GOOD_HANDOFF.replace("回来 2026-11-08T18:00Z", "回来 今晚")).map((d) => d.message), [WINDOW_FORMAT]);
+  const badEta = GOOD_HANDOFF.replace("- 预计收尾：2026-11-08T12:00Z", "- 预计收尾：今晚");
+  assert.deepEqual(checkHandoff(badEta).map((d) => [d.line, d.message]), [[etaAt(badEta), HANDOFF_ETA_FORMAT]]);
+});
+
+test("交接信息包旧模板（0.19.0 到 0.21.0）：没有预计收尾一行，缺切片大纲、窗口再晚都不报新缺陷，只给一条提示；命令面照样退出 0", () => {
+  const old = (GOOD_HANDOFF.slice(0, GOOD_HANDOFF.indexOf("## 切片大纲")) + GOOD_HANDOFF.slice(GOOD_HANDOFF.indexOf("## 边界")))
+    .split("\n").filter((l) => !l.startsWith(HANDOFF_ETA_PREFIX)).join("\n");
+  assert.deepEqual(checkHandoff(old), []);
+  const hint = "「起点与风险」没有「- 预计收尾：」一行，按旧模板核，切片大纲与尺寸只提示、不报缺陷。照交接信息包模板在「验收标准」之后加「## 切片大纲」，在「起点与风险」加预计收尾一行";
+  assert.deepEqual(handoffHints(old).map((h) => [h.line, h.message]), [[old.split("\n").indexOf("## 起点与风险") + 1, hint]]);
+  assert.deepEqual(hintFiles({ handoff: "h.md" }, () => old).map((h) => h.file), ["h.md"], "命令面给了包就带包的提示");
+  const dir = mkdtempSync(join(tmpdir(), "pqw-check-plan-"));
+  try {
+    writeFileSync(join(dir, "handoff.md"), old);
+    const text = run(["--handoff", join(dir, "handoff.md")]);
+    assert.equal(text.status, 0, text.stdout);
+    assert.ok(text.stdout.trimEnd().endsWith("check-plan：结构合模板，1 条提示"), text.stdout);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("交接信息包新模板：切片大纲里「人怎么验」写无的给一条提示，不报缺陷", () => {
+  const none = GOOD_HANDOFF.replace(OUTLINE_ROW, "| 01 | 第一片 | C1 | 无 | 0 | 2 小时 |");
+  assert.deepEqual(checkHandoff(none), []);
+  assert.deepEqual(handoffHints(none).map((h) => [h.line, h.message]), [[none.split("\n").indexOf("| 01 | 第一片 | C1 | 无 | 0 | 2 小时 |") + 1, "切片 01 的「人怎么验」写的是无：人上手看不到这片的行为，它只是中间产物，考虑并进能看到的那一片"]]);
+});
+
+test("命令面：--handoff - 从标准输入读包，好包退出 0，坏包退出 1 并以「标准输入」为文件名；两个参数都用 - 是用法错误", () => {
+  const ok = spawnSync("node", [SCRIPT, "--handoff", "-"], { encoding: "utf8", input: GOOD_HANDOFF });
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+  assert.equal(ok.stdout.trim(), "check-plan：结构合模板");
+  const bad = spawnSync("node", [SCRIPT, "--handoff", "-", "--format", "json"], { encoding: "utf8", input: GOOD_HANDOFF.replace("main@0123abc", "main@最新") });
+  assert.equal(bad.status, 1);
+  assert.deepEqual(JSON.parse(bad.stdout).defects.map((d) => [d.file, d.message]), [["标准输入", START_MESSAGE]]);
+  const both = spawnSync("node", [SCRIPT, "--plan", "-", "--handoff", "-"], { encoding: "utf8", input: GOOD_HANDOFF });
+  assert.equal(both.status, 2);
+  assert.match(both.stderr, /只有一个参数能用 - 从标准输入读/);
 });
 
 test("交接信息包的四种坏法各报对应缺陷，行号指到出事的那一行", () => {
@@ -490,22 +563,23 @@ test("旧模板：进度总览没有「思维模型：」一行时开工包的�
 const PLAN_019 = GOOD_PLAN.split("\n").filter((l) => !l.startsWith(WINDOW_LINE_PREFIX)).join("\n");
 const LATE = (plan) => plan.replace("预计收尾：2026-11-08T12:00Z", "预计收尾：2026-11-08T20:00Z");
 const windowLine = (plan) => plan.split("\n").findIndex((l) => l.startsWith(WINDOW_LINE_PREFIX)) + 1;
-const OVER_WINDOW = "预计收尾 2026-11-08T20:00Z 晚于人回来的时刻 2026-11-08T18:00Z：一程大过人验得完的量。在 plan 末尾写「## 分程建议」；人说就按一程做时，在处置记录里记一行「处置 <n>（<UTC 时刻>）：按一程做；人的原话：<>」";
+const OVER_WINDOW = "预计收尾 2026-11-08T20:00Z 晚于人回来的时刻 2026-11-08T18:00Z：滑出了人的验收窗口。按规则截程交付，在处置记录里记一行「处置 <n>（<UTC 时刻>）：截程交付；<交了哪几片，剩下的写进交付声明>」；交接信息包里人说过按一程做的，记一行「处置 <n>（<UTC 时刻>）：按一程做；人的原话：<>」";
 const SPLIT = "\n## 分程建议\n\n| 程 | 目标 | 交付的行为 | 预计时长 | 人怎么验 |\n| --- | --- | --- | --- | --- |\n| 1 | 先交第一片 | 第一片 | 2 小时 | 跑一次 demo，十分钟 |\n";
 
 test("人的验收窗口：plan 模板里有这一行，实例化后合格式，核对器与模板是同一份契约", () => {
   const line = instantiate(TEMPLATE).split("\n").find((l) => l.startsWith(WINDOW_LINE_PREFIX));
   assert.ok(line, "plan 模板的预算与回看有「人的验收窗口」一行");
   assert.match(line, WINDOW_RE);
-  assert.ok(readFileSync(TEMPLATE, "utf8").includes("\n## 分程建议\n"), "plan 模板有「分程建议」一节");
+  assert.ok(!readFileSync(TEMPLATE, "utf8").includes("\n## 分程建议\n"), "分程归交接期，plan 模板没有「分程建议」一节");
   assert.ok(readFileSync(TEMPLATE, "utf8").includes("- **人怎么验：**"), "plan 模板的切片有「人怎么验」一项");
 });
 
-test("人的验收窗口：预计收尾晚于人回来的时刻，没有分程建议也没有按一程做的处置，报一处，行号指向窗口一行；有其一就不报", () => {
+test("人的验收窗口：预计收尾晚于人回来的时刻，没有截程交付或按一程做的处置、也没有旧模板的分程建议，报一处，行号指向窗口一行；有其一就不报", () => {
   assert.deepEqual(checkPlan(GOOD_PLAN), [], "预计收尾在窗口之内");
   const late = LATE(GOOD_PLAN);
   assert.deepEqual(checkPlan(late).map((d) => [d.line, d.message]), [[windowLine(late), OVER_WINDOW]]);
-  assert.deepEqual(checkPlan(late + SPLIT), [], "写了分程建议");
+  assert.deepEqual(checkPlan(late.replace("处置 2（2026-11-08T09:45Z）：继续；无信号。", "处置 2（2026-11-08T09:45Z）：截程交付；交 01，02 写进交付声明")), [], "截程交付");
+  assert.deepEqual(checkPlan(late + SPLIT), [], "0.21.0 及以前的 plan 写了分程建议，照样认");
   assert.deepEqual(checkPlan(late + SPLIT.replace("| 1 | 先交第一片 | 第一片 | 2 小时 | 跑一次 demo，十分钟 |", "| 1 | <> | <> | <> | <> |")).map((d) => d.message), [OVER_WINDOW], "照抄模板没改的分程建议不算");
   assert.deepEqual(checkPlan(late.replace("处置 2（2026-11-08T09:45Z）：继续；无信号。", "处置 2（2026-11-08T09:45Z）：按一程做；人的原话：就按一程做")), [], "人说按一程做");
   assert.deepEqual(checkPlan(late.replace("- 预算 1 小时。", "- 预算 1 小时。按一程做。")).map((d) => d.message), [OVER_WINDOW], "处置行之外的「按一程做」不算");
