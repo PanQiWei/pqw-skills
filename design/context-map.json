@@ -137,7 +137,7 @@
       "cells": {
         "think-closed-loop": {
           "kind": "行",
-          "files": ["skills/single-session-dev-flow/SKILL.md", "skills/single-session-dev-flow/handoff-pack-template.md", "skills/candid-friend/run-size.md"]
+          "files": ["skills/single-session-dev-flow/SKILL.md", "skills/single-session-dev-flow/handoff-pack-template.md", "skills/candid-friend/SKILL.md", "skills/candid-friend/run-size.md"]
         }
       }
     },
