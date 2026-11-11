@@ -198,7 +198,7 @@
   <rect class="card" x="640" y="954" width="280" height="128" rx="6"/>
   <text class="h3" x="656" y="980">给你的项目</text>
   <text class="mono agent" x="656" y="1006">resident-card</text>
-  <text class="s" x="656" y="1023">八行常驻卡片，原样放进项目入口</text>
+  <text class="s" x="656" y="1023">常驻卡片，原样放进项目入口文件</text>
   <text class="mono agent" x="656" y="1046">接入点</text>
   <text class="s" x="656" y="1063">一张表填你项目的命令与位置</text>
   <text class="h2" x="40" y="1132">自带的脚本</text>

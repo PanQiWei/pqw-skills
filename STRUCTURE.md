@@ -17,9 +17,11 @@ pqw-skills/
 ├── .github/                  PR 模板与 issue 模板
 ├── assets/
 │   ├── story.svg             README 开头的故事图：没有它、有它、你得到的六样；手写 SVG，kami 的视觉规范
+│   ├── story-en.svg          英文故事图，由 gen-story-en.mjs 从 story.svg 生成
 │   ├── map.svg               README 的全景图：两条轴的矩阵与全部技能、脚本；由 gen-map.mjs 生成
-│   ├── gen-map.mjs           生成 map.svg，矩阵从 design/context-map.json 读
-│   └── flow.svg              旧的流程图，只有 README_EN.md 还在用
+│   ├── map-en.svg            英文全景图，同一个脚本生成
+│   ├── gen-map.mjs           生成两份全景图，矩阵从 design/context-map.json 读
+│   └── gen-story-en.mjs      把 story.svg 的文字逐条换成英文
 ├── .claude-plugin/
 │   ├── plugin.json           插件清单：名字、版本、skills 数组逐个列出技能目录
 │   └── marketplace.json      仓库自带的单插件市场，供 claude plugin marketplace add

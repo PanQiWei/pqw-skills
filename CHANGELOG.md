@@ -2,7 +2,7 @@
 
 ## 仓库文档（0.21.0 之后，不改技能行为，不升版本）
 
-README 改成以两张信息图为主：`assets/story.svg` 用三幕讲用这套流能得到什么，`assets/map.svg` 用两条轴的矩阵列出全部技能与自带脚本，矩阵由 `assets/gen-map.mjs` 从 `design/context-map.json` 生成。两张图用 kami 的视觉规范。技能细目的表格收进折叠块。`README_EN.md` 还没有对应的英文图。
+README 改成以两张信息图为主：`assets/story.svg` 用三幕讲用这套流能得到什么，`assets/map.svg` 用两条轴的矩阵列出全部技能与自带脚本，矩阵由 `assets/gen-map.mjs` 从 `design/context-map.json` 生成。两张图用 kami 的视觉规范。技能细目的表格收进折叠块。`README_EN.md` 同样重排，英文图是 `assets/story-en.svg` 与 `assets/map-en.svg`，各由脚本生成。旧的 `assets/flow.svg` 删掉。两份 README 不再设「状态」节，每一版改了什么只记在本文件。
 
 ## 0.21.0
 

@@ -60,13 +60,13 @@ node skills/cleanup/scripts/cleanup.mjs --scope slice --prefix <前缀> --plan
 
 ## 改 README 的图
 
-README 开头两张信息图用 kami 的视觉规范（github.com/tw93/kami）：羊皮纸底 `#f5f4ed`，只有墨蓝 `#1B365D` 一个强调色，其余是暖灰，中文衬线字，细线，圆角不超过 6，不用阴影、渐变和第二种颜色。图自带底色，不做深色版。
+两份 README 开头各有两张信息图，用 kami 的视觉规范（github.com/tw93/kami）：羊皮纸底 `#f5f4ed`，只有墨蓝 `#1B365D` 一个强调色，其余是暖灰，衬线字，细线，圆角不超过 6，不用阴影、渐变和第二种颜色。图自带底色，不做深色版。
 
-- `assets/story.svg`：故事图，手写 SVG。文字不会自动换行，改字时按字数核每行的宽度。
-- `assets/map.svg`：全景图，由 `node assets/gen-map.mjs` 生成，矩阵从 `design/context-map.json` 读。改了上下文地图、增删技能或脚本之后重跑。
-- `assets/flow.svg`：旧的流程图，手写 SVG，带深色模式样式，只有 `README_EN.md` 还在用。
+- `assets/story.svg`：中文故事图，手写 SVG。文字不会自动换行，改字时按字数核每行的宽度。
+- `assets/story-en.svg`：英文故事图，由 `node assets/gen-story-en.mjs` 从中文版逐条替换文字生成。改了中文版之后重跑；有没译到的中文它会报错退出。
+- `assets/map.svg` 与 `assets/map-en.svg`：全景图，由 `node assets/gen-map.mjs` 一次生成两份，矩阵从 `design/context-map.json` 读。改了上下文地图、增删技能或脚本之后重跑。
 
-改完本地看一眼，窗口高度取 SVG 的 `height`：
+图里的文字要转义 `&`。改完本地看一眼，窗口高度取 SVG 的 `height`：
 
 ```bash
 <chromium> --headless --no-sandbox --disable-gpu --hide-scrollbars --window-size=960,1500 --screenshot=/tmp/story.png file://$PWD/assets/story.svg
@@ -88,5 +88,5 @@ README 开头两张信息图用 kami 的视觉规范（github.com/tw93/kami）�
 ## 发版
 
 1. `CHANGELOG.md` 加一条，`.claude-plugin/plugin.json` 改 `version`，`skills/slice-closeout/scripts/lib/version.mjs` 改 `TOOL_VERSION`，三处一起改；`check-repo` 核后两处一致。版本号变了托管路线才会重装，工具版本变了差分变异不再沿用旧历史。
-2. `README.md` 与 `README_EN.md` 的徽章与「状态」节同步版本。
+2. `README.md` 与 `README_EN.md` 的徽章同步版本。技能数量或矩阵变了，重跑两个生成脚本并核对故事图里的数字。每一版改了什么只记在 `CHANGELOG.md`，README 不设状态节。
 3. 两条检查通过后提交，打 tag `v<版本>`。

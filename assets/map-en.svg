@@ -1,0 +1,233 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1286" width="960" height="1286" role="img" aria-label="pqw-skills at a glance: thirteen steps on the flow axis, six models on the thinking axis, one candid friend, plus the entry, teaching and writing skills and the bundled scripts">
+  <title>The whole set: 24 skills, two axes</title>
+  <style>
+    /* kami 的皮肤：羊皮纸底、一个墨蓝强调色、暖灰、衬线字、细线。色值都取自 kami 的 tokens。 */
+    svg { --bg:#f5f4ed; --ink:#141413; --mut:#504e49; --stone:#6b6a64; --line:#d8d5c8; --card:#faf9f5; --stripe:#EEEDE6; --human:#141413; --humanbg:#faf9f5; --agent:#1B365D; --agentbg:#EEF2F7; --good:#1B365D; }
+    text { font-family: Charter, "Iowan Old Style", Georgia, "Times New Roman", serif; fill: var(--ink); }
+    .bg { fill: var(--bg); }
+    .eyebrow { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; font-weight: 600; fill: var(--agent); letter-spacing: 3px; }
+    .title { font-size: 34px; font-weight: 600; }
+    .sub { font-size: 15px; fill: var(--mut); }
+    .act { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; font-weight: 600; letter-spacing: 2px; fill: var(--agent); }
+    .h2 { font-size: 20px; font-weight: 600; }
+    .h3 { font-size: 14px; font-weight: 600; }
+    .s { font-size: 12px; fill: var(--stone); }
+    .ink { fill: var(--ink); } .mut { fill: var(--stone); }
+    .colnum { font-size: 18px; font-weight: 600; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; letter-spacing: 0.3px; }
+    .card { fill: var(--card); stroke: var(--line); stroke-width: 1; }
+    .chip { fill: var(--card); stroke: var(--line); stroke-width: 1; }
+    .stripe { fill: var(--stripe); }
+    .humanstripe { fill: var(--card); stroke: var(--ink); stroke-width: 1; }
+    .rule { stroke: var(--line); stroke-width: 1; }
+    .human { fill: var(--human); } .humanbg { fill: var(--humanbg); stroke: var(--human); stroke-width: 1; } .humanln { fill: var(--bg); stroke: var(--human); stroke-width: 2; }
+    .agent { fill: var(--agent); } .agentbg { fill: var(--agentbg); stroke: var(--agent); stroke-width: 1; } .agentln { fill: var(--bg); stroke: var(--agent); stroke-width: 2; }
+    .good { fill: var(--good); } .goodln { stroke: var(--good); stroke-width: 1.5; stroke-dasharray: 4 4; }
+  </style>
+  <rect class="bg" x="0" y="0" width="960" height="1286"/>
+  <text class="eyebrow" x="40" y="52">PQW-SKILLS</text>
+  <text class="title" x="40" y="98">The whole set: 24 skills, two axes</text>
+  <text class="sub" x="40" y="130">Across: the flow, where you are. Down: the thinking, how to do this step. Dots mark where they meet.</text>
+  <line x1="40" y1="156" x2="920" y2="156" stroke="#1B365D" stroke-width="0.8"/>
+  <rect class="humanbg" x="204" y="180" width="326" height="26" rx="6"/>
+  <text class="h3 human" x="216" y="198">Definition · you lead</text>
+  <rect class="agentbg" x="538" y="180" width="381" height="26" rx="6"/>
+  <text class="h3 agent" x="550" y="198">Delivery · agent runs it</text>
+  <text class="act" x="40" y="198">FLOW</text>
+  <text class="s" x="126" y="198">13 steps</text>
+  <text class="colnum human" x="231.5" y="238" text-anchor="middle">1</text>
+  <text class="s ink" x="231.5" y="258" text-anchor="middle">Need &amp;</text>
+  <text class="s ink" x="231.5" y="274" text-anchor="middle">invariants</text>
+  <text class="colnum human" x="286.5" y="238" text-anchor="middle">2</text>
+  <text class="s ink" x="286.5" y="258" text-anchor="middle">Domain</text>
+  <text class="s ink" x="286.5" y="274" text-anchor="middle">impact</text>
+  <text class="colnum human" x="341.5" y="238" text-anchor="middle">3</text>
+  <text class="s ink" x="341.5" y="258" text-anchor="middle">Research</text>
+  <text class="s ink" x="341.5" y="274" text-anchor="middle">&amp; reuse</text>
+  <text class="colnum human" x="396.5" y="238" text-anchor="middle">4</text>
+  <text class="s ink" x="396.5" y="258" text-anchor="middle">Formal</text>
+  <text class="s ink" x="396.5" y="274" text-anchor="middle">guard</text>
+  <text class="colnum human" x="451.5" y="238" text-anchor="middle">5</text>
+  <text class="s ink" x="451.5" y="258" text-anchor="middle">Detailed</text>
+  <text class="s ink" x="451.5" y="274" text-anchor="middle">design</text>
+  <text class="colnum human" x="506.5" y="238" text-anchor="middle">6</text>
+  <text class="s ink" x="506.5" y="258" text-anchor="middle">Docs</text>
+  <text class="s ink" x="506.5" y="274" text-anchor="middle">landing</text>
+  <text class="colnum agent" x="561.5" y="238" text-anchor="middle">7</text>
+  <text class="s ink" x="561.5" y="258" text-anchor="middle">spec</text>
+  <text class="s ink" x="561.5" y="274" text-anchor="middle">plan</text>
+  <text class="colnum agent" x="616.5" y="238" text-anchor="middle">8</text>
+  <text class="s ink" x="616.5" y="258" text-anchor="middle">Context</text>
+  <text class="s ink" x="616.5" y="274" text-anchor="middle">pack</text>
+  <text class="colnum agent" x="671.5" y="238" text-anchor="middle">9</text>
+  <text class="s ink" x="671.5" y="258" text-anchor="middle">Delegate</text>
+  <text class="colnum agent" x="726.5" y="238" text-anchor="middle">10</text>
+  <text class="s ink" x="726.5" y="258" text-anchor="middle">Timed</text>
+  <text class="s ink" x="726.5" y="274" text-anchor="middle">review</text>
+  <text class="colnum agent" x="781.5" y="238" text-anchor="middle">11</text>
+  <text class="s ink" x="781.5" y="258" text-anchor="middle">Slice</text>
+  <text class="s ink" x="781.5" y="274" text-anchor="middle">closeout</text>
+  <text class="colnum agent" x="836.5" y="238" text-anchor="middle">12</text>
+  <text class="s ink" x="836.5" y="258" text-anchor="middle">Report</text>
+  <text class="s ink" x="836.5" y="274" text-anchor="middle">to human</text>
+  <text class="colnum agent" x="891.5" y="238" text-anchor="middle">13</text>
+  <text class="s ink" x="891.5" y="258" text-anchor="middle">Cleanup</text>
+  <line class="goodln" x1="534" y1="216" x2="534" y2="580"/>
+  <path class="good" d="M534,206 L541,216 L534,226 L527,216 Z"/>
+  <text class="act" x="40" y="276">THINKING</text>
+  <text class="s" x="126" y="276">6 models</text>
+  <rect class="stripe" x="40" y="286" width="880" height="40" rx="6"/>
+  <text class="h3 agent" x="52" y="304">Decompose</text>
+  <text class="mono mut" x="52" y="319">think-orthogonal</text>
+  <circle class="agentln" cx="231.5" cy="306" r="6"/>
+  <circle class="agent" cx="286.5" cy="306" r="8"/>
+  <circle class="agentln" cx="396.5" cy="306" r="6"/>
+  <circle class="agentln" cx="451.5" cy="306" r="6"/>
+  <rect class="agent" x="554.5" y="299" width="14" height="14" rx="3"/>
+  <circle class="agentln" cx="616.5" cy="306" r="6"/>
+  <text class="h3 agent" x="52" y="344">Find the gap</text>
+  <text class="mono mut" x="52" y="359">think-ought-vs-is</text>
+  <circle class="agent" cx="231.5" cy="346" r="8"/>
+  <circle class="agentln" cx="286.5" cy="346" r="6"/>
+  <circle class="agent" cx="341.5" cy="346" r="8"/>
+  <rect class="agent" x="444.5" y="339" width="14" height="14" rx="3"/>
+  <circle class="agentln" cx="561.5" cy="346" r="6"/>
+  <rect class="agent" x="609.5" y="339" width="14" height="14" rx="3"/>
+  <rect class="agent" x="664.5" y="339" width="14" height="14" rx="3"/>
+  <circle class="agentln" cx="726.5" cy="346" r="6"/>
+  <circle class="agentln" cx="781.5" cy="346" r="6"/>
+  <circle class="agent" cx="836.5" cy="346" r="8"/>
+  <rect class="stripe" x="40" y="366" width="880" height="40" rx="6"/>
+  <text class="h3 agent" x="52" y="384">Shape</text>
+  <text class="mono mut" x="52" y="399">think-model-first</text>
+  <circle class="agent" cx="396.5" cy="386" r="8"/>
+  <circle class="agent" cx="451.5" cy="386" r="8"/>
+  <rect class="agent" x="609.5" y="379" width="14" height="14" rx="3"/>
+  <text class="h3 agent" x="52" y="424">Build</text>
+  <text class="mono mut" x="52" y="439">think-right-then-well</text>
+  <rect class="agent" x="609.5" y="419" width="14" height="14" rx="3"/>
+  <circle class="agentln" cx="726.5" cy="426" r="6"/>
+  <circle class="agent" cx="781.5" cy="426" r="8"/>
+  <rect class="stripe" x="40" y="446" width="880" height="40" rx="6"/>
+  <text class="h3 agent" x="52" y="464">Prove</text>
+  <text class="mono mut" x="52" y="479">think-evidence</text>
+  <circle class="agent" cx="396.5" cy="466" r="8"/>
+  <circle class="agentln" cx="451.5" cy="466" r="6"/>
+  <circle class="agent" cx="561.5" cy="466" r="8"/>
+  <circle class="agent" cx="671.5" cy="466" r="8"/>
+  <circle class="agent" cx="726.5" cy="466" r="8"/>
+  <circle class="agent" cx="781.5" cy="466" r="8"/>
+  <text class="h3 agent" x="52" y="504">Hand off</text>
+  <text class="mono mut" x="52" y="519">think-closed-loop</text>
+  <circle class="agentln" cx="451.5" cy="506" r="6"/>
+  <circle class="agentln" cx="506.5" cy="506" r="6"/>
+  <circle class="agentln" cx="616.5" cy="506" r="6"/>
+  <circle class="agent" cx="671.5" cy="506" r="8"/>
+  <circle class="agent" cx="726.5" cy="506" r="8"/>
+  <circle class="agentln" cx="836.5" cy="506" r="6"/>
+  <circle class="agentln" cx="534" cy="506" r="6"/>
+  <line class="rule" x1="40" y1="533" x2="920" y2="533"/>
+  <rect class="humanstripe" x="40" y="540" width="880" height="40" rx="6"/>
+  <text class="h3 human" x="52" y="558">To the human</text>
+  <text class="mono mut" x="52" y="573">candid-friend</text>
+  <rect class="human" x="224.5" y="553" width="14" height="14" rx="3"/>
+  <rect class="human" x="554.5" y="553" width="14" height="14" rx="3"/>
+  <circle class="humanln" cx="671.5" cy="560" r="6"/>
+  <circle class="humanln" cx="726.5" cy="560" r="6"/>
+  <rect class="human" x="829.5" y="553" width="14" height="14" rx="3"/>
+  <rect class="human" x="884.5" y="553" width="14" height="14" rx="3"/>
+  <rect class="human" x="527" y="553" width="14" height="14" rx="3"/>
+  <circle class="agent" cx="212" cy="636" r="8"/><text class="s" x="228" y="640">the step's output is the model</text>
+  <rect class="agent" x="420" y="629" width="14" height="14" rx="3"/><text class="s" x="443" y="640">a slot in the template</text>
+  <circle class="agentln" cx="592" cy="636" r="6"/><text class="s" x="606" y="640">a pointer line at the step</text>
+  <path class="good" d="M830,627 L837,636 L830,645 L823,636 Z"/><text class="s" x="844" y="640">handoff</text>
+  <line class="rule" x1="40" y1="670" x2="920" y2="670"/>
+  <text class="h2" x="40" y="708">13 steps, one question each</text>
+  <rect class="humanbg" x="40" y="724" width="26" height="20" rx="5"/><text class="s human" x="53" y="738" text-anchor="middle" style="font-weight:700">1</text>
+  <text class="mono ink" x="76" y="738">requirement-and-invariants</text>
+  <text class="s" x="272" y="738">What users get; what must always hold</text>
+  <rect class="humanbg" x="40" y="752" width="26" height="20" rx="5"/><text class="s human" x="53" y="766" text-anchor="middle" style="font-weight:700">2</text>
+  <text class="mono ink" x="76" y="766">domain-impact-analysis</text>
+  <text class="s" x="272" y="766">Which domains change; where borders go</text>
+  <rect class="humanbg" x="40" y="780" width="26" height="20" rx="5"/><text class="s human" x="53" y="794" text-anchor="middle" style="font-weight:700">3</text>
+  <text class="mono ink" x="76" y="794">tech-research-and-reuse</text>
+  <text class="s" x="272" y="794">Is something ready to reuse</text>
+  <rect class="humanbg" x="40" y="808" width="26" height="20" rx="5"/><text class="s human" x="53" y="822" text-anchor="middle" style="font-weight:700">4</text>
+  <text class="mono ink" x="76" y="822">formal-guard</text>
+  <text class="s" x="272" y="822">Which properties tests cannot guard</text>
+  <rect class="humanbg" x="40" y="836" width="26" height="20" rx="5"/><text class="s human" x="53" y="850" text-anchor="middle" style="font-weight:700">5</text>
+  <text class="mono ink" x="76" y="850">detailed-domain-design</text>
+  <text class="s" x="272" y="850">Objects, relations, storage shapes</text>
+  <rect class="humanbg" x="40" y="864" width="26" height="20" rx="5"/><text class="s human" x="53" y="878" text-anchor="middle" style="font-weight:700">6</text>
+  <text class="mono ink" x="76" y="878">formal-docs-landing</text>
+  <text class="s" x="272" y="878">What becomes a formal doc, and where</text>
+  <rect class="agentbg" x="40" y="892" width="26" height="20" rx="5"/><text class="s agent" x="53" y="906" text-anchor="middle" style="font-weight:700">7</text>
+  <text class="mono ink" x="76" y="906">spec-and-plan</text>
+  <text class="s" x="272" y="906">What counts as done; which slices</text>
+  <rect class="agentbg" x="490" y="724" width="26" height="20" rx="5"/><text class="s agent" x="503" y="738" text-anchor="middle" style="font-weight:700">8</text>
+  <text class="mono ink" x="526" y="738">context-pack</text>
+  <text class="s" x="722" y="738">What to know before starting</text>
+  <rect class="agentbg" x="490" y="752" width="26" height="20" rx="5"/><text class="s agent" x="503" y="766" text-anchor="middle" style="font-weight:700">9</text>
+  <text class="mono ink" x="526" y="766">delegate-brief</text>
+  <text class="s" x="722" y="766">Do it yourself, or delegate</text>
+  <rect class="agentbg" x="490" y="780" width="26" height="20" rx="5"/><text class="s agent" x="503" y="794" text-anchor="middle" style="font-weight:700">10</text>
+  <text class="mono ink" x="526" y="794">one-lesson-rule</text>
+  <text class="s" x="722" y="794">Any drift, looping or context rot</text>
+  <rect class="agentbg" x="490" y="808" width="26" height="20" rx="5"/><text class="s agent" x="503" y="822" text-anchor="middle" style="font-weight:700">11</text>
+  <text class="mono ink" x="526" y="822">slice-closeout</text>
+  <text class="s" x="722" y="822">Were the promises kept</text>
+  <rect class="agentbg" x="490" y="836" width="26" height="20" rx="5"/><text class="s agent" x="503" y="850" text-anchor="middle" style="font-weight:700">12</text>
+  <text class="mono ink" x="526" y="850">progress-artifacts</text>
+  <text class="s" x="722" y="850">How a human gets it in ten minutes</text>
+  <rect class="agentbg" x="490" y="864" width="26" height="20" rx="5"/><text class="s agent" x="503" y="878" text-anchor="middle" style="font-weight:700">13</text>
+  <text class="mono ink" x="526" y="878">cleanup</text>
+  <text class="s" x="722" y="878">What to clean; what awaits review</text>
+  <line class="rule" x1="40" y1="930" x2="920" y2="930"/>
+  <rect class="card" x="40" y="954" width="280" height="128" rx="6"/>
+  <text class="h3" x="56" y="980">Entry and teaching</text>
+  <text class="mono agent" x="56" y="1006">single-session-dev-flow</text>
+  <text class="s" x="56" y="1023">Entry: who qualifies, order, handoff</text>
+  <text class="mono agent" x="56" y="1046">teach-pqw-skills</text>
+  <text class="s" x="56" y="1063">Teaches people how to use the flow</text>
+  <rect class="card" x="340" y="954" width="280" height="128" rx="6"/>
+  <text class="h3" x="356" y="980">Writing</text>
+  <text class="mono agent" x="356" y="1006">clear-writing</text>
+  <text class="s" x="356" y="1023">Clear writing for docs and prompts</text>
+  <text class="mono agent" x="356" y="1046">write-agents-md</text>
+  <text class="s" x="356" y="1063">How to write and govern AGENTS.md</text>
+  <rect class="card" x="640" y="954" width="280" height="128" rx="6"/>
+  <text class="h3" x="656" y="980">For your project</text>
+  <text class="mono agent" x="656" y="1006">resident-card</text>
+  <text class="s" x="656" y="1023">A resident card for your entry file</text>
+  <text class="mono agent" x="656" y="1046">access points</text>
+  <text class="s" x="656" y="1063">One table: your commands and paths</text>
+  <text class="h2" x="40" y="1132">Bundled scripts</text>
+  <text class="s" x="212" y="1132">run with node; deterministic, no model judgment</text>
+  <rect class="chip" x="40" y="1148" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="52" y="1168">check-plan</text>
+  <text class="s" x="158" y="1168">Checks plan structure</text>
+  <rect class="chip" x="340" y="1148" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="352" y="1168">consumers</text>
+  <text class="s" x="458" y="1168">Finds a change's consumers</text>
+  <rect class="chip" x="640" y="1148" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="652" y="1168">check-brief</text>
+  <text class="s" x="758" y="1168">Checks a delegation brief</text>
+  <rect class="chip" x="40" y="1186" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="52" y="1206">sentinel</text>
+  <text class="s" x="158" y="1206">Sentinel's worktree facts</text>
+  <rect class="chip" x="340" y="1186" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="352" y="1206">metrics</text>
+  <text class="s" x="458" y="1206">Structure metrics</text>
+  <rect class="chip" x="640" y="1186" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="652" y="1206">mutation</text>
+  <text class="s" x="758" y="1206">Differential mutation</text>
+  <rect class="chip" x="40" y="1224" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="52" y="1244">build-report</text>
+  <text class="s" x="158" y="1244">Builds the web report</text>
+  <rect class="chip" x="340" y="1224" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="352" y="1244">demo-append</text>
+  <text class="s" x="458" y="1244">Appends a demo section</text>
+  <rect class="chip" x="640" y="1224" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="652" y="1244">cleanup</text>
+  <text class="s" x="758" y="1244">Lists and cleans leftovers</text>
+</svg>
