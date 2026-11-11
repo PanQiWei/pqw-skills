@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "pqw-skills",
-  "version": "0.22.2",
+  "version": "0.23.0",
   "description": "A development flow for large changes: define with the human, hand off one run at a time, let the agent deliver in slices, then verify. 25 skills plus six thinking models.",
   "author": {
     "name": "PanQiWei",

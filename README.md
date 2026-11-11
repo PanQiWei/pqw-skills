@@ -10,7 +10,7 @@ claude plugin install pqw-skills@pqw
 Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装)。装好后问一句「这套流怎么用」，它会教你。
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.22.2-informational.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.23.0-informational.svg)](./CHANGELOG.md)
 [![Skills](https://img.shields.io/badge/skills-25-success.svg)](#技能)
 [![skills.sh](https://skills.sh/b/PanQiWei/pqw-skills)](https://skills.sh/PanQiWei/pqw-skills)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Kimi%20Code%20%7C%20DSH%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#安装)
