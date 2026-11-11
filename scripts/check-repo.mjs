@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 仓库一致性检查。只读，纯 Node，无依赖。退出 0 全部通过；退出 1 有失败；退出 2 用法错误。
-// 核的是 AGENTS.md 布局与写作规则里能机器化的那部分：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、写代码的四条只有一处正文、圈外的问题只有一处正文、上下文地图的每一格兑现（含流程轴上的横切技能与常驻卡片）。
+// 核的是 AGENTS.md 布局与写作规则里能机器化的那部分：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、写代码的四条只有一处正文、圈外的问题只有一处正文、上下文地图的每一格兑现（含流程轴上的横切技能、阶段技能与常驻卡片）。
 
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
@@ -232,7 +232,7 @@ function checkOutOfScope() {
 }
 checkOutOfScope();
 
-// ---- 10. 上下文地图：design/context-map.json 的每一格在仓库里兑现（主：files 点名技能；行：files 含指路行；空：slots 的空位都在，列了 files 的另含指路行）；每个思维模型技能长成同一副骨架；模型的正文只在它自己的目录里，别处同时出现两个标志词的行必须点技能名；流程轴上的横切技能（crosscut）按同样的核法核它的各格与正文行数；常驻卡片点到全部模型与横切技能，每行末尾的技能名存在。
+// ---- 10. 上下文地图：design/context-map.json 的每一格在仓库里兑现（主：files 点名技能；行：files 含指路行；空：slots 的空位都在，列了 files 的另含指路行）；每个思维模型技能长成同一副骨架；模型的正文只在它自己的目录里，别处同时出现两个标志词的行必须点技能名；流程轴上的横切技能（crosscut）与阶段技能（stages）按同样的核法核各格与正文行数；常驻卡片点到全部模型与横切技能，每行末尾的技能名存在。
 const CONTEXT_MAP = join(repo, "design", "context-map.json");
 const MAP_CHECK = "上下文地图";
 const MAP_KINDS = ["主", "行", "空"];
@@ -276,12 +276,12 @@ function checkReadmeMatrix(map) {
   ];
   for (const line of lines) if (!readme.split("\n").includes(line)) fail(MAP_CHECK, `README.md 的思维模型矩阵缺一行「${line}」：照 ${rel(CONTEXT_MAP)} 改`);
 }
-/** 流程轴上的横切技能：技能在、正文不超过 bodyMaxLines 行，cells 的每一格按与模型同样的核法兑现。 */
-function checkCrosscut(map, item) {
+/** 流程轴上的横切技能（crosscut）与阶段技能（stages）：技能在、正文不超过上限，cells 的每一格按与模型同样的核法兑现。 */
+function checkAxisSkill(item, maxLines, kind) {
   const md = join(config.skillsDir, item.skill, "SKILL.md");
-  if (!existsSync(md)) return fail(MAP_CHECK, `横切技能 ${item.skill} 没有 skills/${item.skill}/SKILL.md`);
+  if (!existsSync(md)) return fail(MAP_CHECK, `${kind} ${item.skill} 没有 skills/${item.skill}/SKILL.md`);
   const body = read(md).replace(/^---\n[\s\S]*?\n---\n/, "").trim().split("\n");
-  if (body.length > map.bodyMaxLines) fail(MAP_CHECK, `${rel(md)} 正文 ${body.length} 行，超过 ${map.bodyMaxLines} 行：细节挪到展开页`);
+  if (body.length > maxLines) fail(MAP_CHECK, `${rel(md)} 正文 ${body.length} 行，超过 ${maxLines} 行：细节挪到展开页`);
   for (const cell of item.cells ?? []) checkMapCell(cell.row, item, cell);
 }
 /** 常驻卡片：分隔线以下给项目原样放进常驻入口文件。它点到地图里每个思维模型与横切技能；每个列表项末尾是反引号括起的技能名，且技能存在。 */
@@ -313,6 +313,7 @@ function checkContextMap() {
   checkReadmeMatrix(map);
   for (const entry of map.entries ?? []) for (const model of map.models) if (!hasText(entry, model.skill)) fail(MAP_CHECK, `${entry} 没有点到 ${model.skill}：从这个入口走不到这个思维模型`);
   for (const entry of map.entries ?? []) for (const item of map.crosscut ?? []) if (!hasText(entry, item.skill)) fail(MAP_CHECK, `${entry} 没有点到 ${item.skill}：从这个入口走不到这个横切技能`);
+  for (const entry of map.entries ?? []) for (const item of map.stages ?? []) if (!hasText(entry, item.skill)) fail(MAP_CHECK, `${entry} 没有点到 ${item.skill}：从这个入口走不到这个阶段技能`);
   checkResidentCard(map);
   for (const row of map.rows) {
     for (const [skill, cell] of Object.entries(row.cells)) {
@@ -321,7 +322,8 @@ function checkContextMap() {
       else checkMapCell(row.row, model, cell);
     }
   }
-  for (const item of map.crosscut ?? []) checkCrosscut(map, item);
+  for (const item of map.crosscut ?? []) checkAxisSkill(item, map.bodyMaxLines, "横切技能");
+  for (const item of map.stages ?? []) checkAxisSkill(item, map.stageMaxLines, "阶段技能");
 }
 checkContextMap();
 

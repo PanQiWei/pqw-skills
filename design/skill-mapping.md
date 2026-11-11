@@ -24,7 +24,7 @@
 
 | 环节 | 技能 | 定性 | 迁移自 omne | 主引用 | 辅助引用 | 自写的内容 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 入口 | `single-session-dev-flow` | 自写 | `claim` 的卡循环（切片有序推进、按风险裁剪评审） | 无 | `pstack:poteto-mode`（整条流的执行风格）、`mattpocock-skills:tdd`（实施方法）；不够格时转 `mattpocock-skills:prototype`、`mattpocock-skills:diagnosing-bugs` | 适用范围、阶段与顺序、交接点、规则、路由表 |
+| 入口 | `single-session-dev-flow` | 自写 | `claim` 的卡循环（切片有序推进、按风险裁剪评审） | 无 | `pstack:poteto-mode`（整条流的执行风格）、`mattpocock-skills:tdd`（实施方法）；不够格时转 `mattpocock-skills:prototype`、`mattpocock-skills:diagnosing-bugs` | 适用范围、阶段与顺序、交接期、规则、路由表 |
 | 教学 | `teach-pqw-skills` | 自写 | 无 | 无 | `pstack:poteto-help` 的帮助台结构、`pstack:teach` 的教法（只借写法，不调用） | 五类需求的单选、心智模型与哲学、谁做什么、提示怎么写、跑偏症状表、接入槽位表 |
 | 1 | `requirement-and-invariants` | 自写加辅助 | 无 | 无 | `pstack:in-your-own-words`（代理先复述目标与问题）、`mattpocock-skills:grilling`（追问到不变式） | 需求的三问（能力、前后差异、谁受益）、不变式清单的格式与判据、什么算不变式什么不算 |
 | 2 | `domain-impact-analysis` | 自写加辅助 | `harness-design-handbook` 的通用半边：维度分解与正交、边界再核信号、反向核对 | `mattpocock-skills:domain-modeling` | `pstack:principle-model-the-domain`、`pstack:blast-radius`（既有领域的消费者普查，判连带范围） | 重点、次要、连带的分级判据；要不要新领域的判据；顶层粗粒度设计的最小产出 |
@@ -32,7 +32,7 @@
 | 4 | `formal-guard` | 自写加辅助 | `verification-facility` 的形式工具适配与跨边界场景 | `pstack:create-formal-verification-skill`（选工具、生成项目内验证技能、先证明能失败） | `pstack:statechart`（TLA+ 结果读图）、`pstack:maintain-formal-verification-skill`（代码变后同步模型） | 四类触发条件、代理建议人确认、证真证伪的分工、偏函数定义与全化的写法、形式化结论转契约测试的清单 |
 | 5 | `detailed-domain-design` | 自写加辅助 | 无 | `mattpocock-skills:codebase-design`（深模块与接口） | `mattpocock-skills:domain-modeling`、`pstack:architect`（类型、签名、模块结构先于代码）、`pstack:principle-type-system-discipline`、`pstack:principle-boundary-discipline` | DDD、SOLID、仓储三件事怎样结合；仓储设计单列的清单：写入路径、查询路径、I/O 形态、容量假设 |
 | 6 | `formal-docs-landing` | 自写加辅助 | `review-docs` 整个（落盘遗漏、工作日志式表达、断链、下层违背上层、补图建议） | 无 | `pstack:technical-writing`（写法）、`mattpocock-skills:writing-for-agents`（写给代理读的部分） | 落盘判据（读代码效率是否低于读文档）、三层位置、形式化件的落盘要求；评审派只读子代理的简报 |
-| 交接点 | 入口技能里 | 自写 | `claim` 的自包含检查 | 无 | 无 | 物理条件的核对清单 |
+| 交接期 | `pass-the-baton` | 自写 | `claim` 的自包含检查 | 无 | 无 | 定约、定程、交出、收回四件事的顺序与完成判据；交接点核对单、交接信息包与路线图模板；跨会话协调的缺省做法 |
 | 7 | `spec-and-plan` | 引用为主 | `claim` 的 spec 与 plan 模板，去掉卡号、attempt、线 | `mattpocock-skills:to-spec`、`mattpocock-skills:to-tickets`（按已安装路径读正文） | `pstack:sharpen`（把任务做深不做大） | 先 spec 后 plan 的顺序；本仓库自带的 spec 与 plan 模板；项目有模板时以项目为准 |
 | 8 | `context-pack` | 自写加辅助 | `claim` 的上下文地图与本卡附录，去掉线 | 无 | `pstack:architect`、`pstack:principle-guard-the-context-window`、`pstack:recall`（压缩后重建上下文）、`mattpocock-skills:prototype`（技术验证用抛弃式原型） | 整程包与切片增量包的内容清单、派便宜子代理整理的简报、一次整理之后只增补 |
 | 9 | `delegate-brief` | 自写加辅助 | `delegate` 的通用半边（D1 到 D8 派发契约、闭包规格、写者共用约定、追加要求留痕）、`claim` 的任务信息包、`design-subagents` 的角色定义半边 | `pstack:poteto-mode`（子代理章节） | `pstack:swarm`（并行扇出的收口方式）、`pstack:principle-separate-before-serializing-shared-state`（写范围不相交） | 四要素的模板与核对、模型与推理档位的选法、交回格式 |

@@ -1,14 +1,14 @@
 # pqw-skills
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.21.0-informational.svg)](./CHANGELOG.md)
-[![Skills](https://img.shields.io/badge/skills-24-success.svg)](#skills)
+[![Version](https://img.shields.io/badge/version-0.22.0-informational.svg)](./CHANGELOG.md)
+[![Skills](https://img.shields.io/badge/skills-25-success.svg)](#skills)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#install)
 [![Language](https://img.shields.io/badge/lang-%E4%B8%AD%E6%96%87%20%7C%20English-lightgrey.svg)](./README.md)
 
 [中文](./README.md)
 
-![Hand a long run to your agent, and trust it. Act 1, without it: a one-line kickoff, drift midway, patch on patch, a report that says all done, and a day of rework for you. Act 2, with it: you lead six definition steps, and after the handoff the agent delivers slice by slice while a sentinel reviews on a timer; you come back only to verify. Act 3, six things you get: no wasted work, no guessed scope, no loose thinking, no silent drift, no self-praise, no burnout for you.](./assets/story-en.svg)
+![Hand a long run to your agent, and trust it. Act 1, without it: a one-line kickoff, drift midway, patch on patch, a report that says all done, and a day of rework for you. Act 2, with it: you lead six definition steps; in the handoff phase you commit, size and pass one run; the agent delivers slice by slice while a sentinel reviews on a timer; you come back to verify, and the run is taken back before the next one is passed. Act 3, six things you get: no wasted work, no guessed scope, no loose thinking, no silent drift, no self-praise, no burnout for you.](./assets/story-en.svg)
 
 A single-session development flow distilled from working with Claude Code, Codex, Cursor and other coding agents. It is a control loop: remove as much uncertainty as possible before any code is written, hand execution to the agent, then look back from the top at a fixed cadence. Your attention goes into defining boundaries and making high-level judgments, not into watching the implementation line by line.
 
@@ -29,11 +29,11 @@ Work that does not qualify skips the whole flow. There is no reduced version. Su
 
 ## What is in the set
 
-![The whole set: 24 skills on two axes. Across is the flow axis with 13 steps: six definition steps that you lead and seven delivery steps that the agent runs. Down is the thinking axis with six models: decompose, find the gap, shape, build, prove, hand off, plus one candid friend that speaks to the human. Marks show at which step each model appears. Below are the question each of the 13 steps answers, the entry and teaching skills, the writing skills, the resident card for your project, and nine bundled scripts.](./assets/map-en.svg)
+![The whole set: 25 skills on two axes. Across is the flow axis with 13 steps: six definition steps that you lead, a handoff phase between them, and seven delivery steps that the agent runs. Down is the thinking axis with six models: decompose, find the gap, shape, build, prove, hand off, plus one candid friend that speaks to the human. Marks show at which step each model appears. Below are the question each of the 13 steps and the handoff phase answers, the entry and teaching skills, the writing skills, the resident card for your project, and nine bundled scripts.](./assets/map-en.svg)
 
-The repository is flat: one entry skill, 13 stage skills, six cross-cutting thinking-model skills, one candid-friend skill, plus the teaching and writing skills. Stages with custom methods have their text here. Stages that already have a mature method reference skills from pstack, ub-mode and mattpocock/skills instead of copying them.
+The repository is flat: one entry skill, 13 stage skills, one handoff-phase skill, six cross-cutting thinking-model skills, one candid-friend skill, plus the teaching and writing skills. Stages with custom methods have their text here. Stages that already have a mature method reference skills from pstack, ub-mode and mattpocock/skills instead of copying them.
 
-The definition period is led by you. Each step answers one question, produces one artifact, and that artifact is the input to the next step. The order cannot be skipped. The handoff point is a physical condition: a boundary that has not reached the single source of truth and has not passed review is not defined. Once the handoff point is reached, you can turn your attention away and the main agent drives delivery.
+The definition period is led by you. Each step answers one question, produces one artifact, and that artifact is the input to the next step. The order cannot be skipped. The handoff phase works like the exchange zone in a relay race. The design session runs it while you are present: commit writes this run's spec; size decides how big the run is and whether to split the work into several runs; pass writes the handoff pack, which holds this run only. Passing is a physical condition: a boundary that has not reached the single source of truth and has not passed review is not defined. After the pass, you can turn your attention away and the main agent drives delivery. When the run comes back, you return to the design session to take it back: you verify it by hand, then the next run is passed.
 
 ## Skills
 
@@ -44,7 +44,7 @@ The two figures above are the whole picture. Open the details below for what eac
 
 ### Entry
 
-- **[single-session-dev-flow](./skills/single-session-dev-flow/SKILL.md)**: decides whether the work qualifies, sets the stages, their order and the handoff point, and names the skill to load at each stage. It writes the 13 stages into the session task list and contains no stage method. Its first section, the four rules for writing code (make it work first; then one pass to make it right; no speculative design or premature optimization; fix the root cause), applies to all coding work and is the only full statement of them in this repository. References in-your-own-words, poteto-mode and tdd; routes unqualified work to prototype or diagnosing-bugs.
+- **[single-session-dev-flow](./skills/single-session-dev-flow/SKILL.md)**: decides whether the work qualifies, sets the stages, their order and the handoff phase, and names the skill to load at each stage. It writes the 13 stages and the four handoff-phase tasks into the session task list and contains no stage method. Its first section, the four rules for writing code (make it work first; then one pass to make it right; no speculative design or premature optimization; fix the root cause), applies to all coding work and is the only full statement of them in this repository. References in-your-own-words, poteto-mode and tdd; routes unqualified work to prototype or diagnosing-bugs.
 - **[teach-pqw-skills](./skills/teach-pqw-skills/SKILL.md)**: teaches a person how to use the flow. Mental models and philosophy, what the human and the agent each do at every stage, how to write the first prompt, how to steer a run that drifted, how to wire the flow into a project. Answers and gives an example prompt; never starts the work.
 
 ### Definition period, human-led
@@ -58,11 +58,15 @@ The two figures above are the whole picture. Open the details below for what eac
 | 5 | [detailed-domain-design](./skills/detailed-domain-design/SKILL.md) | What do the objects, relations and repositories inside the domain look like, how are I/O and query performance decided | domain-modeling, codebase-design, architect, principle-type-system-discipline, principle-boundary-discipline |
 | 6 | [formal-docs-landing](./skills/formal-docs-landing/SKILL.md) | What becomes a long-lived formal document, what uses the source as its document, which layer each lands in; deterministic document review on five criteria | technical-writing, writing-for-agents |
 
+### Handoff phase, design session with you
+
+- **[pass-the-baton](./skills/pass-the-baton/SKILL.md)**: pass the baton. The handoff is a phase, not a point: an exchange zone between definition and delivery, run by the design session while you are present. Four tasks: commit, writing this run's spec with you; size, writing the slice outline, asking for your acceptance window, checking the size and writing a roadmap when the work is split into runs; pass, running the handoff checklist and writing the handoff pack; take back, after the run returns you verify it by hand, and the design session records the result in the roadmap, revises the later runs and passes the next one. The design session is the orchestrator and alone holds the roadmap. The delivery session knows only its own run, does not negotiate scope with you, and sends the pack back when it is not fit. One run is passed at a time. When design and delivery are separate sessions, they coordinate through GitHub issues by default; a project can name another tracker, and without one the fallback is files. Ships the handoff checklist, the handoff pack template with the slice outline, a roadmap template and one page on GitHub issues. It is not a numbered stage and is not in the matrix; its pointer lines are registered under `stages` in `design/context-map.json`, and `check-repo` checks each one.
+
 ### Delivery period, agent-led
 
 | Step | Skill | What it does | References |
 | --- | --- | --- | --- |
-| 7 | [spec-and-plan](./skills/spec-and-plan/SKILL.md) | Write the spec first (goal, boundary, acceptance criteria), then the plan that cuts delivery into ordered slices; ships both templates | to-spec, to-tickets (read from the installed path), sharpen |
+| 7 | [spec-and-plan](./skills/spec-and-plan/SKILL.md) | Two moments: the spec (goal, boundary, acceptance criteria) is written at commit time in the handoff phase; the plan is written at the start of delivery, starting from the slice outline and cutting the run into ordered slices; ships both templates and `check-plan.mjs` (checks the structure of plan, spec and handoff pack; the pack can come from standard input) | to-spec, to-tickets (read from the installed path), sharpen |
 | 8 | [context-pack](./skills/context-pack/SKILL.md) | Before the run, assemble the context pack and do detailed design plus technical verification of the key parts; before each slice, build the kickoff pack: context delta, technical design and verification, refined execution plan, milestone todo list | architect, prototype, principle-guard-the-context-window, recall |
 | 9 | [delegate-brief](./skills/delegate-brief/SKILL.md) | Doing it yourself is the default. Two criteria decide whether to delegate: how much context you cannot write down the work needs, and whether its intermediate work is large and thrown away after; then pass the delegation gate. When delegating, supply goal, boundary, a spec file and context pack, cap what the subagent reads, pick the tier by the kind of work and do not use the top tier as a subagent; raw results go into a file and the report is short and points to it; one page on what the tokens cost; anti-cheating acceptance, escalation, merge-back. Ships `check-brief.mjs` | poteto-mode, swarm, principle-separate-before-serializing-shared-state |
 | 10 | [one-lesson-rule](./skills/one-lesson-rule/SKILL.md) | A cheap, read-only sentinel subagent stays in the background holding the spec and plan; every 45 minutes it wakes itself, gathers working-tree facts, judges the six questions (drift, circling, context decay, subagent health, stale documents, implementation more complex than the essence) and sends a message of at most ten lines; the main agent acts on it at the next pause; subagent health is checked every 30 minutes | recall, show-me-your-work |
@@ -97,8 +101,8 @@ The two axes cross into the context map below. "Own" means the stage's output is
 | 4 Formal guard | Line |  | Own |  | Own |  |
 | 5 Detailed design | Line | Slot | Own |  | Line | Line |
 | 6 Formal docs |  |  |  |  |  | Line |
-| Handoff point |  |  |  |  |  | Line |
-| 7 Spec and plan | Slot | Line |  |  | Own |  |
+| Handoff phase |  | Line |  |  | Own | Line |
+| 7 Plan | Slot |  |  |  |  |  |
 | 8 Slice kickoff pack | Line | Slot | Slot | Slot |  | Line |
 | 9 Delegation |  | Slot |  |  | Own | Own |
 | 10 Sentinel review |  | Line |  | Line | Own | Own |
@@ -112,7 +116,7 @@ When you connect your own project, copy the [resident card](./skills/single-sess
 
 ### Candid friend, cross-cutting on the flow axis
 
-- **[candid-friend](./skills/candid-friend/SKILL.md)**: the candid friend speaks once, then does what you decide. The other skills guard against the agent's failures; this one guards against the human's: a requirement that is unclear or has no evidence of use, a run larger than what the human can accept in one acceptance window, scope added midway, a new run started before the last one was accepted, gaps in the handoff before the human leaves. The agent says it once in four fixed lines: reminder, evidence, recommendation, your options. Once the human decides, the agent does exactly that, with no discount and no conditions. Four moments: when a requirement arrives it asks whether it is worth doing; after the plan is written it checks the run size and proposes a split; during and at the end of a run it cuts the run short and lists what awaits human acceptance; before the human leaves it runs the bedtime handoff. It is not a thinking model and is not in the matrix above; where it appears is registered under `crosscut` in `design/context-map.json`, and `check-repo` checks every place the same way. The questions asked when a requirement arrives combine gstack (github.com/garrytan/gstack: office-hours, plan-ceo-review, ETHOS) and Matt's grilling, triage, to-questionnaire, prototype and wayfinder; gstack is a source of ideas only and is not loaded. References grilling, to-questionnaire (read from the installed path) and prototype.
+- **[candid-friend](./skills/candid-friend/SKILL.md)**: the candid friend speaks once, then does what you decide. The other skills guard against the agent's failures; this one guards against the human's: a requirement that is unclear or has no evidence of use, a run larger than what the human can accept in one acceptance window, gaps in the handoff before the human leaves, a new run passed before the last one was accepted. The agent says it once in four fixed lines: reminder, evidence, recommendation, your options. Once the human decides, the agent does exactly that, with no discount and no conditions. All four moments are in the design session: when a requirement arrives it asks whether it is worth doing; when sizing the run it checks the size and proposes a split; before the pass it runs the bedtime handoff; when taking a run back it asks for verification before the next pass. During delivery it starts no conversation and does only two things without asking: it cuts the run short when the estimated finish slips past the acceptance window, and it lists what awaits human acceptance at the end. It is not a thinking model and is not in the matrix above; where it appears is registered under `crosscut` in `design/context-map.json`, and `check-repo` checks every place the same way. The questions asked when a requirement arrives combine gstack (github.com/garrytan/gstack: office-hours, plan-ceo-review, ETHOS) and Matt's grilling, triage, to-questionnaire, prototype and wayfinder; gstack is a source of ideas only and is not loaded. References grilling, to-questionnaire (read from the installed path) and prototype.
 
 </details>
 

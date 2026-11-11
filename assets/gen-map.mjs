@@ -5,48 +5,50 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 const map = JSON.parse(readFileSync(new URL("../design/context-map.json", import.meta.url), "utf8"));
 const KIND = { 主: "M", 空: "S", 行: "L" };
-const keyOf = (row) => (row === "交接点" ? "h" : /^(\d+) /.exec(row)?.[1]);
+const keyOf = (row) => (row === "交接期" ? "h" : /^(\d+) /.exec(row)?.[1]);
 
 const ZH = {
   file: "map.svg",
-  aria: "pqw-skills 技能集全景：流程轴十三个环节，思维轴六个模型，一个诤友，以及入口、教学、写作技能与自带脚本",
-  title: "技能集全景：24 个技能，两条轴",
+  aria: "pqw-skills 技能集全景：流程轴十三个环节与中间的交接期，思维轴六个模型，一个诤友，以及入口、教学、写作技能与自带脚本",
+  title: "技能集全景：25 个技能，两条轴",
   sub: "横着是流程：现在走到哪一步。竖着是想法：这一步怎么想。交点是它们相遇的地方。",
   flow: "流程轴", flowN: "13 个环节", think: "思维轴", thinkN: "6 个模型", countX: 96,
   define: "定义期 · 你主导", deliver: "交付期 · agent 自主",
-  steps: [["需求", "不变式"], ["领域", "影响"], ["调研", "复用"], ["形式化", "守护"], ["细化", "设计"], ["正式", "落盘"], ["spec", "plan"], ["前置", "消熵"], ["派发", ""], ["定期", "回看"], ["切片", "收口"], ["向人", "汇报"], ["清理", ""]],
+  steps: [["需求", "不变式"], ["领域", "影响"], ["调研", "复用"], ["形式化", "守护"], ["细化", "设计"], ["正式", "落盘"], ["plan", ""], ["前置", "消熵"], ["派发", ""], ["定期", "回看"], ["切片", "收口"], ["向人", "汇报"], ["清理", ""]],
   short: { "think-orthogonal": "拆", "think-ought-vs-is": "找差异", "think-model-first": "定形", "think-right-then-well": "建", "think-evidence": "证", "think-closed-loop": "转手", "candid-friend": "对人" },
-  legend: [[212, "这一步的产出本身就是它"], [405, "模板里给它留了空位"], [592, "在要用到它的那一步有一句指路"], [830, "交接点"]],
-  stepsTitle: "13 个环节，各回答一个问题",
-  questions: ["给用户什么能力，永远守住什么", "哪些领域受影响，边界怎么摆", "有没有现成的可以复用", "哪些性质靠测试守不住", "对象、关系、仓储长什么样", "哪些写成正式文档，落在哪层", "做到什么算完，切成哪几片", "动手前要先知道什么", "什么自己做，什么派出去", "有没有偏离、兜圈、腐化", "承诺的做到了没有", "怎么让人十分钟看懂进展", "什么该清，什么等人验"],
+  legend: [[212, "这一步的产出本身就是它"], [405, "模板里给它留了空位"], [592, "在要用到它的那一步有一句指路"], [830, "交接期"]],
+  stepsTitle: "13 个环节与交接期，各回答一个问题",
+  stage: { badge: "交", question: "一程怎样交出去，怎样收回来" },
+  questions: ["给用户什么能力，永远守住什么", "哪些领域受影响，边界怎么摆", "有没有现成的可以复用", "哪些性质靠测试守不住", "对象、关系、仓储长什么样", "哪些写成正式文档，落在哪层", "这一程切成哪几片，按什么顺序", "动手前要先知道什么", "什么自己做，什么派出去", "有没有偏离、兜圈、腐化", "承诺的做到了没有", "怎么让人十分钟看懂进展", "什么该清，什么等人验"],
   boxes: [
-    ["入口与教学", [["single-session-dev-flow", "总入口：够不够格、顺序、交接点"], ["teach-pqw-skills", "教人怎么用这套流，跑偏了怎么纠"]]],
+    ["入口与教学", [["single-session-dev-flow", "总入口：够不够格、顺序、交接期"], ["teach-pqw-skills", "教人怎么用这套流，跑偏了怎么纠"]]],
     ["写作", [["clear-writing", "文档、提示词、技能的清晰写作"], ["write-agents-md", "项目入口文件怎么写、怎么治理"]]],
     ["给你的项目", [["resident-card", "常驻卡片，原样放进项目入口文件"], ["接入点", "一张表填你项目的命令与位置"]]],
   ],
   toolsTitle: "自带的脚本", toolsSub: "直接 node 跑，结果确定，不靠模型判断", toolsSubX: 170,
-  tools: ["核计划的结构", "找一个改动的消费者", "核派发简报", "哨兵取工作树事实", "结构读数", "差分变异", "生成网页汇报件", "给 demo 追加一段", "列出并清理中间产物"],
+  tools: ["核计划与交接包的结构", "找一个改动的消费者", "核派发简报", "哨兵取工作树事实", "结构读数", "差分变异", "生成网页汇报件", "给 demo 追加一段", "列出并清理中间产物"],
   font: '"TsangerJinKai02", "Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", "STSong", Charter, Georgia, serif',
 };
 const EN = {
   file: "map-en.svg",
-  aria: "pqw-skills at a glance: thirteen steps on the flow axis, six models on the thinking axis, one candid friend, plus the entry, teaching and writing skills and the bundled scripts",
-  title: "The whole set: 24 skills, two axes",
+  aria: "pqw-skills at a glance: thirteen steps and the handoff phase on the flow axis, six models on the thinking axis, one candid friend, plus the entry, teaching and writing skills and the bundled scripts",
+  title: "The whole set: 25 skills, two axes",
   sub: "Across: the flow, where you are. Down: the thinking, how to do this step. Dots mark where they meet.",
   flow: "FLOW", flowN: "13 steps", think: "THINKING", thinkN: "6 models", countX: 126,
   define: "Definition · you lead", deliver: "Delivery · agent runs it",
-  steps: [["Need &amp;", "invariants"], ["Domain", "impact"], ["Research", "&amp; reuse"], ["Formal", "guard"], ["Detailed", "design"], ["Docs", "landing"], ["spec", "plan"], ["Context", "pack"], ["Delegate", ""], ["Timed", "review"], ["Slice", "closeout"], ["Report", "to human"], ["Cleanup", ""]],
+  steps: [["Need &amp;", "invariants"], ["Domain", "impact"], ["Research", "&amp; reuse"], ["Formal", "guard"], ["Detailed", "design"], ["Docs", "landing"], ["Plan", ""], ["Context", "pack"], ["Delegate", ""], ["Timed", "review"], ["Slice", "closeout"], ["Report", "to human"], ["Cleanup", ""]],
   short: { "think-orthogonal": "Decompose", "think-ought-vs-is": "Find the gap", "think-model-first": "Shape", "think-right-then-well": "Build", "think-evidence": "Prove", "think-closed-loop": "Hand off", "candid-friend": "To the human" },
-  legend: [[212, "the step's output is the model"], [420, "a slot in the template"], [592, "a pointer line at the step"], [830, "handoff"]],
-  stepsTitle: "13 steps, one question each",
-  questions: ["What users get; what must always hold", "Which domains change; where borders go", "Is something ready to reuse", "Which properties tests cannot guard", "Objects, relations, storage shapes", "What becomes a formal doc, and where", "What counts as done; which slices", "What to know before starting", "Do it yourself, or delegate", "Any drift, looping or context rot", "Were the promises kept", "How a human gets it in ten minutes", "What to clean; what awaits review"],
+  legend: [[212, "the step's output is the model"], [420, "a slot in the template"], [592, "a pointer line at the step"], [830, "handoff phase"]],
+  stepsTitle: "13 steps and the handoff phase, one question each",
+  stage: { badge: "H", question: "How a run is passed and taken back" },
+  questions: ["What users get; what must always hold", "Which domains change; where borders go", "Is something ready to reuse", "Which properties tests cannot guard", "Objects, relations, storage shapes", "What becomes a formal doc, and where", "Which slices, in which order", "What to know before starting", "Do it yourself, or delegate", "Any drift, looping or context rot", "Were the promises kept", "How a human gets it in ten minutes", "What to clean; what awaits review"],
   boxes: [
-    ["Entry and teaching", [["single-session-dev-flow", "Entry: who qualifies, order, handoff"], ["teach-pqw-skills", "Teaches people how to use the flow"]]],
+    ["Entry and teaching", [["single-session-dev-flow", "Entry: who qualifies, order, handoff phase"], ["teach-pqw-skills", "Teaches people how to use the flow"]]],
     ["Writing", [["clear-writing", "Clear writing for docs and prompts"], ["write-agents-md", "How to write and govern AGENTS.md"]]],
     ["For your project", [["resident-card", "A resident card for your entry file"], ["access points", "One table: your commands and paths"]]],
   ],
   toolsTitle: "Bundled scripts", toolsSub: "run with node; deterministic, no model judgment", toolsSubX: 212,
-  tools: ["Checks plan structure", "Finds a change's consumers", "Checks a delegation brief", "Sentinel's worktree facts", "Structure metrics", "Differential mutation", "Builds the web report", "Appends a demo section", "Lists and cleans leftovers"],
+  tools: ["Checks plan and pack", "Finds a change's consumers", "Checks a delegation brief", "Sentinel's worktree facts", "Structure metrics", "Differential mutation", "Builds the web report", "Appends a demo section", "Lists and cleans leftovers"],
   font: 'Charter, "Iowan Old Style", Georgia, "Times New Roman", serif',
 };
 
@@ -138,14 +140,20 @@ function build(T) {
   y += 38;
   p(`<text class="h2" x="40" y="${y}">${T.stepsTitle}</text>`);
   y += 16;
-  stepSkills.forEach((sk, i) => {
+  // 交接期排在 6 与 7 之间：左列 1 到 6 加交接期，右列 7 到 13。交接期由设计会话做、人在场，用人的颜色。
+  const [stage] = map.stages;
+  const items = [
+    ...stepSkills.slice(0, 6).map((sk, i) => [String(i + 1), sk, T.questions[i], "human"]),
+    [T.stage.badge, stage.skill, T.stage.question, "human"],
+    ...stepSkills.slice(6).map((sk, i) => [String(i + 7), sk, T.questions[i + 6], "agent"]),
+  ];
+  items.forEach(([badge, sk, question, cls], i) => {
     const col = i < 7 ? 0 : 1;
     const row = i < 7 ? i : i - 7;
     const x = 40 + col * 450, ly = y + row * 28;
-    const cls = i < 6 ? "human" : "agent";
-    p(`<rect class="${cls}bg" x="${x}" y="${ly}" width="26" height="20" rx="5"/><text class="s ${cls}" x="${x + 13}" y="${ly + 14}" text-anchor="middle" style="font-weight:700">${i + 1}</text>`);
+    p(`<rect class="${cls}bg" x="${x}" y="${ly}" width="26" height="20" rx="5"/><text class="s ${cls}" x="${x + 13}" y="${ly + 14}" text-anchor="middle" style="font-weight:700">${badge}</text>`);
     p(`<text class="mono ink" x="${x + 36}" y="${ly + 14}">${sk}</text>`);
-    p(`<text class="s" x="${x + 232}" y="${ly + 14}">${T.questions[i]}</text>`);
+    p(`<text class="s" x="${x + 232}" y="${ly + 14}">${question}</text>`);
   });
   y += 7 * 28 + 10;
   p(`<line class="rule" x1="40" y1="${y}" x2="920" y2="${y}"/>`);

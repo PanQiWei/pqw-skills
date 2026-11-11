@@ -145,7 +145,7 @@ test("上下文地图：流程轴上的横切技能，删掉一处指路行或�
   try {
     assert.deepEqual(mapReported(dir), []);
     writeFileSync(join(dir, ENTRY), readFileSync(join(dir, ENTRY), "utf8").replaceAll(CANDID_HOOK, ""));
-    assert.deepEqual(mapReported(dir), [`开工、够不够格、开新一程前 × candid-friend：${ENTRY} 缺指路行「${CANDID_HOOK}」`]);
+    assert.deepEqual(mapReported(dir), [`开工、够不够格 × candid-friend：${ENTRY} 缺指路行「${CANDID_HOOK}」`]);
     writeFileSync(join(dir, ENTRY), readFileSync(join(REPO_ROOT, ENTRY), "utf8"));
     edit(dir, "skills/requirement-and-invariants/requirement-template.md", "- 人的决定：", "- 人说：");
     assert.deepEqual(mapReported(dir), ["1 需求与不变式 × candid-friend：skills/requirement-and-invariants/requirement-template.md 缺空位「- 人的决定：」"]);
@@ -185,6 +185,26 @@ test("常驻卡片：仓库本身不报；少点一个技能、一行末尾不�
     assert.deepEqual(mapReported(dir), [`常驻卡片 ${CARD} 没有点到 \`candid-friend\``, `常驻卡片 ${CARD} 的「- **对人。** 说一次，人定了就照做。」末尾不是技能名`]);
     edit(dir, CARD, "- **对人。** 说一次，人定了就照做。", `${line.replace("`candid-friend`", "`candid-friend` `no-such-skill`")}`);
     assert.deepEqual(mapReported(dir), [`常驻卡片 ${CARD} 的「${line} \`no-such-skill\`」末尾的 \`no-such-skill\` 不是发行技能`]);
+  } finally { dispose(dir); }
+});
+
+const BATON_HOOK = "一程的承诺、大小与交出收回归交接期，由设计会话做，人在场。做法加载技能 `pass-the-baton`。";
+
+test("上下文地图：阶段技能 pass-the-baton，删掉一处指路行报是哪一格、哪个文件；正文超过 60 行、入口没点到它，各报一处", () => {
+  const dir = copyRepo();
+  try {
+    assert.deepEqual(mapReported(dir), []);
+    const landing = "skills/formal-docs-landing/SKILL.md";
+    writeFileSync(join(dir, landing), readFileSync(join(dir, landing), "utf8").replaceAll(BATON_HOOK, ""));
+    assert.deepEqual(mapReported(dir), [`6 正式落盘 × pass-the-baton：${landing} 缺指路行「${BATON_HOOK}」`]);
+    writeFileSync(join(dir, landing), readFileSync(join(REPO_ROOT, landing), "utf8"));
+    const skill = "skills/pass-the-baton/SKILL.md";
+    appendFileSync(join(dir, skill), "\n多出来的一行\n".repeat(40));
+    assert.deepEqual(mapReported(dir).map((m) => m.replace(/\d+ 行，/, "N 行，")), [`${skill} 正文 N 行，超过 60 行：细节挪到展开页`]);
+    writeFileSync(join(dir, skill), readFileSync(join(REPO_ROOT, skill), "utf8"));
+    const teach = "skills/teach-pqw-skills/SKILL.md";
+    writeFileSync(join(dir, teach), readFileSync(join(dir, teach), "utf8").replaceAll("pass-the-baton", "那个技能"));
+    assert.ok(mapReported(dir).includes(`${teach} 没有点到 pass-the-baton：从这个入口走不到这个阶段技能`));
   } finally { dispose(dir); }
 });
 

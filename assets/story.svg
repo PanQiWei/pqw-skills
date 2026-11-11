@@ -113,16 +113,23 @@
   <text class="b" x="58" y="744">每一步回答一个问题，产出是下一步的输入。</text>
   <text class="b" x="58" y="766">agent 会先问一遍：这个需求值不值得做。</text>
 
-  <!-- 交接点 -->
-  <text class="s" x="456" y="622" text-anchor="middle" style="font-weight:700;fill:var(--ink)">交接点</text>
-  <path d="M456,640 L472,666 L456,692 L440,666 Z" class="good"/>
-  <text class="s" x="456" y="714" text-anchor="middle">进了文档</text>
-  <text class="s" x="456" y="732" text-anchor="middle">过了评审</text>
+  <!-- 交接期：一小段接力区，设计会话做，人在场 -->
+  <rect x="428" y="546" width="56" height="250" rx="6" style="fill:var(--humanbg);stroke:var(--human);stroke-width:1;stroke-dasharray:4 3"/>
+  <text class="h3 human" x="456" y="576" text-anchor="middle">交接期</text>
+  <g>
+    <rect class="chip" x="432" y="592" width="48" height="30" rx="6"/><text class="bi" x="456" y="612" text-anchor="middle">定约</text>
+    <rect class="chip" x="432" y="638" width="48" height="30" rx="6"/><text class="bi" x="456" y="658" text-anchor="middle">定程</text>
+    <rect class="goodbg" x="432" y="684" width="48" height="30" rx="6"/><text class="bi good" x="456" y="704" text-anchor="middle">交出</text>
+    <path class="arr" d="M456,623 L456,635" marker-end="url(#m)"/>
+    <path class="arr" d="M456,669 L456,681" marker-end="url(#m)"/>
+  </g>
+  <text class="s" x="456" y="744" text-anchor="middle">一次</text>
+  <text class="s" x="456" y="762" text-anchor="middle">交一程</text>
 
   <!-- 交付期 -->
   <rect class="agentbg" x="494" y="546" width="300" height="250" rx="6"/>
   <text class="h3 agent" x="510" y="576">交付期 · agent 自主</text>
-  <text class="s" x="510" y="600">spec 定边界，plan 切成片，每片走一圈：</text>
+  <text class="s" x="510" y="600">plan 把这一程切成片，每片走一圈：</text>
   <g>
     <rect class="chip" x="510" y="616" width="50" height="34" rx="6"/><text class="s" x="535" y="638" text-anchor="middle" style="fill:var(--ink)">开工包</text>
     <rect class="chip" x="568" y="616" width="50" height="34" rx="6"/><text class="s" x="593" y="638" text-anchor="middle" style="fill:var(--ink)">做对</text>
@@ -149,11 +156,11 @@
   <text class="s" x="826" y="636">架构图、demo</text>
   <text class="bi" x="826" y="676">上手验</text>
   <text class="s" x="826" y="696">每片几分钟</text>
-  <text class="bi" x="826" y="736">定下一程</text>
-  <text class="s" x="826" y="756">验过再往下</text>
+  <text class="bi" x="826" y="736">收回</text>
+  <text class="s" x="826" y="756">验过再交下一程</text>
 
-  <path class="arr" d="M418,666 L438,666"/>
-  <path class="arr" d="M474,666 L492,666" marker-end="url(#m)"/>
+  <path class="arr" d="M418,607 L430,607" marker-end="url(#m)"/>
+  <path class="arr" d="M481,699 L492,699" marker-end="url(#m)"/>
   <path class="arr" d="M794,666 L810,666" marker-end="url(#m)"/>
 
   <line class="rule" x1="40" y1="826" x2="920" y2="826"/>
@@ -173,7 +180,7 @@
     <rect class="card" x="340" y="886" width="280" height="186" rx="6"/>
     <text class="big" x="358" y="926">不猜边界</text>
     <text class="bi" x="358" y="958">动手前六步把不确定性消掉。</text>
-    <text class="bi" x="358" y="980">交接点是物理条件：知识进了文档、</text>
+    <text class="bi" x="358" y="980">交出是物理条件：知识进了文档、</text>
     <text class="bi" x="358" y="1002">过了评审，才算定好。</text>
     <text class="mono agent" x="358" y="1050">定义期六个技能</text>
 
@@ -221,7 +228,7 @@
 
   <!-- 数字 -->
   <rect class="card" x="620" y="1330" width="300" height="134" rx="6"/>
-  <text class="num" x="650" y="1376">24</text><text class="s" x="696" y="1374">个技能</text>
+  <text class="num" x="650" y="1376">25</text><text class="s" x="696" y="1374">个技能</text>
   <text class="num" x="790" y="1376">13</text><text class="s" x="836" y="1374">个环节</text>
   <text class="num" x="650" y="1432">6</text><text class="s" x="676" y="1430">个思维模型</text>
   <text class="num" x="790" y="1432">5</text><text class="s" x="816" y="1430">个宿主可装</text>

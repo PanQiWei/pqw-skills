@@ -1,14 +1,14 @@
 # pqw-skills
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.21.0-informational.svg)](./CHANGELOG.md)
-[![Skills](https://img.shields.io/badge/skills-24-success.svg)](#技能)
+[![Version](https://img.shields.io/badge/version-0.22.0-informational.svg)](./CHANGELOG.md)
+[![Skills](https://img.shields.io/badge/skills-25-success.svg)](#技能)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#安装)
 [![Language](https://img.shields.io/badge/lang-%E4%B8%AD%E6%96%87%20%7C%20English-lightgrey.svg)](./README_EN.md)
 
 [English](./README_EN.md)
 
-![把一程长活，放心交给 agent。第一幕，没有它：一句话就开工，做到一半偏了，同一处修三遍，报告写全部完成，你花一天返工。第二幕，有它：定义期你主导六步，过了交接点 agent 自主按切片推进、哨兵定时回看，你回来只验收。第三幕，你得到的六样：不白做、不猜边界、不乱想、不走偏、不自夸、不透支你。](./assets/story.svg)
+![把一程长活，放心交给 agent。第一幕，没有它：一句话就开工，做到一半偏了，同一处修三遍，报告写全部完成，你花一天返工。第二幕，有它：定义期你主导六步，交接期定约、定程、交出一程，agent 自主按切片推进、哨兵定时回看，你回来验收，收回之后再交下一程。第三幕，你得到的六样：不白做、不猜边界、不乱想、不走偏、不自夸、不透支你。](./assets/story.svg)
 
 我与 Claude Code、Codex、Cursor 等 coding agent 协作沉淀出的单会话研发流。它是一条控制回路：先在动手前把不确定性尽量消掉，再把执行放手给代理，再用固定节拍从顶层回看。你的注意力只花在定义边界和高层判断上，不花在逐行盯实现上。
 
@@ -27,11 +27,11 @@
 
 ## 有哪些东西
 
-![技能集全景：24 个技能，两条轴。横着是流程轴的 13 个环节，定义期六步由你主导，交付期七步由 agent 自主。竖着是思维轴的六个模型：拆、找差异、定形、建、证、转手，加一个对人直言的诤友。交点标出每个想法在哪一步出现。下面列出 13 个环节各回答的问题、入口与教学、写作技能、给项目的常驻卡片，以及九个自带脚本。](./assets/map.svg)
+![技能集全景：25 个技能，两条轴。横着是流程轴的 13 个环节，定义期六步由你主导，中间一段交接期，交付期七步由 agent 自主。竖着是思维轴的六个模型：拆、找差异、定形、建、证、转手，加一个对人直言的诤友。交点标出每个想法在哪一步出现。下面列出 13 个环节与交接期各回答的问题、入口与教学、写作技能、给项目的常驻卡片，以及九个自带脚本。](./assets/map.svg)
 
-仓库是扁平的：一个总入口技能，13 个环节技能，六个横切的思维模型技能，一个诤友技能，加教学与写作技能。自定义的环节正文在这里，已有成熟做法的环节直接引用 pstack、ub-mode、mattpocock 的技能，不复制它们的正文。
+仓库是扁平的：一个总入口技能，13 个环节技能，一个交接期的阶段技能，六个横切的思维模型技能，一个诤友技能，加教学与写作技能。自定义的环节正文在这里，已有成熟做法的环节直接引用 pstack、ub-mode、mattpocock 的技能，不复制它们的正文。
 
-定义期由你主导，每一步回答一个问题、产出一样东西，并且是下一步的输入，顺序不能跳。交接点是物理条件：没进唯一源、没过评审的边界不算定好。到了交接点，你可以把注意力移开，由主代理自主推进交付。
+定义期由你主导，每一步回答一个问题、产出一样东西，并且是下一步的输入，顺序不能跳。交接期像接力赛的接力区，由设计会话做，你在场：定约写这一程的 spec，定程定这一程多大、要不要分程，交出写交接信息包，包里只有这一程。交出是物理条件：没进唯一源、没过评审的边界不算定好。交出之后，你可以把注意力移开，由主代理自主推进交付；这一程交回来，你回到设计会话收回：上手验收，再交下一程。
 
 ## 技能
 
@@ -42,7 +42,7 @@
 
 ### 总入口
 
-- **[single-session-dev-flow](./skills/single-session-dev-flow/SKILL.md)**：判断够不够格走这条流，定阶段、顺序、交接点，把 13 个环节写进会话任务清单，指出每个环节加载哪个技能。不写环节的做法。开头一节「写代码的四条」（先做对；再做好一轮；不过度设计、不提前优化；找本质解）对一切写代码的工作适用，是这几条心智在本仓库的唯一正文。引用 in-your-own-words、poteto-mode、tdd；不够格时转 prototype、diagnosing-bugs。
+- **[single-session-dev-flow](./skills/single-session-dev-flow/SKILL.md)**：判断够不够格走这条流，定阶段、顺序、交接期，把 13 个环节与交接期的四件事写进会话任务清单，指出每个环节加载哪个技能。不写环节的做法。开头一节「写代码的四条」（先做对；再做好一轮；不过度设计、不提前优化；找本质解）对一切写代码的工作适用，是这几条心智在本仓库的唯一正文。引用 in-your-own-words、poteto-mode、tdd；不够格时转 prototype、diagnosing-bugs。
 - **[teach-pqw-skills](./skills/teach-pqw-skills/SKILL.md)**：教人用这套流。心智模型与哲学、每个环节人和代理各做什么、第一条提示怎么写、跑偏了怎么纠、接入自己的项目。只回答并给示例提示，不开工。
 
 ### 定义期，人主导
@@ -56,11 +56,15 @@
 | 5 | [detailed-domain-design](./skills/detailed-domain-design/SKILL.md) | 领域内部的对象、关系、仓储长什么样，I/O 与查询性能怎么定 | domain-modeling、codebase-design、architect、principle-type-system-discipline、principle-boundary-discipline |
 | 6 | [formal-docs-landing](./skills/formal-docs-landing/SKILL.md) | 哪些要长期维护写正式文档，哪些以源码为文档，落在哪一层；五类判据的确定性文档评审 | technical-writing、writing-for-agents |
 
+### 交接期，设计会话与你
+
+- **[pass-the-baton](./skills/pass-the-baton/SKILL.md)**：交棒。交接从一个点变成一段接力区，夹在定义期与交付期之间，由设计会话做，你在场。四件事：定约，和你一起写这一程的 spec；定程，写切片大纲、问你的验收窗口、做尺寸核对，要分程就写路线图；交出，走交接点核对单、写交接信息包；收回，这一程交回来之后你上手验收，它记进路线图、修订后面的程，再交下一程。设计会话是编排者，路线图只归它；交付会话只知道自己这一程，不和你谈范围，包有问题就退包。一次只交出一程。设计与交付分在两个会话时，缺省用 GitHub issue 协调，项目可以换成别的工单系统，没有就退回到文件。自带交接点核对单、交接信息包模板（含切片大纲）、路线图模板与 GitHub issue 的做法一页。它不是编号的环节，不进矩阵；它的指路行登记在 `design/context-map.json` 的 `stages`，`check-repo` 逐处核。
+
 ### 交付期，代理自主
 
 | 环节 | 技能 | 做什么 | 引用 |
 | --- | --- | --- | --- |
-| 7 | [spec-and-plan](./skills/spec-and-plan/SKILL.md) | 先写 spec 定目标、边界、验收标准，再写 plan 切成有序切片；自带两份模板 | to-spec、to-tickets（读安装路径）、sharpen |
+| 7 | [spec-and-plan](./skills/spec-and-plan/SKILL.md) | 两个时机：交接期定约时写 spec，定目标、边界、验收标准；交付期开头写 plan，从切片大纲起步切成有序切片；自带两份模板与 `check-plan.mjs`（核 plan、spec 与交接信息包的结构，包可以从标准输入读） | to-spec、to-tickets（读安装路径）、sharpen |
 | 8 | [context-pack](./skills/context-pack/SKILL.md) | 整程开工前整理上下文包并做关键环节的细化设计与技术验证；每切片前做开工包：上下文增量、技术设计与验证、细化推进方案、里程碑待办清单 | architect、prototype、principle-guard-the-context-window、recall |
 | 9 | [delegate-brief](./skills/delegate-brief/SKILL.md) | 主代理自己做是默认：先按两个判据（做对它用到多少说不出来的上下文、中间过程是不是又大又用完就扔）定自己做还是派，再过派发门；派时给齐目标、边界、规格文件、信息包，框住读量，档位按活定、顶档不当子代理；原始结果写进文件，报告限行带指针；一页讲钱是怎么花的；验收防作弊、升级、合回。自带 `check-brief.mjs` | poteto-mode、swarm、principle-separate-before-serializing-shared-state |
 | 10 | [one-lesson-rule](./skills/one-lesson-rule/SKILL.md) | 便宜档的只读哨兵子代理常驻后台，持有 spec 与 plan，每 45 分钟自己醒来取工作树事实、判六问、发十行以内的消息；主代理在停顿点处置；子代理每 30 分钟看一次健康度 | recall、show-me-your-work |
@@ -95,8 +99,8 @@
 | 4 形式化守护 | 行 |  | 主 |  | 主 |  |
 | 5 细化设计 | 行 | 空 | 主 |  | 行 | 行 |
 | 6 正式落盘 |  |  |  |  |  | 行 |
-| 交接点 |  |  |  |  |  | 行 |
-| 7 spec 与 plan | 空 | 行 |  |  | 主 |  |
+| 交接期 |  | 行 |  |  | 主 | 行 |
+| 7 plan | 空 |  |  |  |  |  |
 | 8 切片开工包 | 行 | 空 | 空 | 空 |  | 行 |
 | 9 派发 |  | 空 |  |  | 主 | 主 |
 | 10 哨兵回看 |  | 行 |  | 行 | 主 | 主 |
@@ -110,7 +114,7 @@
 
 ### 诤友，流程轴上横切
 
-- **[candid-friend](./skills/candid-friend/SKILL.md)**：诤友，直言一次，然后听你的。别的技能防代理的失败，它防人的失败：需求不清或没有使用证据、一程大过人在一个验收窗口里验得完的量、途中追加范围、上一程没验就开新的、离开前交接缺项。代理用固定四行对人说一次：提醒、依据、建议、你可以；人定了就照做，不打折扣，不附加条件。四个时机：接需求时问值不值得做，plan 写完时做尺寸核对并给分程建议，途中与收尾时截程交付与列出待人验收，人离开之前做睡前交接。它不是思维模型，不进上面的矩阵；放在哪些环节由 `design/context-map.json` 的 crosscut 一项登记，`check-repo` 一样逐处核。接需求时的问法综合自 gstack（github.com/garrytan/gstack）的 office-hours、plan-ceo-review 与 ETHOS，以及 Matt 的 grilling、triage、to-questionnaire、prototype、wayfinder；gstack 只是思想来源，不加载。引用 grilling、to-questionnaire（读安装路径）、prototype。
+- **[candid-friend](./skills/candid-friend/SKILL.md)**：诤友，直言一次，然后听你的。别的技能防代理的失败，它防人的失败：需求不清或没有使用证据、一程大过人在一个验收窗口里验得完的量、离开前交接缺项、上一程没验就交下一程。代理用固定四行对人说一次：提醒、依据、建议、你可以；人定了就照做，不打折扣，不附加条件。四个时机都在设计会话里：接需求时问值不值得做，定程时做尺寸核对并给分程建议，交出之前做睡前交接，收回时先验再交下一程。交付期不发起和人的谈话，只做两件不问人的事：预计收尾滑出验收窗口时截程交付，收尾时列出待人验收。它不是思维模型，不进上面的矩阵；放在哪些环节由 `design/context-map.json` 的 crosscut 一项登记，`check-repo` 一样逐处核。接需求时的问法综合自 gstack（github.com/garrytan/gstack）的 office-hours、plan-ceo-review 与 ETHOS，以及 Matt 的 grilling、triage、to-questionnaire、prototype、wayfinder；gstack 只是思想来源，不加载。引用 grilling、to-questionnaire（读安装路径）、prototype。
 
 </details>
 

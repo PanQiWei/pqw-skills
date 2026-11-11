@@ -1,6 +1,6 @@
 {
   "name": "pqw-skills",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "description": "PanQiWei 与 Claude Code、Codex、Cursor 等 coding agent 协作沉淀出的单会话研发流：一个总入口技能，加上定义期与交付期各环节按需加载的技能。",
   "author": {
     "name": "PanQiWei",
@@ -25,6 +25,7 @@
     "./skills/formal-guard",
     "./skills/detailed-domain-design",
     "./skills/formal-docs-landing",
+    "./skills/pass-the-baton",
     "./skills/spec-and-plan",
     "./skills/context-pack",
     "./skills/delegate-brief",
