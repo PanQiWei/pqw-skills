@@ -40,7 +40,7 @@ node skills/slice-closeout/scripts/mutation.mjs --base <起点提交> --scope sk
 
 命令面的用例只从 CLI 进，摸不到排序、汇总、边界这些分支；变异分数低时补直打 lib 函数的用例（`tests/*-lib.test.mjs`），不改命令面用例。模块级常量上的变异体 Stryker 测不出是哪些用例碰到它，只能跑全部用例，其中十来条会真起 Stryker，一轮就从一两分钟拉长到十几分钟：要测的值写成函数，或在直打用例里钉住原值。
 
-第一条核：`skills/` 扁平布局、frontmatter、无「待写」、三处同步、外部引用在钉定版本里存在、DMI 技能的措辞、发行技能、模板、脚本与网页里无项目概念禁词、全仓散文与脚本无破折号（`tests/` 与 `check-repo.mjs` 自身免检）、模板被 `SKILL.md` 链接、工具版本常量与 `plugin.json` 一致。退出 0 通过，1 列出失败，2 用法错误。
+第一条核：`skills/` 扁平布局、frontmatter、无「待写」、三处同步、外部引用在钉定版本里存在、DMI 技能的措辞、发行技能、模板、脚本与网页里无项目概念禁词、全仓散文与脚本无破折号（`tests/` 与 `check-repo.mjs` 自身免检）、模板被 `SKILL.md` 链接、工具版本常量与 `plugin.json` 一致、写代码的四条与圈外的问题各只有一处正文、上下文地图每一格兑现。上下文地图一项按 `design/context-map.json` 核：标「主」的格对应技能点名了模型，标「行」的格对应文件含一字不差的指路行，标「空」的格对应模板含列出的空位；五个 `think-` 技能的骨架与行数；别处一行同时出现某个模型的两个标志词时要点技能名；README 的矩阵表与地图逐行一致；入口技能、教学技能与两份 README 都点到五个技能。改地图的一格，先改 `design/context-map.json`，再改对应的文件与 README 的那一行。退出 0 通过，1 列出失败，2 用法错误。
 
 一程进行中另有一条：`node skills/spec-and-plan/scripts/check-plan.mjs --plan <plan> --spec <spec>` 核这程的 plan 与 spec 是否仍合模板，退出 0 合、1 有缺陷并逐条列出、2 用法错误；收口最后一步、哨兵每轮、汇报件生成前各跑一次。
 

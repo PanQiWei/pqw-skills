@@ -119,6 +119,25 @@ test("上下文地图：skills 下多出一个不在地图里的 think- 技能�
   } finally { dispose(dir); }
 });
 
+test("上下文地图：README 的矩阵表照地图生成，地图改了一格而 README 没跟上，报缺的那一行", () => {
+  const dir = copyRepo();
+  try {
+    editMap(dir, (_, cell) => { cell("12 汇报", "think-ought-vs-is").kind = "行"; });
+    const got = mapReported(dir);
+    assert.ok(got.includes("README.md 的思维模型矩阵缺一行「| 12 汇报 |  | 行 |  |  |  |」：照 design/context-map.json 改"), got.join("\n"));
+  } finally { dispose(dir); }
+});
+
+test("上下文地图：entries 里的入口少点一个模型，报是哪个入口、哪个模型", () => {
+  const dir = copyRepo();
+  try {
+    const teach = "skills/teach-pqw-skills/SKILL.md";
+    assert.ok(readFileSync(join(dir, teach), "utf8").includes("think-evidence"));
+    writeFileSync(join(dir, teach), readFileSync(join(dir, teach), "utf8").replaceAll("think-evidence", "那个模型"));
+    assert.deepEqual(mapReported(dir), [`${teach} 没有点到 think-evidence：从这个入口走不到这个思维模型`]);
+  } finally { dispose(dir); }
+});
+
 test("上下文地图：标「主」的格，环节技能里没点技能名报一处；「主」格没列 files 也报", () => {
   const dir = copyRepo();
   try {

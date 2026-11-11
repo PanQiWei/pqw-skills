@@ -188,11 +188,11 @@ function checkToolVersion() {
 }
 checkToolVersion();
 
-// ---- 8. 写代码的四条只有一处索引：入口技能那一节，四句结论各指向所属的思维模型技能。别处提到这几个短语的行必须带指向它的链接，或带某个思维模型的指路行；思维模型技能自己的目录是正文所在，免检。
+// ---- 8. 写代码的四条只有一处索引：入口技能那一节，四句结论各指向所属的思维模型技能。别处提到这几个短语的行必须带指向它的链接，或点名某个思维模型技能；思维模型技能自己的目录是正文所在，免检。
 const FOUR_RULES_ENTRY = join(config.skillsDir, "single-session-dev-flow/SKILL.md");
 const FOUR_RULES_PHRASES = ["先做对", "再做好", "找本质解"];
 const FOUR_RULES_LINK = "SKILL.md#写代码的四条";
-const THINK_HOOK_MARK = "加载技能 `think-";
+const THINK_HOOK_MARK = "`think-";
 function checkFourRules() {
   const entry = read(FOUR_RULES_ENTRY);
   if (!entry.includes("\n## 写代码的四条\n")) fail("四条只有一处正文", `${rel(FOUR_RULES_ENTRY)} 缺「## 写代码的四条」一节`);
@@ -268,6 +268,14 @@ function checkRestatement(model) {
     });
   }
 }
+/** README.md 的矩阵表照地图生成：表头列出各模型的技能名，每行是环节名加各格的 kind，空白格留空。逐行核，缺哪行报哪行。 */
+function checkReadmeMatrix(map) {
+  const lines = [
+    `| 环节 | ${map.models.map((m) => `\`${m.skill}\``).join(" | ")} |`,
+    ...map.rows.map((r) => `| ${r.row} | ${map.models.map((m) => r.cells[m.skill]?.kind ?? "").join(" | ")} |`),
+  ];
+  for (const line of lines) if (!readme.split("\n").includes(line)) fail(MAP_CHECK, `README.md 的思维模型矩阵缺一行「${line}」：照 ${rel(CONTEXT_MAP)} 改`);
+}
 function checkContextMap() {
   let map;
   try {
@@ -281,6 +289,8 @@ function checkContextMap() {
     if (model.marks?.length) checkRestatement(model);
   }
   for (const s of skills) if (s.startsWith("think-") && !bySkill.has(s)) fail(MAP_CHECK, `skills/${s} 不在 ${rel(CONTEXT_MAP)} 的 models 里`);
+  checkReadmeMatrix(map);
+  for (const entry of map.entries ?? []) for (const model of map.models) if (!hasText(entry, model.skill)) fail(MAP_CHECK, `${entry} 没有点到 ${model.skill}：从这个入口走不到这个思维模型`);
   for (const row of map.rows) {
     for (const [skill, cell] of Object.entries(row.cells)) {
       const model = bySkill.get(skill);
