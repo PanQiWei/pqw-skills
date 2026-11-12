@@ -186,8 +186,8 @@
 
     <rect class="card" x="640" y="886" width="280" height="186" rx="6"/>
     <text class="big" x="658" y="926">不乱想</text>
-    <text class="bi" x="658" y="958">它带着六个想法做每件事：拆、</text>
-    <text class="bi" x="658" y="980">找差异、定形、建、证、转手。</text>
+    <text class="bi" x="658" y="958">它带着七个想法做每件事：拆、</text>
+    <text class="bi" x="658" y="980">找差异、定形、建、证、转手、问。</text>
     <text class="bi" x="658" y="1002">写在产出里，不靠它自觉。</text>
     <text class="mono agent" x="658" y="1050">think-*</text>
 

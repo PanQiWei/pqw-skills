@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1286" width="960" height="1286" role="img" aria-label="pqw-skills 技能集全景：流程轴十三个环节与中间的交接期，思维轴六个模型，一个诤友，以及入口、教学、写作技能与自带脚本">
-  <title>技能集全景：25 个技能，两条轴</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1326" width="960" height="1326" role="img" aria-label="pqw-skills 技能集全景：流程轴十三个环节与中间的交接期，思维轴七个模型，一个诤友，以及入口、教学、写作技能与自带脚本">
+  <title>技能集全景：26 个技能，两条轴</title>
   <style>
     /* kami 的皮肤：羊皮纸底、一个墨蓝强调色、暖灰、衬线字、细线。色值都取自 kami 的 tokens。 */
     svg { --bg:#f5f4ed; --ink:#141413; --mut:#504e49; --stone:#6b6a64; --line:#d8d5c8; --card:#faf9f5; --stripe:#EEEDE6; --human:#141413; --humanbg:#faf9f5; --agent:#1B365D; --agentbg:#EEF2F7; --good:#1B365D; }
@@ -24,9 +24,9 @@
     .agent { fill: var(--agent); } .agentbg { fill: var(--agentbg); stroke: var(--agent); stroke-width: 1; } .agentln { fill: var(--bg); stroke: var(--agent); stroke-width: 2; }
     .good { fill: var(--good); } .goodln { stroke: var(--good); stroke-width: 1.5; stroke-dasharray: 4 4; }
   </style>
-  <rect class="bg" x="0" y="0" width="960" height="1286"/>
+  <rect class="bg" x="0" y="0" width="960" height="1326"/>
   <text class="eyebrow" x="40" y="52">PQW-SKILLS</text>
-  <text class="title" x="40" y="98">技能集全景：25 个技能，两条轴</text>
+  <text class="title" x="40" y="98">技能集全景：26 个技能，两条轴</text>
   <text class="sub" x="40" y="130">横着是流程：现在走到哪一步。竖着是想法：这一步怎么想。交点是它们相遇的地方。</text>
   <line x1="40" y1="156" x2="920" y2="156" stroke="#1B365D" stroke-width="0.8"/>
   <rect class="humanbg" x="204" y="180" width="326" height="26" rx="6"/>
@@ -71,10 +71,10 @@
   <text class="s ink" x="836.5" y="274" text-anchor="middle">汇报</text>
   <text class="colnum agent" x="891.5" y="238" text-anchor="middle">13</text>
   <text class="s ink" x="891.5" y="258" text-anchor="middle">清理</text>
-  <line class="goodln" x1="534" y1="216" x2="534" y2="580"/>
+  <line class="goodln" x1="534" y1="216" x2="534" y2="620"/>
   <path class="good" d="M534,206 L541,216 L534,226 L527,216 Z"/>
   <text class="act" x="40" y="276">思维轴</text>
-  <text class="s" x="96" y="276">6 个模型</text>
+  <text class="s" x="96" y="276">7 个模型</text>
   <rect class="stripe" x="40" y="286" width="880" height="40" rx="6"/>
   <text class="h3 agent" x="52" y="304">拆</text>
   <text class="mono mut" x="52" y="319">think-orthogonal</text>
@@ -125,111 +125,118 @@
   <circle class="agent" cx="726.5" cy="506" r="8"/>
   <circle class="agentln" cx="836.5" cy="506" r="6"/>
   <circle class="agentln" cx="534" cy="506" r="6"/>
-  <line class="rule" x1="40" y1="533" x2="920" y2="533"/>
-  <rect class="humanstripe" x="40" y="540" width="880" height="40" rx="6"/>
-  <text class="h3 human" x="52" y="558">对人</text>
-  <text class="mono mut" x="52" y="573">candid-friend</text>
-  <rect class="human" x="224.5" y="553" width="14" height="14" rx="3"/>
-  <rect class="human" x="554.5" y="553" width="14" height="14" rx="3"/>
-  <circle class="humanln" cx="671.5" cy="560" r="6"/>
-  <circle class="humanln" cx="726.5" cy="560" r="6"/>
-  <rect class="human" x="829.5" y="553" width="14" height="14" rx="3"/>
-  <rect class="human" x="884.5" y="553" width="14" height="14" rx="3"/>
-  <rect class="human" x="527" y="553" width="14" height="14" rx="3"/>
-  <circle class="agent" cx="212" cy="636" r="8"/><text class="s" x="228" y="640">这一步的产出本身就是它</text>
-  <rect class="agent" x="405" y="629" width="14" height="14" rx="3"/><text class="s" x="428" y="640">模板里给它留了空位</text>
-  <circle class="agentln" cx="592" cy="636" r="6"/><text class="s" x="606" y="640">在要用到它的那一步有一句指路</text>
-  <path class="good" d="M830,627 L837,636 L830,645 L823,636 Z"/><text class="s" x="844" y="640">交接期</text>
-  <line class="rule" x1="40" y1="670" x2="920" y2="670"/>
-  <text class="h2" x="40" y="708">13 个环节与交接期，各回答一个问题</text>
-  <rect class="humanbg" x="40" y="724" width="26" height="20" rx="5"/><text class="s human" x="53" y="738" text-anchor="middle" style="font-weight:700">1</text>
-  <text class="mono ink" x="76" y="738">requirement-and-invariants</text>
-  <text class="s" x="272" y="738">给用户什么能力，永远守住什么</text>
-  <rect class="humanbg" x="40" y="752" width="26" height="20" rx="5"/><text class="s human" x="53" y="766" text-anchor="middle" style="font-weight:700">2</text>
-  <text class="mono ink" x="76" y="766">domain-impact-analysis</text>
-  <text class="s" x="272" y="766">哪些领域受影响，边界怎么摆</text>
-  <rect class="humanbg" x="40" y="780" width="26" height="20" rx="5"/><text class="s human" x="53" y="794" text-anchor="middle" style="font-weight:700">3</text>
-  <text class="mono ink" x="76" y="794">tech-research-and-reuse</text>
-  <text class="s" x="272" y="794">有没有现成的可以复用</text>
-  <rect class="humanbg" x="40" y="808" width="26" height="20" rx="5"/><text class="s human" x="53" y="822" text-anchor="middle" style="font-weight:700">4</text>
-  <text class="mono ink" x="76" y="822">formal-guard</text>
-  <text class="s" x="272" y="822">哪些性质靠测试守不住</text>
-  <rect class="humanbg" x="40" y="836" width="26" height="20" rx="5"/><text class="s human" x="53" y="850" text-anchor="middle" style="font-weight:700">5</text>
-  <text class="mono ink" x="76" y="850">detailed-domain-design</text>
-  <text class="s" x="272" y="850">对象、关系、仓储长什么样</text>
-  <rect class="humanbg" x="40" y="864" width="26" height="20" rx="5"/><text class="s human" x="53" y="878" text-anchor="middle" style="font-weight:700">6</text>
-  <text class="mono ink" x="76" y="878">formal-docs-landing</text>
-  <text class="s" x="272" y="878">哪些写成正式文档，落在哪层</text>
-  <rect class="humanbg" x="40" y="892" width="26" height="20" rx="5"/><text class="s human" x="53" y="906" text-anchor="middle" style="font-weight:700">交</text>
-  <text class="mono ink" x="76" y="906">pass-the-baton</text>
-  <text class="s" x="272" y="906">一程怎样交出去，怎样收回来</text>
-  <rect class="agentbg" x="490" y="724" width="26" height="20" rx="5"/><text class="s agent" x="503" y="738" text-anchor="middle" style="font-weight:700">7</text>
-  <text class="mono ink" x="526" y="738">spec-and-plan</text>
-  <text class="s" x="722" y="738">这一程切成哪几片，按什么顺序</text>
-  <rect class="agentbg" x="490" y="752" width="26" height="20" rx="5"/><text class="s agent" x="503" y="766" text-anchor="middle" style="font-weight:700">8</text>
-  <text class="mono ink" x="526" y="766">context-pack</text>
-  <text class="s" x="722" y="766">动手前要先知道什么</text>
-  <rect class="agentbg" x="490" y="780" width="26" height="20" rx="5"/><text class="s agent" x="503" y="794" text-anchor="middle" style="font-weight:700">9</text>
-  <text class="mono ink" x="526" y="794">delegate-brief</text>
-  <text class="s" x="722" y="794">什么自己做，什么派出去</text>
-  <rect class="agentbg" x="490" y="808" width="26" height="20" rx="5"/><text class="s agent" x="503" y="822" text-anchor="middle" style="font-weight:700">10</text>
-  <text class="mono ink" x="526" y="822">one-lesson-rule</text>
-  <text class="s" x="722" y="822">有没有偏离、兜圈、腐化</text>
-  <rect class="agentbg" x="490" y="836" width="26" height="20" rx="5"/><text class="s agent" x="503" y="850" text-anchor="middle" style="font-weight:700">11</text>
-  <text class="mono ink" x="526" y="850">slice-closeout</text>
-  <text class="s" x="722" y="850">承诺的做到了没有</text>
-  <rect class="agentbg" x="490" y="864" width="26" height="20" rx="5"/><text class="s agent" x="503" y="878" text-anchor="middle" style="font-weight:700">12</text>
-  <text class="mono ink" x="526" y="878">progress-artifacts</text>
-  <text class="s" x="722" y="878">怎么让人十分钟看懂进展</text>
-  <rect class="agentbg" x="490" y="892" width="26" height="20" rx="5"/><text class="s agent" x="503" y="906" text-anchor="middle" style="font-weight:700">13</text>
-  <text class="mono ink" x="526" y="906">cleanup</text>
-  <text class="s" x="722" y="906">什么该清，什么等人验</text>
-  <line class="rule" x1="40" y1="930" x2="920" y2="930"/>
-  <rect class="card" x="40" y="954" width="280" height="128" rx="6"/>
-  <text class="h3" x="56" y="980">入口与教学</text>
-  <text class="mono agent" x="56" y="1006">single-session-dev-flow</text>
-  <text class="s" x="56" y="1023">总入口：够不够格、顺序、交接期</text>
-  <text class="mono agent" x="56" y="1046">teach-pqw-skills</text>
-  <text class="s" x="56" y="1063">教人怎么用这套流，跑偏了怎么纠</text>
-  <rect class="card" x="340" y="954" width="280" height="128" rx="6"/>
-  <text class="h3" x="356" y="980">写作</text>
-  <text class="mono agent" x="356" y="1006">clear-writing</text>
-  <text class="s" x="356" y="1023">文档、提示词、技能的清晰写作</text>
-  <text class="mono agent" x="356" y="1046">write-agents-md</text>
-  <text class="s" x="356" y="1063">项目入口文件怎么写、怎么治理</text>
-  <rect class="card" x="640" y="954" width="280" height="128" rx="6"/>
-  <text class="h3" x="656" y="980">给你的项目</text>
-  <text class="mono agent" x="656" y="1006">resident-card</text>
-  <text class="s" x="656" y="1023">常驻卡片，原样放进项目入口文件</text>
-  <text class="mono agent" x="656" y="1046">接入点</text>
-  <text class="s" x="656" y="1063">一张表填你项目的命令与位置</text>
-  <text class="h2" x="40" y="1132">自带的脚本</text>
-  <text class="s" x="170" y="1132">直接 node 跑，结果确定，不靠模型判断</text>
-  <rect class="chip" x="40" y="1148" width="280" height="30" rx="6"/>
-  <text class="mono agent" x="52" y="1168">check-plan</text>
-  <text class="s" x="158" y="1168">核计划与交接包的结构</text>
-  <rect class="chip" x="340" y="1148" width="280" height="30" rx="6"/>
-  <text class="mono agent" x="352" y="1168">consumers</text>
-  <text class="s" x="458" y="1168">找一个改动的消费者</text>
-  <rect class="chip" x="640" y="1148" width="280" height="30" rx="6"/>
-  <text class="mono agent" x="652" y="1168">check-brief</text>
-  <text class="s" x="758" y="1168">核派发简报</text>
-  <rect class="chip" x="40" y="1186" width="280" height="30" rx="6"/>
-  <text class="mono agent" x="52" y="1206">sentinel</text>
-  <text class="s" x="158" y="1206">哨兵取工作树事实</text>
-  <rect class="chip" x="340" y="1186" width="280" height="30" rx="6"/>
-  <text class="mono agent" x="352" y="1206">metrics</text>
-  <text class="s" x="458" y="1206">结构读数</text>
-  <rect class="chip" x="640" y="1186" width="280" height="30" rx="6"/>
-  <text class="mono agent" x="652" y="1206">mutation</text>
-  <text class="s" x="758" y="1206">差分变异</text>
-  <rect class="chip" x="40" y="1224" width="280" height="30" rx="6"/>
-  <text class="mono agent" x="52" y="1244">build-report</text>
-  <text class="s" x="158" y="1244">生成网页汇报件</text>
-  <rect class="chip" x="340" y="1224" width="280" height="30" rx="6"/>
-  <text class="mono agent" x="352" y="1244">demo-append</text>
-  <text class="s" x="458" y="1244">给 demo 追加一段</text>
-  <rect class="chip" x="640" y="1224" width="280" height="30" rx="6"/>
-  <text class="mono agent" x="652" y="1244">cleanup</text>
-  <text class="s" x="758" y="1244">列出并清理中间产物</text>
+  <rect class="stripe" x="40" y="526" width="880" height="40" rx="6"/>
+  <text class="h3 agent" x="52" y="544">问</text>
+  <text class="mono mut" x="52" y="559">think-unknowns</text>
+  <circle class="agentln" cx="231.5" cy="546" r="6"/>
+  <circle class="agentln" cx="616.5" cy="546" r="6"/>
+  <circle class="agentln" cx="671.5" cy="546" r="6"/>
+  <rect class="agent" x="884.5" y="539" width="14" height="14" rx="3"/>
+  <line class="rule" x1="40" y1="573" x2="920" y2="573"/>
+  <rect class="humanstripe" x="40" y="580" width="880" height="40" rx="6"/>
+  <text class="h3 human" x="52" y="598">对人</text>
+  <text class="mono mut" x="52" y="613">candid-friend</text>
+  <rect class="human" x="224.5" y="593" width="14" height="14" rx="3"/>
+  <rect class="human" x="554.5" y="593" width="14" height="14" rx="3"/>
+  <circle class="humanln" cx="671.5" cy="600" r="6"/>
+  <circle class="humanln" cx="726.5" cy="600" r="6"/>
+  <rect class="human" x="829.5" y="593" width="14" height="14" rx="3"/>
+  <rect class="human" x="884.5" y="593" width="14" height="14" rx="3"/>
+  <rect class="human" x="527" y="593" width="14" height="14" rx="3"/>
+  <circle class="agent" cx="212" cy="676" r="8"/><text class="s" x="228" y="680">这一步的产出本身就是它</text>
+  <rect class="agent" x="405" y="669" width="14" height="14" rx="3"/><text class="s" x="428" y="680">模板里给它留了空位</text>
+  <circle class="agentln" cx="592" cy="676" r="6"/><text class="s" x="606" y="680">在要用到它的那一步有一句指路</text>
+  <path class="good" d="M830,667 L837,676 L830,685 L823,676 Z"/><text class="s" x="844" y="680">交接期</text>
+  <line class="rule" x1="40" y1="710" x2="920" y2="710"/>
+  <text class="h2" x="40" y="748">13 个环节与交接期，各回答一个问题</text>
+  <rect class="humanbg" x="40" y="764" width="26" height="20" rx="5"/><text class="s human" x="53" y="778" text-anchor="middle" style="font-weight:700">1</text>
+  <text class="mono ink" x="76" y="778">requirement-and-invariants</text>
+  <text class="s" x="272" y="778">给用户什么能力，永远守住什么</text>
+  <rect class="humanbg" x="40" y="792" width="26" height="20" rx="5"/><text class="s human" x="53" y="806" text-anchor="middle" style="font-weight:700">2</text>
+  <text class="mono ink" x="76" y="806">domain-impact-analysis</text>
+  <text class="s" x="272" y="806">哪些领域受影响，边界怎么摆</text>
+  <rect class="humanbg" x="40" y="820" width="26" height="20" rx="5"/><text class="s human" x="53" y="834" text-anchor="middle" style="font-weight:700">3</text>
+  <text class="mono ink" x="76" y="834">tech-research-and-reuse</text>
+  <text class="s" x="272" y="834">有没有现成的可以复用</text>
+  <rect class="humanbg" x="40" y="848" width="26" height="20" rx="5"/><text class="s human" x="53" y="862" text-anchor="middle" style="font-weight:700">4</text>
+  <text class="mono ink" x="76" y="862">formal-guard</text>
+  <text class="s" x="272" y="862">哪些性质靠测试守不住</text>
+  <rect class="humanbg" x="40" y="876" width="26" height="20" rx="5"/><text class="s human" x="53" y="890" text-anchor="middle" style="font-weight:700">5</text>
+  <text class="mono ink" x="76" y="890">detailed-domain-design</text>
+  <text class="s" x="272" y="890">对象、关系、仓储长什么样</text>
+  <rect class="humanbg" x="40" y="904" width="26" height="20" rx="5"/><text class="s human" x="53" y="918" text-anchor="middle" style="font-weight:700">6</text>
+  <text class="mono ink" x="76" y="918">formal-docs-landing</text>
+  <text class="s" x="272" y="918">哪些写成正式文档，落在哪层</text>
+  <rect class="humanbg" x="40" y="932" width="26" height="20" rx="5"/><text class="s human" x="53" y="946" text-anchor="middle" style="font-weight:700">交</text>
+  <text class="mono ink" x="76" y="946">pass-the-baton</text>
+  <text class="s" x="272" y="946">一程怎样交出去，怎样收回来</text>
+  <rect class="agentbg" x="490" y="764" width="26" height="20" rx="5"/><text class="s agent" x="503" y="778" text-anchor="middle" style="font-weight:700">7</text>
+  <text class="mono ink" x="526" y="778">spec-and-plan</text>
+  <text class="s" x="722" y="778">这一程切成哪几片，按什么顺序</text>
+  <rect class="agentbg" x="490" y="792" width="26" height="20" rx="5"/><text class="s agent" x="503" y="806" text-anchor="middle" style="font-weight:700">8</text>
+  <text class="mono ink" x="526" y="806">context-pack</text>
+  <text class="s" x="722" y="806">动手前要先知道什么</text>
+  <rect class="agentbg" x="490" y="820" width="26" height="20" rx="5"/><text class="s agent" x="503" y="834" text-anchor="middle" style="font-weight:700">9</text>
+  <text class="mono ink" x="526" y="834">delegate-brief</text>
+  <text class="s" x="722" y="834">什么自己做，什么派出去</text>
+  <rect class="agentbg" x="490" y="848" width="26" height="20" rx="5"/><text class="s agent" x="503" y="862" text-anchor="middle" style="font-weight:700">10</text>
+  <text class="mono ink" x="526" y="862">one-lesson-rule</text>
+  <text class="s" x="722" y="862">有没有偏离、兜圈、腐化</text>
+  <rect class="agentbg" x="490" y="876" width="26" height="20" rx="5"/><text class="s agent" x="503" y="890" text-anchor="middle" style="font-weight:700">11</text>
+  <text class="mono ink" x="526" y="890">slice-closeout</text>
+  <text class="s" x="722" y="890">承诺的做到了没有</text>
+  <rect class="agentbg" x="490" y="904" width="26" height="20" rx="5"/><text class="s agent" x="503" y="918" text-anchor="middle" style="font-weight:700">12</text>
+  <text class="mono ink" x="526" y="918">progress-artifacts</text>
+  <text class="s" x="722" y="918">怎么让人十分钟看懂进展</text>
+  <rect class="agentbg" x="490" y="932" width="26" height="20" rx="5"/><text class="s agent" x="503" y="946" text-anchor="middle" style="font-weight:700">13</text>
+  <text class="mono ink" x="526" y="946">cleanup</text>
+  <text class="s" x="722" y="946">什么该清，什么等人验</text>
+  <line class="rule" x1="40" y1="970" x2="920" y2="970"/>
+  <rect class="card" x="40" y="994" width="280" height="128" rx="6"/>
+  <text class="h3" x="56" y="1020">入口与教学</text>
+  <text class="mono agent" x="56" y="1046">single-session-dev-flow</text>
+  <text class="s" x="56" y="1063">总入口：够不够格、顺序、交接期</text>
+  <text class="mono agent" x="56" y="1086">teach-pqw-skills</text>
+  <text class="s" x="56" y="1103">教人怎么用这套流，跑偏了怎么纠</text>
+  <rect class="card" x="340" y="994" width="280" height="128" rx="6"/>
+  <text class="h3" x="356" y="1020">写作</text>
+  <text class="mono agent" x="356" y="1046">clear-writing</text>
+  <text class="s" x="356" y="1063">文档、提示词、技能的清晰写作</text>
+  <text class="mono agent" x="356" y="1086">write-agents-md</text>
+  <text class="s" x="356" y="1103">项目入口文件怎么写、怎么治理</text>
+  <rect class="card" x="640" y="994" width="280" height="128" rx="6"/>
+  <text class="h3" x="656" y="1020">给你的项目</text>
+  <text class="mono agent" x="656" y="1046">resident-card</text>
+  <text class="s" x="656" y="1063">常驻卡片，原样放进项目入口文件</text>
+  <text class="mono agent" x="656" y="1086">接入点</text>
+  <text class="s" x="656" y="1103">一张表填你项目的命令与位置</text>
+  <text class="h2" x="40" y="1172">自带的脚本</text>
+  <text class="s" x="170" y="1172">直接 node 跑，结果确定，不靠模型判断</text>
+  <rect class="chip" x="40" y="1188" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="52" y="1208">check-plan</text>
+  <text class="s" x="158" y="1208">核计划与交接包的结构</text>
+  <rect class="chip" x="340" y="1188" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="352" y="1208">consumers</text>
+  <text class="s" x="458" y="1208">找一个改动的消费者</text>
+  <rect class="chip" x="640" y="1188" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="652" y="1208">check-brief</text>
+  <text class="s" x="758" y="1208">核派发简报</text>
+  <rect class="chip" x="40" y="1226" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="52" y="1246">sentinel</text>
+  <text class="s" x="158" y="1246">哨兵取工作树事实</text>
+  <rect class="chip" x="340" y="1226" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="352" y="1246">metrics</text>
+  <text class="s" x="458" y="1246">结构读数</text>
+  <rect class="chip" x="640" y="1226" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="652" y="1246">mutation</text>
+  <text class="s" x="758" y="1246">差分变异</text>
+  <rect class="chip" x="40" y="1264" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="52" y="1284">build-report</text>
+  <text class="s" x="158" y="1284">生成网页汇报件</text>
+  <rect class="chip" x="340" y="1264" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="352" y="1284">demo-append</text>
+  <text class="s" x="458" y="1284">给 demo 追加一段</text>
+  <rect class="chip" x="640" y="1264" width="280" height="30" rx="6"/>
+  <text class="mono agent" x="652" y="1284">cleanup</text>
+  <text class="s" x="758" y="1284">列出并清理中间产物</text>
 </svg>

@@ -187,8 +187,8 @@ function checkDocsTable(file, sec) {
 
 /** 进度总览里「思维模型：」一行开头。有这一行的是新模板，开工包的思维模型栏按缺陷核；没有的是旧模板，只给提示。 */
 export const MODELS_LINE_PREFIX = "思维模型：";
-/** 「思维模型：」一行列的技能名：六个思维模型加流程轴上横切的诤友。字面与 ../plan-template.md 是同一份契约；旧 plan 少了名字只提示。 */
-export const MODEL_SKILLS = ["think-orthogonal", "think-ought-vs-is", "think-model-first", "think-right-then-well", "think-evidence", "think-closed-loop", "candid-friend"];
+/** 「思维模型：」一行列的技能名：七个思维模型加流程轴上横切的诤友。字面与 ../plan-template.md 是同一份契约；旧 plan 少了名字只提示。 */
+export const MODEL_SKILLS = ["think-orthogonal", "think-ought-vs-is", "think-model-first", "think-right-then-well", "think-evidence", "think-closed-loop", "think-unknowns", "candid-friend"];
 /** 开工包里思维模型的栏：上下文地图「切片开工包」一行里标「空」的格在 plan 模板里的栏名。字面与 ../plan-template.md 是同一份契约，用例把两处钉在一起。 */
 export const KICKOFF_FIELDS = ["应然", "实然", "差异", "全化表", "做对", "做好一轮"];
 /** 列表项的正文：去掉「- 」「1. 」与勾选框。不是列表项返回 null。 */

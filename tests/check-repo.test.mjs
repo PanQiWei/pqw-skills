@@ -124,7 +124,7 @@ test("上下文地图：README 的矩阵表照地图生成，地图改了一格�
   try {
     editMap(dir, (_, cell) => { cell("12 汇报", "think-ought-vs-is").kind = "行"; });
     const got = mapReported(dir);
-    assert.ok(got.includes("README.md 的思维模型矩阵缺一行「| 12 汇报 |  | 行 |  |  |  | 行 |」：照 design/context-map.json 改"), got.join("\n"));
+    assert.ok(got.includes("README.md 的思维模型矩阵缺一行「| 12 汇报 |  | 行 |  |  |  | 行 |  |」：照 design/context-map.json 改"), got.join("\n"));
   } finally { dispose(dir); }
 });
 

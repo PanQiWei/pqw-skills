@@ -23,7 +23,7 @@ const GOOD_PLAN = `# 示例 交付计划（revision 1）
 进度：[■■■■■□□□□□] 1/2 切片已完成 · 更新 2026-11-08T10:00Z · head 0123abc
 当前：切片 02 开工包
 预计收尾：2026-11-08T12:00Z · 依据：剩一片，预算 2 小时
-思维模型：拆 \`think-orthogonal\` · 找差异 \`think-ought-vs-is\` · 定形 \`think-model-first\` · 建 \`think-right-then-well\` · 证 \`think-evidence\` · 转手 \`think-closed-loop\` · 对人 \`candid-friend\`
+思维模型：拆 \`think-orthogonal\` · 找差异 \`think-ought-vs-is\` · 定形 \`think-model-first\` · 建 \`think-right-then-well\` · 证 \`think-evidence\` · 转手 \`think-closed-loop\` · 问 \`think-unknowns\` · 对人 \`candid-friend\`
 
 | 切片 | 交付的行为 | 对应验收 | 状态 |
 | --- | --- | --- | --- |
@@ -608,8 +608,8 @@ test("人怎么验：新模板里切片写「无」给一条提示，不报缺�
   assert.deepEqual(planHints(none.split("\n").filter((l) => !l.startsWith(WINDOW_LINE_PREFIX)).join("\n")).length, 1, "旧模板只提示缺窗口一行");
 });
 
-/** 0.20.0 模板的 plan：子代理表没有 token 一列，思维模型一行没有 think-closed-loop。 */
-const PLAN_020 = GOOD_PLAN.replace(" · 转手 `think-closed-loop`", "")
+/** 0.20.0 模板的 plan：子代理表没有 token 一列，思维模型一行没有 think-closed-loop，也没有 0.26.0 才有的 think-unknowns。 */
+const PLAN_020 = GOOD_PLAN.replace(" · 转手 `think-closed-loop` · 问 `think-unknowns`", "")
   .replace("| 状态 | token |\n| --- | --- | --- | --- | --- | --- | --- |", "| 状态 |\n| --- | --- | --- | --- | --- | --- |")
   .replace("| 已合回 0123abc | 43 万 |", "| 已合回 0123abc |").replace("| 第 2/4 轮 |  |", "| 第 2/4 轮 |");
 const TOKEN_HINT = "子代理表没有「token」一列，按旧模板核，token 只提示、不报缺陷。照 plan 模板在表的最后加这一列，数从完成通知里抄";
@@ -646,12 +646,13 @@ test("子代理表按表头名取状态与 token：列换了顺序照样核", ()
 test("0.20.0 模板的 plan：没有 token 一列、思维模型一行没有闭环，不报新缺陷，只给两条提示；0.19.0 的再多一个名字；命令面照样退出 0", () => {
   assert.deepEqual(checkPlan(PLAN_020), []);
   assert.notEqual(PLAN_020.includes(TOKEN_COLUMN), true, "PLAN_020 的子代理表没有 token 一列");
-  assert.deepEqual(planHints(PLAN_020).map((h) => h.message), [modelsHint(["think-closed-loop"]), TOKEN_HINT]);
+  assert.deepEqual(planHints(PLAN_020).map((h) => h.message), [modelsHint(["think-closed-loop", "think-unknowns"]), TOKEN_HINT]);
   const plan019 = PLAN_020.replace(" · 对人 `candid-friend`", "");
-  assert.deepEqual(planHints(plan019).map((h) => h.message), [modelsHint(["think-closed-loop", "candid-friend"]), TOKEN_HINT]);
+  assert.deepEqual(planHints(plan019).map((h) => h.message), [modelsHint(["think-closed-loop", "think-unknowns", "candid-friend"]), TOKEN_HINT]);
+  assert.deepEqual(planHints(GOOD_PLAN.replace(" · 问 `think-unknowns`", "")).map((h) => h.message), [modelsHint(["think-unknowns"])], "0.25 模板的 plan 只少不知为不知");
   assert.equal(planHints(PLAN_020)[0].line, PLAN_020.split("\n").findIndex((l) => l.startsWith(MODELS_LINE_PREFIX)) + 1);
   assert.equal(planHints(PLAN_020)[1].line, PLAN_020.split("\n").findIndex((l) => l.startsWith("| 子代理 | 用途 |")) + 1);
-  assert.deepEqual(planHints(PLAN_020.replace(/\n\| 子代理 \| 用途 [^]*?\n\n/, "\n\n")).map((h) => h.message), [modelsHint(["think-closed-loop"])], "没有子代理表就不提 token");
+  assert.deepEqual(planHints(PLAN_020.replace(/\n\| 子代理 \| 用途 [^]*?\n\n/, "\n\n")).map((h) => h.message), [modelsHint(["think-closed-loop", "think-unknowns"])], "没有子代理表就不提 token");
   const dir = mkdtempSync(join(tmpdir(), "pqw-check-plan-"));
   try {
     writeFileSync(join(dir, "plan.md"), PLAN_020);

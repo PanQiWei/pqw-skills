@@ -30,7 +30,7 @@ const T = [
   ["你得到的六样", "Six things you get"],
   ["不白做", "No wasted work"], ["需求先过四问：有人在等吗、", "Four questions before work starts:"], ["今天怎么应付、谁用、最小做到哪。", "who needs it, how they cope today,"], ["它直言一次，然后听你的。", "the smallest cut. It says so once."],
   ["不猜边界", "No guessed scope"], ["动手前六步把不确定性消掉。", "Six steps remove uncertainty up front."], ["交出是物理条件：知识进了文档、", "The pass is a physical condition:"], ["过了评审，才算定好。", "written down and reviewed."],
-  ["不乱想", "No loose thinking"], ["它带着六个想法做每件事：拆、", "Six habits in every task: decompose,"], ["找差异、定形、建、证、转手。", "find the gap, shape, build, prove,"], ["写在产出里，不靠它自觉。", "hand off. Written into the outputs."],
+  ["不乱想", "No loose thinking"], ["它带着七个想法做每件事：拆、", "Seven habits in every task: decompose,"], ["找差异、定形、建、证、转手、问。", "find the gap, shape, build, prove,"], ["写在产出里，不靠它自觉。", "hand off, ask. Written into outputs."],
   ["不走偏", "No silent drift"], ["一个独立的哨兵定时回看，", "An independent sentinel reviews on a"], ["不让 agent 自己判自己。", "timer; the agent never grades itself."], ["偏了当场拉回，不等到早上。", "Drift is caught now, not at dawn."],
   ["不自夸", "No self-praise"], ["完成只认证据：测试先红后绿、", "Done means evidence: red-then-green"], ["结构读数、差分变异、逐条对照。", "tests, structure metrics, mutation,"], ["不认「我做完了」。", "line-by-line checks. Not “I'm done”."],
   ["不透支你", "No burnout for you"], ["一程多大，看你验得完多少。", "A run is sized by what you can verify."], ["超了它会建议分成几程。", "Too big? It proposes several runs."], ["夜里交活，有睡前交接与晨间交付。", "Nights: bedtime handoff, morning brief."],

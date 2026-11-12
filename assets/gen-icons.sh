@@ -21,7 +21,7 @@ convert -size 1280x640 xc:'#f5f4ed' \
   -fill '#141413' -font "$C" -pointsize 46 -annotate +104+300 'Hand a long run to your agent, and trust it.' \
   -fill none -stroke '#d8d5c8' -strokewidth 1 -draw "line 104,392 1176,392" \
   -stroke none -fill '#504e49' -font "$CI" -pointsize 30 -annotate +104+424 'Define with you   ›   hand off one run   ›   deliver in slices   ›   you verify' \
-  -fill '#6b6a64' -font "$C" -pointsize 24 -annotate +104+500 '25 skills  ·  13 steps  ·  six thinking models  ·  one candid friend' \
+  -fill '#6b6a64' -font "$C" -pointsize 24 -annotate +104+500 '26 skills  ·  13 steps  ·  seven thinking models  ·  one candid friend' \
   -gravity none -fill none -stroke '#1B365D' -strokewidth 3 -draw "stroke-linecap round arc 1040,104 1176,240 -50,250" \
   -draw "stroke-linecap round stroke-linejoin round fill none polyline 1166,123 1152,120 1156,134" \
   -stroke none -fill '#1B365D' -font "$C" -pointsize 44 -draw "text 1068,186 'pqw'" \

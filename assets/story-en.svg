@@ -186,9 +186,9 @@
 
     <rect class="card" x="640" y="886" width="280" height="186" rx="6"/>
     <text class="big" x="658" y="926">No loose thinking</text>
-    <text class="bi" x="658" y="958">Six habits in every task: decompose,</text>
+    <text class="bi" x="658" y="958">Seven habits in every task: decompose,</text>
     <text class="bi" x="658" y="980">find the gap, shape, build, prove,</text>
-    <text class="bi" x="658" y="1002">hand off. Written into the outputs.</text>
+    <text class="bi" x="658" y="1002">hand off, ask. Written into outputs.</text>
     <text class="mono agent" x="658" y="1050">think-*</text>
 
     <rect class="card" x="40" y="1092" width="280" height="186" rx="6"/>

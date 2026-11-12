@@ -24,7 +24,7 @@ description: 思维模型：应然与实然。做设计、实现、优化、重�
 | 性能优化 | 耗费只应该取决于什么，哪些功是必须做的 | 测量：耗费实际花在哪 | 不必须的功去掉 | [优化与重构](optimize-and-refactor.md) |
 | 重构 | 这个模块按它真正的职责，今天从头设计是什么形状 | 现在的形状，每处多出来的东西当初为什么加 | 向目标形状收拢的步骤 | [优化与重构](optimize-and-refactor.md) |
 | 定位问题 | 这次功能或测量必须满足的性质 | 代码与环境里哪一处让性质不成立 | 根因所在的位置 | [定位问题](diagnose.md) |
-| 决定要不要问人 | 这件事是人的偏好，还是能查、能建模、能论证的 | 查了没有，论证了没有 | 只把真正的取舍交给人 | [上报之前](before-asking.md) |
+| 决定要不要问人 | 这件事是人的偏好，还是能查、能建模、能论证的 | 查了没有，论证了没有 | 只把真正的取舍交给人 | `think-unknowns` 的「三种不知道」 |
 
 差异之外的不做：不为将来留扩展点，不变式排除的状态不处理，圈外的不修。见[不多做](no-more.md)。
 
@@ -42,4 +42,4 @@ description: 思维模型：应然与实然。做设计、实现、优化、重�
 
 ## 相邻的模型
 
-`think-orthogonal`：这个问题的空间怎么拆。`think-model-first`：代码该长成什么形状。`think-right-then-well`：按什么顺序建，怎样算好。`think-evidence`：怎么知道它是真的。`think-closed-loop`：这件事该由谁做，一次做多大，多久看一次。
+`think-orthogonal`：这个问题的空间怎么拆。`think-model-first`：代码该长成什么形状。`think-right-then-well`：按什么顺序建，怎样算好。`think-evidence`：怎么知道它是真的。`think-closed-loop`：这件事该由谁做，一次做多大，多久看一次。`think-unknowns`：没说清的地方，凭什么定。

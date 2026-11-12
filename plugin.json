@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "pqw-skills",
-  "version": "0.25.1",
-  "description": "A development flow for large changes: define with the human, hand off one run at a time, let the agent deliver in slices, then verify. 25 skills plus six thinking models.",
+  "version": "0.26.0",
+  "description": "A development flow for large changes: define with the human, hand off one run at a time, let the agent deliver in slices, then verify. 26 skills, seven of them thinking models.",
   "author": {
     "name": "PanQiWei",
     "url": "https://github.com/PanQiWei"
@@ -16,7 +16,7 @@
       "interface": {
         "displayName": "pqw-skills",
         "shortDescription": "Dev flow for large changes",
-        "longDescription": "A single-session development flow for large changes. You lead the definition stage: requirement and invariants, domain impact, technology choices, formal guard, detailed design, formal docs. A handoff stage sets the spec, sizes one run and hands it off. The agent then delivers in slices with a sentinel that looks back on a fixed beat, closes each slice with structural readings and diff mutation, and hands the run back for you to verify. Six thinking-model skills and a candid-friend skill stay loaded across the flow. The skill text is written in Chinese; the README has an English guide.",
+        "longDescription": "A single-session development flow for large changes. You lead the definition stage: requirement and invariants, domain impact, technology choices, formal guard, detailed design, formal docs. A handoff stage sets the spec, sizes one run and hands it off. The agent then delivers in slices with a sentinel that looks back on a fixed beat, closes each slice with structural readings and diff mutation, and hands the run back for you to verify. Seven thinking-model skills and a candid-friend skill stay loaded across the flow. The skill text is written in Chinese; the README has an English guide.",
         "developerName": "PanQiWei",
         "category": "Coding",
         "websiteURL": "https://github.com/PanQiWei/pqw-skills",

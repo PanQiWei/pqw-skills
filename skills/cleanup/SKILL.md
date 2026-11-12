@@ -46,4 +46,6 @@ node <技能目录>/scripts/cleanup.mjs --scope run --prefix <前缀> --project-
 
 ## 产出
 
+交付声明另有一行「自己定的读法」：原文没说清、自己定了的地方逐条列，没有写「无」。怎样定、怎样列，加载技能 `think-unknowns`。
+
 切片级：收口记录里一句「清了什么」，没有可清的就写没有。一程级：填[交付声明](checklist-template.md)，贴进最后一份汇报件。
