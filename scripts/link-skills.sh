@@ -6,6 +6,7 @@ DESTS=("$HOME/.claude/skills" "$HOME/.agents/skills")
 for DEST in "${DESTS[@]}"; do
   mkdir -p "$DEST"
   for skill_md in "$REPO"/skills/*/SKILL.md "$REPO"/meta/skills/*/SKILL.md; do
+    [ -e "$skill_md" ] || continue # meta/skills 为空时通配符原样留下，不为它建链
     src="$(dirname "$skill_md")"
     name="$(basename "$src")"
     target="$DEST/$name"
