@@ -1,13 +1,13 @@
 # pqw-skills
 
-把一程长活，放心交给 agent：你和它先把边界定清，一次交出一程，它按切片自主交付，你回来验收。给 Claude Code、Codex、Cursor 等 coding agent 的 25 个技能。
+把一程长活，放心交给 agent：你和它先把边界定清，一次交出一程，它按切片自主交付，你回来验收。给 Claude Code、Codex、Cursor 等 coding agent 的 27 个技能。
 
 ```bash
 claude plugin marketplace add PanQiWei/pqw-skills
 claude plugin install pqw-skills@pqw
 ```
 
-Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装)。装好后问一句「这套流怎么用」，它会教你。
+Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装)。装好后问一句「这套流怎么用」，它会教你；日常做事在提示前点名 `/pqw-mode`。
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Version](https://img.shields.io/badge/version-0.29.0-informational.svg)](./CHANGELOG.md)
@@ -22,9 +22,24 @@ Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装
 
 我与 Claude Code、Codex、Cursor 等 coding agent 协作沉淀出的单会话研发流。它是一条控制回路：先在动手前把不确定性尽量消掉，再把执行放手给代理，再用固定节拍从顶层回看。你的注意力只花在定义边界和高层判断上，不花在逐行盯实现上。
 
-## 什么时候用
+## 怎么用
 
-这条流只为大改动而设。判据是影响范围：改动会触及领域边界、跨域协作或系统全局的架构时才走。
+两种用法，都从总入口 `pqw-mode` 进。
+
+**日常的工作，点名 `/pqw-mode`。** 它先认这件事属于哪个场景，再指出过哪几个思维模型、去哪个技能。它只路由，不写做法，不管执行风格。从上往下判，第一条命中的为准：
+
+| 场景 | 怎么认出来 | 去向 |
+| --- | --- | --- |
+| 大改动 | 要动领域边界、要同步跨域的消费者，或大到要你离开再回来验 | 必须：完整的流 `single-session-dev-flow` |
+| 评审 | 产出是对一份已有改动的判断 | 默认：Matt 的 `code-review`，只核承诺的有没有做到 |
+| 回答一个问题 | 产出是结论，写的代码不留在仓库 | 候选：答案在仓库里就直接读；要读外部资料用 `research`；要跑出来才知道用 `prototype` |
+| 定位问题 | 有现象，没有一条会变红的复现 | 必须：Matt 的 `diagnosing-bugs` |
+| 重构与优化 | 外部可见的行为不变 | 默认：结构用 `codebase-design` 加自带的读数脚本，性能用 pstack 的 `benchmark-checklist` |
+| 改一个行为 | 其余写代码的工作 | 默认：Matt 的 `tdd`，测试绿了之后单独做好一轮 |
+
+去向分三档。必须：认出场景就加载。默认：加载，事情小到不值得时说明理由跳过。候选：命中条件才加载。另有五个与场景正交的条件，命中就叠上去：没有人在场、碰到状态与操作、一句话有两种读法、要派子代理或交给人、你这一侧有风险。指到文件与行的单点修改不用过它，直接做。
+
+**大改动，走完整的流。** 判据是影响范围：改动会触及领域边界、跨域协作或系统全局的架构时才走。
 
 | 走这条流 | 不走这条流 |
 | --- | --- |
@@ -33,7 +48,19 @@ Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装
 | 子系统重构 | 小规模的增量接口设计与实现 |
 | 较大规模的改造 | 一处局部修改，影响范围一眼看得清 |
 
-不够格的工作整条流都不走，不走缩水版：总入口 `pqw-mode` 先认场景（评审、回答一个问题、定位问题、重构与优化、改一个行为），再指出过哪几个思维模型、去哪个技能。
+不够格的工作整条流都不走，也不走缩水版：回到上面的场景，按场景做。做着发现够格了，停下来转到完整的流，只升级，不缩水。
+
+## 做事方式
+
+整套做事方式压成两句总纲，管着七个思维模型。每个模型恰好归一句。
+
+**少即是多。** 少的是范围与产出，不是验证：差异之外不做，同一个结构只设计一次，能自己做的不转手。管拆、找差异、转手。
+
+**慢即是快。** 慢的是不可逆的和决定后面很多步的地方，不是所有地方：先定形再写，先对再好，先有证据再说完成，先查再定。管定形、建、证、问。
+
+两句各带一个限定语，因为不带就会被读歪：「少」不是少验证，「慢」不是处处都慢。你催进度的时候，代理应该告诉你还要多久、卡在哪，由你决定等不等，不会悄悄跳过约定的验证。
+
+这两句和七个想法各一句，压成一张[常驻卡片](./skills/single-session-dev-flow/resident-card.md)。把它原样放进项目的常驻入口文件，代理在加载任何技能之前就读得到；常驻卡片、`pqw-mode`、流的入口与教学技能里的两句一字不差，从哪个入口进来读到的都是同一套。
 
 ## 有哪些东西
 
@@ -50,10 +77,10 @@ Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装
 <details>
 <summary>技能细目</summary>
 
-### 总入口
+### 入口与教学
 
-- **[pqw-mode](./skills/pqw-mode/SKILL.md)**：整套技能的总入口。先看叠加的条件（没有人在场、碰到状态与操作、有两种读法、要转手、人这一侧有风险），再从上往下认场景：大改动、评审、回答一个问题、定位问题、重构与优化、改一个行为；每个场景给出过哪几个思维模型、去哪个技能。只路由，不写做法，不管执行风格；大改动指到 `single-session-dev-flow`。
-- **[single-session-dev-flow](./skills/single-session-dev-flow/SKILL.md)**：判断够不够格走这条流，定阶段、顺序、交接期，把 13 个环节与交接期的四件事写进会话任务清单，指出每个环节加载哪个技能。不写环节的做法。开头一节「写代码的四条」（先做对；再做好一轮；不过度设计、不提前优化；找本质解）对一切写代码的工作适用，是这几条心智在本仓库的唯一正文。引用 in-your-own-words、poteto-mode、tdd；不够格时转 prototype、diagnosing-bugs。
+- **[pqw-mode](./skills/pqw-mode/SKILL.md)**：整套技能的总入口，由你点名进入。先看叠加的条件（没有人在场、碰到状态与操作、有两种读法、要转手、人这一侧有风险），再从上往下认场景：大改动、评审、回答一个问题、定位问题、重构与优化、改一个行为；每个场景给出过哪几个思维模型、去哪个技能，去向分必须、默认、候选三档；点名的技能没装时按想法自己做并说明。四条规矩：先加载去向再动手，只升级不缩水，第一条回复说出选了哪一行，单点修改不过路由。只路由，不写做法，不管执行风格。
+- **[single-session-dev-flow](./skills/single-session-dev-flow/SKILL.md)**：流的入口，`pqw-mode` 的「大改动」一路。判断够不够格走这条流，定阶段、顺序、交接期，把 13 个环节与交接期的四件事写进会话任务清单，指出每个环节加载哪个技能。不写环节的做法。开头一节「写代码的四条」（先做对；再做好一轮；不过度设计、不提前优化；找本质解）对一切写代码的工作适用，是这几条心智在本仓库的唯一正文。「怎么想」一节写着两句总纲与七个模型的全表。引用 in-your-own-words、poteto-mode、tdd；不够格时转 `pqw-mode`。
 - **[teach-pqw-skills](./skills/teach-pqw-skills/SKILL.md)**：教人用这套流。心智模型与哲学、每个环节人和代理各做什么、第一条提示怎么写、跑偏了怎么纠、接入自己的项目。只回答并给示例提示，不开工。
 
 ### 定义期，人主导
@@ -83,23 +110,25 @@ Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装
 | 12 | [progress-artifacts](./skills/progress-artifacts/SKILL.md) | 用架构图、UML、快速 demo 等用完即弃的汇报件让人留在高层，放系统临时目录；自带目录脚本、`build-report.mjs` 网页汇报件生成器、demo 骨架与 `demo-append.mjs` | ketchup、prototype |
 | 13 | [cleanup](./skills/cleanup/SKILL.md) | 每切片清一次不必留给下一切片的中间产物；一程交付后全盘清理；只判断还要不要，不要的直接删；自带清理脚本与交付声明 | 无 |
 
+13 个环节技能与 `pass-the-baton` 的正文第一行都是位置行：在流的哪一步、上一步、下一步、入口。单独读到其中一个，或上下文压缩之后，不用回到入口也知道自己在哪。
+
 实施本身走 TDD，不过度设计，不过度优化，由 `pstack:poteto-mode` 与 `mattpocock-skills:tdd` 承载，本仓库不另写。表里的「引用」列是各 `SKILL.md` 当前声明的外部技能；完整的主引用与辅助引用见 [design/skill-mapping.md](./design/skill-mapping.md)。
 
 ### 思维模型，横切
 
 流程轴回答「现在走到哪一步、产出什么」，是上面 13 个环节。思维轴回答「做这一步时怎么想」，是下面七个思维模型。两条轴互相独立：任何一步都可能用到任何一个模型，所以它们不是环节，而是随时可以单独加载的技能，不走这条流时也适用。输入 `/think-` 就能看到全部七个。
 
-| 次序 | 技能 | 回答的问题 | 三句动作的要点 |
-| --- | --- | --- | --- |
-| 拆 | [think-orthogonal](./skills/think-orthogonal/SKILL.md) | 这个问题的空间怎么拆 | 找出独立变化的轴，每条归一个拥有者；交叉成表逐格看；同一个结构在大小尺度上只设计一次 |
-| 找差异 | [think-ought-vs-is](./skills/think-ought-vs-is/SKILL.md) | 这件事的工作到底是什么 | 它应该是什么样，它现在是什么样，两者差在哪；差异就是全部工作 |
-| 定形 | [think-model-first](./skills/think-model-first/SKILL.md) | 代码该长成什么形状 | 状态与操作写成偏函数并全化；再翻成领域模型与对象模型，然后写代码 |
-| 建 | [think-right-then-well](./skills/think-right-then-well/SKILL.md) | 按什么顺序建，怎样算好 | 做对只求验收标准逐条过；做好一轮不加能力只改实现；由读数、变异与品味核对单判 |
-| 证 | [think-evidence](./skills/think-evidence/SKILL.md) | 怎么知道它是真的 | 每个结论带证据或标签；证据要真的检验了它声称检验的东西；证真交给证明，证伪交给测试 |
-| 转手 | [think-closed-loop](./skills/think-closed-loop/SKILL.md) | 这件事该由谁做，一次做多大，多久看一次 | 转手会丢信息，做对它要用到的写不下来的上下文多就不转；回路越紧越稳；一块多大由接的一方验得完多少定 |
-| 问 | [think-unknowns](./skills/think-unknowns/SKILL.md) | 没说清的地方，凭什么定 | 先认出来并分清是事实、惯例还是偏好，事实去试，惯例去查，偏好归人；读法让一个没看过它的脑子只拿原文独立再读一遍；消不掉的两种都满足，或选限制更少的一种，收在一处并明说 |
+| 次序 | 归哪句总纲 | 技能 | 回答的问题 | 三句动作的要点 |
+| --- | --- | --- | --- | --- |
+| 拆 | 少 | [think-orthogonal](./skills/think-orthogonal/SKILL.md) | 这个问题的空间怎么拆 | 找出独立变化的轴，每条归一个拥有者；交叉成表逐格看；同一个结构在大小尺度上只设计一次 |
+| 找差异 | 少 | [think-ought-vs-is](./skills/think-ought-vs-is/SKILL.md) | 这件事的工作到底是什么 | 它应该是什么样，它现在是什么样，两者差在哪；差异就是全部工作 |
+| 定形 | 慢 | [think-model-first](./skills/think-model-first/SKILL.md) | 代码该长成什么形状 | 状态与操作写成偏函数并全化；再翻成领域模型与对象模型，然后写代码 |
+| 建 | 慢 | [think-right-then-well](./skills/think-right-then-well/SKILL.md) | 按什么顺序建，怎样算好 | 做对只求验收标准逐条过；做好一轮不加能力只改实现；由读数、变异与品味核对单判 |
+| 证 | 慢 | [think-evidence](./skills/think-evidence/SKILL.md) | 怎么知道它是真的 | 每个结论带证据或标签；证据要真的检验了它声称检验的东西；证真交给证明，证伪交给测试 |
+| 转手 | 少 | [think-closed-loop](./skills/think-closed-loop/SKILL.md) | 这件事该由谁做，一次做多大，多久看一次 | 转手会丢信息，做对它要用到的写不下来的上下文多就不转；回路越紧越稳；一块多大由接的一方验得完多少定 |
+| 问 | 慢 | [think-unknowns](./skills/think-unknowns/SKILL.md) | 没说清的地方，凭什么定 | 先认出来并分清是事实、惯例还是偏好，事实去试，惯例去查，偏好归人；读法让一个没看过它的脑子只拿原文独立再读一遍；消不掉的两种都满足，或选限制更少的一种，收在一处并明说 |
 
-前五个是放在一件事上的自然次序。第六个闭环讲这件事在人和代理之间转手：人转给主代理，主代理转给子代理，压缩前的自己转给压缩后的自己。第七个不知为不知讲没说清的地方凭什么定：任务总有没写到的地方，选了一边不等于知道了。
+前五个是放在一件事上的自然次序。第六个闭环讲这件事在人和代理之间转手：人转给主代理，主代理转给子代理，压缩前的自己转给压缩后的自己。第七个不知为不知讲没说清的地方凭什么定：任务总有没写到的地方，选了一边不等于知道了。每个模型技能的末尾有一行写明它归哪句总纲，并指回入口。
 
 两条轴交叉出下面这张上下文地图。「主」是这个环节的产出本身就是这个模型的成果；「空」是模板里有它的固定空位，填模板时自然就做了；「行」是在要用到的那一步上有一句一字不差的指路行；空白是有意不放。最后一行是 plan 进度总览里列着七个技能名的那一行，上下文压缩之后按它重新加载。唯一源是 [design/context-map.json](./design/context-map.json)，这张表照它生成，`check-repo` 逐格核它在仓库里兑现了没有。
 
@@ -121,11 +150,11 @@ Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装
 | 13 清理 |  |  |  |  |  |  | 空 |
 | 压缩之后 | 空 | 空 | 空 | 空 | 空 | 空 | 空 |
 
-接入自己的项目时，把[常驻卡片](./skills/single-session-dev-flow/resident-card.md)原样放进项目的常驻入口文件，例如根 AGENTS.md：两句总纲（少即是多，慢即是快），七个思维模型与诤友各一句，每句末尾是技能名，不走这条流的会话也看得到它们。升级之后重新同步这一段，项目不手写第二份。写法见 `teach-pqw-skills` 的「接到自己的项目」。
+接入自己的项目时，把[常驻卡片](./skills/single-session-dev-flow/resident-card.md)分隔线以下的部分原样放进项目的常驻入口文件，例如根 AGENTS.md：两句总纲，七个思维模型与诤友各一句，每句末尾是技能名，不走这条流的会话也看得到它们。升级之后重新同步这一段，项目不手写第二份。写法见 `teach-pqw-skills` 的「接到自己的项目」。
 
 ### 诤友，流程轴上横切
 
-- **[candid-friend](./skills/candid-friend/SKILL.md)**：诤友，直言一次，然后听你的。别的技能防代理的失败，它防人的失败：需求不清或没有使用证据、一程大过人在一个验收窗口里验得完的量、离开前交接缺项、上一程没验就交下一程。代理用固定四行对人说一次：提醒、依据、建议、你可以；人定了就照做，不打折扣，不附加条件。四个时机都在设计会话里：接需求时问值不值得做，定程时做尺寸核对并给分程建议，交出之前做睡前交接，收回时先验再交下一程。交付期不发起和人的谈话，只做两件不问人的事：预计收尾滑出验收窗口时截程交付，收尾时列出待人验收。它不是思维模型，不进上面的矩阵；放在哪些环节由 `design/context-map.json` 的 crosscut 一项登记，`check-repo` 一样逐处核。接需求时的问法综合自 gstack（github.com/garrytan/gstack）的 office-hours、plan-ceo-review 与 ETHOS，以及 Matt 的 grilling、triage、to-questionnaire、prototype、wayfinder；gstack 只是思想来源，不加载。引用 grilling、to-questionnaire（读安装路径）、prototype。
+- **[candid-friend](./skills/candid-friend/SKILL.md)**：诤友，直言一次，然后听你的。别的技能防代理的失败，它防人的失败：需求不清或没有使用证据、一程大过人在一个验收窗口里验得完的量、离开前交接缺项、上一程没验就交下一程、你催进度而约定的验证还没跑完。代理用固定四行对人说一次：提醒、依据、建议、你可以；人定了就照做，不打折扣，不附加条件。五个时机。前四个在设计会话里：接需求时问值不值得做，定程时做尺寸核对并给分程建议，交出之前做睡前交接，收回时先验再交下一程。第五个随时可能发生：被催时说一次还要多久、卡在哪，不自行放宽完成的条件。交付期不发起和人的谈话，只做两件不问人的事：预计收尾滑出验收窗口时截程交付，收尾时列出待人验收。它不是思维模型，不进上面的矩阵；放在哪些环节由 `design/context-map.json` 的 crosscut 一项登记，`check-repo` 一样逐处核。接需求时的问法综合自 gstack（github.com/garrytan/gstack）的 office-hours、plan-ceo-review 与 ETHOS，以及 Matt 的 grilling、triage、to-questionnaire、prototype、wayfinder；gstack 只是思想来源，不加载。引用 grilling、to-questionnaire（读安装路径）、prototype。
 
 </details>
 
@@ -203,7 +232,7 @@ VS Code 里运行 **Chat: Install Plugin From Source**，填 `https://github.com
 /plugins install https://github.com/PanQiWei/pqw-skills
 ```
 
-它会先问一次是否信任这个第三方插件，然后取最新的发行版，复制成托管副本；装完 `/new` 或 `/reload` 生效。技能以 `/skill:pqw-skills:<名字>` 出现。要固定版本，把地址换成发行页，例如 `https://github.com/PanQiWei/pqw-skills/releases/tag/v0.22.2`。更新时重跑同一条命令。
+它会先问一次是否信任这个第三方插件，然后取最新的发行版，复制成托管副本；装完 `/new` 或 `/reload` 生效。技能以 `/skill:pqw-skills:<名字>` 出现。要固定版本，把地址换成发行页，例如 `https://github.com/PanQiWei/pqw-skills/releases/tag/v0.29.0`。更新时重跑同一条命令。
 
 ### DeepSeek Harness（DSH）
 

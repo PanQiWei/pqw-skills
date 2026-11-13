@@ -1,13 +1,13 @@
 # pqw-skills
 
-Hand a long run to your agent, and trust it: you set the boundaries together, hand off one run at a time, the agent delivers in slices, and you come back to verify. 25 agent skills for Claude Code, Codex, Cursor and other coding agents.
+Hand a long run to your agent, and trust it: you set the boundaries together, hand off one run at a time, the agent delivers in slices, and you come back to verify. 27 agent skills for Claude Code, Codex, Cursor and other coding agents.
 
 ```bash
 claude plugin marketplace add PanQiWei/pqw-skills
 claude plugin install pqw-skills@pqw
 ```
 
-For Codex, Cursor, Kimi Code, DSH, Copilot and Gemini, see [Install](#install). After the install, ask "how do I use this flow" and the agent teaches you.
+For Codex, Cursor, Kimi Code, DSH, Copilot and Gemini, see [Install](#install). After the install, ask "how do I use this flow" and the agent teaches you. For everyday work, start your prompt with `/pqw-mode`.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Version](https://img.shields.io/badge/version-0.29.0-informational.svg)](./CHANGELOG.md)
@@ -24,9 +24,24 @@ A single-session development flow distilled from working with Claude Code, Codex
 
 The skill text is written in Chinese. This page is the English guide to what the flow is, what each skill does and how to install the set. The skill files themselves are the source of truth.
 
-## When to use it
+## How to use it
 
-The flow exists for large changes only. The criterion is blast radius: use it when a change touches domain boundaries, cross-domain collaboration or the global architecture of a system.
+There are two ways to use the set. Both start from the top entry, `pqw-mode`.
+
+**For everyday work, start your prompt with `/pqw-mode`.** It first recognizes which scenario the work belongs to, then names the thinking models to apply and the skill to go to. It only routes: it does not describe methods or execution style. It checks the scenarios from the top down, and the first match wins:
+
+| Scenario | How to recognize it | Where it goes |
+| --- | --- | --- |
+| Large change | It moves a domain boundary, needs cross-domain consumers kept in sync, or is large enough that you leave and come back to verify | Required: the full flow, `single-session-dev-flow` |
+| Review | The output is a judgment on an existing change | Default: Matt's `code-review`; check only whether the commitments were met |
+| Answer a question | The output is a conclusion, and no code stays in the repository | Candidate: read the repository directly when the answer is there; `research` for outside material; `prototype` when only running it can tell |
+| Diagnose | There is a symptom and no reproduction that turns red | Required: Matt's `diagnosing-bugs` |
+| Refactor or optimize | Externally visible behavior does not change | Default: `codebase-design` plus the bundled metrics scripts for structure; pstack's `benchmark-checklist` for performance |
+| Change one behavior | All other coding work | Default: Matt's `tdd`, then one separate round to make it good after the tests are green |
+
+There are three levels of destination. Required: load the skill as soon as the scenario is recognized. Default: load it, or skip it with a stated reason when the work is too small. Candidate: load it only when the stated condition holds. Five overlay conditions are independent of the scenario and stack on top of it: nobody is present, the work touches state and operations, a sentence has two readings, work is about to be handed to a subagent or a person, there is a risk on your side. A single-point change that names the file and line does not need the router. The agent does it directly.
+
+**For a large change, run the full flow.** The criterion is blast radius: use it when a change touches domain boundaries, cross-domain collaboration or the global architecture of a system.
 
 | Use the flow | Do not use the flow |
 | --- | --- |
@@ -35,13 +50,25 @@ The flow exists for large changes only. The criterion is blast radius: use it wh
 | Refactoring a subsystem | A small incremental interface, designed and implemented |
 | A large-scale transformation | A local change whose impact is obvious at a glance |
 
-Work that does not qualify skips the whole flow. There is no reduced version. The top entry `pqw-mode` first recognizes the scenario (review, answer a question, diagnose, refactor or optimize, change one behavior), then names the thinking models to apply and the skill to go to.
+Work that does not qualify skips the whole flow. There is no reduced version. Such work goes back to the scenarios above. If the work turns out to qualify midway, the agent stops and moves to the full flow: it only escalates, it never shrinks the flow.
+
+## How the agent works
+
+The whole way of working is compressed into two governing lines above the seven thinking models. Each model belongs to exactly one line.
+
+**Less is more.** Less scope and less output, never less verification: do nothing outside the gap, design one structure once, do not hand off what you can do yourself. It governs split, find the gap and hand over.
+
+**Slow is fast.** Slow where a step cannot be undone or decides many later steps, not everywhere: shape before you write, right before good, evidence before "done", look it up before you decide. It governs shape, build, prove and ask.
+
+Each line carries a limit because without it the line is misread: "less" does not mean less verification, and "slow" does not mean slow everywhere. When you press for progress, the agent tells you how long is left and what it is waiting for, and you decide whether to wait. It does not quietly skip the verification that was agreed.
+
+The two lines, plus one sentence for each model, are compressed into a [resident card](./skills/single-session-dev-flow/resident-card.md). Copy it verbatim into your project's always-loaded entry file, and the agent reads it before it loads any skill. The two lines are word-for-word identical in the resident card, `pqw-mode`, the flow entry and the teaching skill, so the agent reads the same system from any entry.
 
 ## What is in the set
 
 ![The whole set: 27 skills on two axes. Across is the flow axis with 13 steps: six definition steps that you lead, a handoff phase between them, and seven delivery steps that the agent runs. Down is the thinking axis with seven models: decompose, find the gap, shape, build, prove, hand off, ask, plus one candid friend that speaks to the human. Marks show at which step each model appears. Below are the question each of the 13 steps and the handoff phase answers, the entry and teaching skills, the writing skills, the resident card for your project, and nine bundled scripts.](./assets/map-en.svg)
 
-The repository is flat: one entry skill, 13 stage skills, one handoff-phase skill, seven cross-cutting thinking-model skills, one candid-friend skill, plus the teaching and writing skills. Stages with custom methods have their text here. Stages that already have a mature method reference skills from pstack, ub-mode and mattpocock/skills instead of copying them.
+The repository is flat: one top entry skill, one flow entry skill, 13 stage skills, one handoff-phase skill, seven cross-cutting thinking-model skills, one candid-friend skill, plus the teaching and writing skills. Stages with custom methods have their text here. Stages that already have a mature method reference skills from pstack, ub-mode and mattpocock/skills instead of copying them.
 
 The definition period is led by you. Each step answers one question, produces one artifact, and that artifact is the input to the next step. The order cannot be skipped. The handoff phase works like the exchange zone in a relay race. The design session runs it while you are present: commit writes this run's spec; size decides how big the run is and whether to split the work into several runs; pass writes the handoff pack, which holds this run only. Passing is a physical condition: a boundary that has not reached the single source of truth and has not passed review is not defined. After the pass, you can turn your attention away and the main agent drives delivery. When the run comes back, you return to the design session to take it back: you verify it by hand, then the next run is passed.
 
@@ -52,10 +79,10 @@ The two figures above are the whole picture. Open the details below for what eac
 <details>
 <summary>Skill details</summary>
 
-### Entry
+### Entry and teaching
 
-- **[pqw-mode](./skills/pqw-mode/SKILL.md)**: the top entry of the set. It first checks the overlay conditions (nobody present, state and operations, two possible readings, a handoff, a risk on the human side), then recognizes the scenario from the top down: large change, review, answer a question, diagnose, refactor or optimize, change one behavior. Each scenario names the thinking models to apply and the skill to go to. It only routes: it does not describe methods or execution style. A large change goes to `single-session-dev-flow`.
-- **[single-session-dev-flow](./skills/single-session-dev-flow/SKILL.md)**: decides whether the work qualifies, sets the stages, their order and the handoff phase, and names the skill to load at each stage. It writes the 13 stages and the four handoff-phase tasks into the session task list and contains no stage method. Its first section, the four rules for writing code (make it work first; then one pass to make it right; no speculative design or premature optimization; fix the root cause), applies to all coding work and is the only full statement of them in this repository. References in-your-own-words, poteto-mode and tdd; routes unqualified work to prototype or diagnosing-bugs.
+- **[pqw-mode](./skills/pqw-mode/SKILL.md)**: the top entry of the set, entered when you name it. It first checks the overlay conditions (nobody present, state and operations, two possible readings, a handoff, a risk on the human side), then recognizes the scenario from the top down: large change, review, answer a question, diagnose, refactor or optimize, change one behavior. Each scenario names the thinking models to apply and the skill to go to, at one of three levels: required, default or candidate. When a named skill is not installed, the agent works from the models and says which skill was missing. Four rules: load the destination before starting, only escalate and never shrink, say which row was chosen in the first reply, and do not route a single-point change. It only routes: it does not describe methods or execution style.
+- **[single-session-dev-flow](./skills/single-session-dev-flow/SKILL.md)**: the flow entry, the "large change" route of `pqw-mode`. It decides whether the work qualifies, sets the stages, their order and the handoff phase, and names the skill to load at each stage. It writes the 13 stages and the four handoff-phase tasks into the session task list and contains no stage method. Its first section, the four rules for writing code (make it work first; then one pass to make it right; no speculative design or premature optimization; fix the root cause), applies to all coding work and is the only full statement of them in this repository. Its "how to think" section holds the two governing lines and the full table of the seven models. References in-your-own-words, poteto-mode and tdd; routes unqualified work to `pqw-mode`.
 - **[teach-pqw-skills](./skills/teach-pqw-skills/SKILL.md)**: teaches a person how to use the flow. Mental models and philosophy, what the human and the agent each do at every stage, how to write the first prompt, how to steer a run that drifted, how to wire the flow into a project. Answers and gives an example prompt; never starts the work.
 
 ### Definition period, human-led
@@ -85,23 +112,25 @@ The two figures above are the whole picture. Open the details below for what eac
 | 12 | [progress-artifacts](./skills/progress-artifacts/SKILL.md) | Keep the human at the top with disposable artifacts: architecture diagrams, UML, quick demos, stored under the OS temp directory; ships a directory script, `build-report.mjs` for a single-file HTML report, a demo skeleton and `demo-append.mjs` | ketchup, prototype |
 | 13 | [cleanup](./skills/cleanup/SKILL.md) | After each slice, remove intermediate products the next slice does not need; after the run, clean everything; one judgment only, keep or delete, no packing; ships a cleanup script and a delivery statement | none |
 
+The 13 stage skills and `pass-the-baton` each open with a position line: where the skill sits in the flow, the previous step, the next step and the entry. An agent that reads one of them alone, or after context compaction, knows where it is without going back to the entry.
+
 Implementation itself follows TDD, without over-design or over-optimization, carried by `pstack:poteto-mode` and `mattpocock-skills:tdd`. This repository does not rewrite them. The References column lists the external skills each `SKILL.md` currently declares; the full mapping of primary and secondary references is in [design/skill-mapping.md](./design/skill-mapping.md).
 
 ### Thinking models, cross-cutting
 
 The flow axis answers "which step are we at, and what does it produce": the 13 stages above. The thinking axis answers "how do we think while doing this step": the seven thinking models below. The two axes are independent. Any step can need any model, so the models are not stages. Each is a skill that can be loaded on its own at any time, also outside this flow. Type `/think-` to see all seven.
 
-| Order | Skill | Question it answers | The three actions, in short |
-| --- | --- | --- | --- |
-| Split | [think-orthogonal](./skills/think-orthogonal/SKILL.md) | How do we split this problem space? | Find the quantities that vary independently, each with one owner; cross them into a table and check every cell; design a structure that repeats at larger and smaller scales only once |
-| Find the gap | [think-ought-vs-is](./skills/think-ought-vs-is/SKILL.md) | What is the real work here? | What it should be, what it is now, and the gap between them; the gap is all the work |
-| Shape | [think-model-first](./skills/think-model-first/SKILL.md) | What shape should the code take? | Write states and operations as partial functions and make them total; translate them into a domain model and an object model, then write code |
-| Build | [think-right-then-well](./skills/think-right-then-well/SKILL.md) | In which order do we build, and what counts as good? | Make it right: pass every acceptance criterion. Then one round to make it well: no new capability, only a better implementation, judged by structure metrics, differential mutation and a taste checklist |
-| Prove | [think-evidence](./skills/think-evidence/SKILL.md) | How do we know it is true? | Every conclusion carries evidence or a label; the evidence must actually test what it claims to test; proofs establish truth, tests find defects |
-| Hand over | [think-closed-loop](./skills/think-closed-loop/SKILL.md) | Who should do this, how big is one piece, and how often do we look? | Every handover loses information, so work that needs much context you cannot write down stays with you; a tight loop is a stable loop; the size of a piece is what the receiver can verify |
-| Ask | [think-unknowns](./skills/think-unknowns/SKILL.md) | Where the task is silent, on what basis do we decide? | Notice each unknown and sort it: a fact, a convention or a preference. Test facts, look up conventions, leave preferences to the human. Let a mind that has not seen your reading read the original text again. For what remains, satisfy both readings or pick the less restrictive one, keep the decision in one place and state it |
+| Order | Governing line | Skill | Question it answers | The three actions, in short |
+| --- | --- | --- | --- | --- |
+| Split | Less | [think-orthogonal](./skills/think-orthogonal/SKILL.md) | How do we split this problem space? | Find the quantities that vary independently, each with one owner; cross them into a table and check every cell; design a structure that repeats at larger and smaller scales only once |
+| Find the gap | Less | [think-ought-vs-is](./skills/think-ought-vs-is/SKILL.md) | What is the real work here? | What it should be, what it is now, and the gap between them; the gap is all the work |
+| Shape | Slow | [think-model-first](./skills/think-model-first/SKILL.md) | What shape should the code take? | Write states and operations as partial functions and make them total; translate them into a domain model and an object model, then write code |
+| Build | Slow | [think-right-then-well](./skills/think-right-then-well/SKILL.md) | In which order do we build, and what counts as good? | Make it right: pass every acceptance criterion. Then one round to make it well: no new capability, only a better implementation, judged by structure metrics, differential mutation and a taste checklist |
+| Prove | Slow | [think-evidence](./skills/think-evidence/SKILL.md) | How do we know it is true? | Every conclusion carries evidence or a label; the evidence must actually test what it claims to test; proofs establish truth, tests find defects |
+| Hand over | Less | [think-closed-loop](./skills/think-closed-loop/SKILL.md) | Who should do this, how big is one piece, and how often do we look? | Every handover loses information, so work that needs much context you cannot write down stays with you; a tight loop is a stable loop; the size of a piece is what the receiver can verify |
+| Ask | Slow | [think-unknowns](./skills/think-unknowns/SKILL.md) | Where the task is silent, on what basis do we decide? | Notice each unknown and sort it: a fact, a convention or a preference. Test facts, look up conventions, leave preferences to the human. Let a mind that has not seen your reading read the original text again. For what remains, satisfy both readings or pick the less restrictive one, keep the decision in one place and state it |
 
-The first five are the natural order of work on one thing. The sixth, the closed loop, is about how the work changes hands: from the human to the main agent, from the main agent to a subagent, and from yourself before context compaction to yourself after it. The seventh is about the places a task does not specify: picking a side does not make an unknown known.
+The first five are the natural order of work on one thing. The sixth, the closed loop, is about how the work changes hands: from the human to the main agent, from the main agent to a subagent, and from yourself before context compaction to yourself after it. The seventh is about the places a task does not specify: picking a side does not make an unknown known. Each model skill ends with one line that says which governing line it belongs to and points back to the entry.
 
 The two axes cross into the context map below. "Own" means the stage's output is itself the result of this model. "Slot" means the template has a fixed slot for it, so filling the template does the thinking. "Line" means a fixed pointer line, identical everywhere, sits at the step that needs the model. A blank cell is blank on purpose. The last row is the line in the plan's progress overview that lists the seven skill names; after context compaction the agent reloads them from it. The single source is [design/context-map.json](./design/context-map.json); `check-repo` checks that every cell exists in the repository and that the Chinese README holds the same table.
 
@@ -123,11 +152,11 @@ The two axes cross into the context map below. "Own" means the stage's output is
 | 13 Cleanup |  |  |  |  |  |  | Slot |
 | After compaction | Slot | Slot | Slot | Slot | Slot | Slot | Slot |
 
-When you connect your own project, copy the [resident card](./skills/single-session-dev-flow/resident-card.md) verbatim into the project's always-loaded entry file, for example the root AGENTS.md: two governing lines (less is more, slow is fast), then one sentence for each thinking model and one for the candid friend, each ending with the skill name. Sessions that do not run this flow then see them too. Re-sync that block after each upgrade; the project does not write a second copy by hand. The wording is in `teach-pqw-skills`, under connecting your own project.
+When you connect your own project, copy the [resident card](./skills/single-session-dev-flow/resident-card.md) verbatim into the project's always-loaded entry file, for example the root AGENTS.md (the part below the separator): the two governing lines, then one sentence for each thinking model and one for the candid friend, each ending with the skill name. Sessions that do not run this flow then see them too. Re-sync that block after each upgrade; the project does not write a second copy by hand. The wording is in `teach-pqw-skills`, under connecting your own project.
 
 ### Candid friend, cross-cutting on the flow axis
 
-- **[candid-friend](./skills/candid-friend/SKILL.md)**: the candid friend speaks once, then does what you decide. The other skills guard against the agent's failures; this one guards against the human's: a requirement that is unclear or has no evidence of use, a run larger than what the human can accept in one acceptance window, gaps in the handoff before the human leaves, a new run passed before the last one was accepted. The agent says it once in four fixed lines: reminder, evidence, recommendation, your options. Once the human decides, the agent does exactly that, with no discount and no conditions. All four moments are in the design session: when a requirement arrives it asks whether it is worth doing; when sizing the run it checks the size and proposes a split; before the pass it runs the bedtime handoff; when taking a run back it asks for verification before the next pass. During delivery it starts no conversation and does only two things without asking: it cuts the run short when the estimated finish slips past the acceptance window, and it lists what awaits human acceptance at the end. It is not a thinking model and is not in the matrix above; where it appears is registered under `crosscut` in `design/context-map.json`, and `check-repo` checks every place the same way. The questions asked when a requirement arrives combine gstack (github.com/garrytan/gstack: office-hours, plan-ceo-review, ETHOS) and Matt's grilling, triage, to-questionnaire, prototype and wayfinder; gstack is a source of ideas only and is not loaded. References grilling, to-questionnaire (read from the installed path) and prototype.
+- **[candid-friend](./skills/candid-friend/SKILL.md)**: the candid friend speaks once, then does what you decide. The other skills guard against the agent's failures; this one guards against the human's: a requirement that is unclear or has no evidence of use, a run larger than what the human can accept in one acceptance window, gaps in the handoff before the human leaves, a new run passed before the last one was accepted, a push for progress while the agreed verification is still running. The agent says it once in four fixed lines: reminder, evidence, recommendation, your options. Once the human decides, the agent does exactly that, with no discount and no conditions. There are five moments. The first four are in the design session: when a requirement arrives it asks whether it is worth doing; when sizing the run it checks the size and proposes a split; before the pass it runs the bedtime handoff; when taking a run back it asks for verification before the next pass. The fifth can happen at any time: when pressed, it says once how long is left and what it is waiting for, and it does not relax the condition for "done" by itself. During delivery it starts no conversation and does only two things without asking: it cuts the run short when the estimated finish slips past the acceptance window, and it lists what awaits human acceptance at the end. It is not a thinking model and is not in the matrix above; where it appears is registered under `crosscut` in `design/context-map.json`, and `check-repo` checks every place the same way. The questions asked when a requirement arrives combine gstack (github.com/garrytan/gstack: office-hours, plan-ceo-review, ETHOS) and Matt's grilling, triage, to-questionnaire, prototype and wayfinder; gstack is a source of ideas only and is not loaded. References grilling, to-questionnaire (read from the installed path) and prototype.
 
 </details>
 
@@ -205,7 +234,7 @@ The repository root has a Kimi Code plugin manifest, `kimi.plugin.json`. In a Ki
 /plugins install https://github.com/PanQiWei/pqw-skills
 ```
 
-Kimi Code asks once whether you trust this third-party plugin. Then it fetches the latest release and keeps a managed copy. Run `/new` or `/reload` to apply it. The skills appear as `/skill:pqw-skills:<name>`. To pin a version, use a release page as the address, for example `https://github.com/PanQiWei/pqw-skills/releases/tag/v0.22.2`. To update, run the same command again.
+Kimi Code asks once whether you trust this third-party plugin. Then it fetches the latest release and keeps a managed copy. Run `/new` or `/reload` to apply it. The skills appear as `/skill:pqw-skills:<name>`. To pin a version, use a release page as the address, for example `https://github.com/PanQiWei/pqw-skills/releases/tag/v0.29.0`. To update, run the same command again.
 
 ### DeepSeek Harness (DSH)
 
