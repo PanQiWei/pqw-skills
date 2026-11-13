@@ -30,11 +30,11 @@ pqw-skills/
 ├── .claude-plugin/
 │   ├── plugin.json           插件清单：名字、版本、skills 数组逐个列出技能目录
 │   └── marketplace.json      仓库自带的单插件市场，供 claude plugin marketplace add
-├── design/                   设计文档：环节映射、自带资产与接入点、吸收的外部经验；context-map.json 是上下文地图（流程轴乘思维轴的矩阵）的唯一源；consumer-contract.json 是接入约定（槽位名、交接信息包的节、常驻卡片）与它的版本，消费项目只钉这个版本
+├── design/                   设计文档：环节映射、自带资产与接入点、吸收的外部经验；context-map.json 是上下文地图（流程轴乘思维轴的矩阵，加流程轴自己的前后关系 flow 与回到上层的一行 up）的唯一源；consumer-contract.json 是接入约定（槽位名、交接信息包的节、常驻卡片）与它的版本，消费项目只钉这个版本
 ├── scripts/
 │   ├── link-skills.sh        本机开发：把每个技能与元技能软链进 ~/.claude/skills 与 ~/.agents/skills
 │   ├── release-notes.mjs     从 CHANGELOG.md 取某一版的 GitHub Release 标题与正文
-│   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、工具版本常量与 plugin.json 一致、写代码的四条只有一处索引、上下文地图每一格兑现（含横切技能、阶段技能与常驻卡片）、接入约定与它的版本、发版说明合模板
+│   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、工具版本常量与 plugin.json 一致、写代码的四条只有一处索引、上下文地图每一格兑现（含横切技能、阶段技能与常驻卡片）、连通性（流程轴技能的位置行、思维模型与横切技能回到上层的一行、每个技能至少被别的技能点名）、接入约定与它的版本、发版说明合模板
 ├── tests/                    仓库测试，vitest；根 package.json 钉依赖，npm install 后直接跑；根目录不提交锁文件
 └── skills/
     ├── single-session-dev-flow/   总入口；resident-card.md（常驻卡片，消费项目原样放进常驻入口文件）；unattended-card.md（无人卡片，没有人在场的运行接在常驻卡片后面）
@@ -108,7 +108,7 @@ pqw-skills/
 
 ## 现在的状态
 
-0.26.0：新增第七个思维模型技能 `think-unknowns`（不知为不知），发行技能共二十六个；上下文地图多一列，常驻卡片多「问」一行，接入约定 version 到 2；`think-ought-vs-is` 的「上报之前」一页并进它的「三种不知道」；交付声明多「自己定的读法」一行；无人卡片多一条「没说清的地方不猜」。0.22.0：交接从一个点变成交接期，新增阶段技能 `pass-the-baton`（交棒），发行技能共二十五个；交接点核对单与交接信息包模板从 `single-session-dev-flow/` 搬到 `pass-the-baton/`，包多「切片大纲」一节与预计收尾一行；spec 在定约时写，plan 在交付期开头写，plan 模板去掉「分程建议」；上下文地图「交接点」一行换成「交接期」，第 7 环节改名「plan」，多一项 `stages`；`check-plan --handoff` 能从标准输入读，新模板的包核切片大纲与尺寸。0.21.0：新增第六个思维模型技能 `think-closed-loop`（闭环），发行技能共二十四个；上下文地图多一列与「交接点」一行；`delegate-brief` 多一页 `cost.md`，`check-brief` 多核新模板的规格文件、读量上限与报告行数上限，`check-plan` 按表头名取子代理表的列并核 token。0.19.0：新增五个思维模型技能 `think-orthogonal`、`think-ought-vs-is`、`think-model-first`、`think-right-then-well`、`think-evidence`，发行技能共二十二个；`design/context-map.json` 是上下文地图的唯一源，`check-repo` 第 10 段核每一格；入口「写代码的四条」变成四句结论各指向所属模型（`check-repo` 第 8 段守索引）；`check-plan` 核未收口且开工包已填的切片的思维模型栏，旧模板只给提示；plan 模板进度总览多「思维模型」一行，开工包多「全化表」一栏，「顺序与并行」多「切片的轴」一行；收口清单多品味核对单。0.17.0 与 0.18.0：设计段风险前置、形式化交接表与精化对照表；差分变异缺省只变异改动的行。0.16.0：哨兵的改动文件取第一父链非合并提交、在跑只看状态词、多三条文档陈旧信号；`check-plan` 多核预计收尾、子代理状态词、收口的「改动成员的合入检查」、验收经过的成员与晚于时钟的时刻；新增 `spec-and-plan/scripts/consumers.mjs` 与 `delegate-brief/scripts/check-brief.mjs`；`slice-closeout` 的读数与变异修了十处口径（见 `metrics-model.md`）；`clear-writing`、`write-agents-md` 从 `meta/skills/` 移到 `skills/` 随插件发行，`meta/skills/` 现在为空；`tests/global-setup.mjs` 给整轮测试一个临时根，跑完删掉。0.15.0 起：`slice-closeout` 分两个尺度：切片收口的结构读数与差分变异只打开工包写的关键位置（`--scope` 加 `--files`），一程全量读数在全部切片收口后做一次，基线是 spec 的起点提交，记录在收口清单末尾；开工包模板、plan 与 spec 模板、交付声明、入口与教学同步，接入槽位多一格「项目合入检查已跑的全量读数」。0.14.0 起：责任分级接通到交付期。入口技能「圈外的问题」是唯一正文（`check-repo` 第 9 段守），spec 必需「责任分级」，plan 必需「圈外发现」，交接信息包的边界带同一张表，`check-plan` 核这三处；哨兵脚本按 spec 的路径报「圈外改动」，第一问加「在圈外做功」，间隔按一程预算定（`one-lesson-rule` 的节拍一节）。0.13.0 起：哨兵「实现是否比本质复杂」一问多一类证据，从已定义的不变式出发看有没有在为不变式排除的状态做功，提醒链到入口四条第三条；`one-lesson-rule` 多一个出口「删掉不可能的路径」。0.12.1 起：修了 pnpm 多包仓库试用中的五处缺陷（大仓库 diff 缓冲与范围收窄、pnpm 隔离布局下的 Stryker runner、没给 `--ts` 时自动找 typescript、`coverage/` 报告不算改动、`check-plan --handoff` 的占位与起点反引号）。0.12.0 起：差分变异支持多包仓库，`mutation.mjs --project <成员目录>` 在成员里跑 Stryker，容器放成员上两级、沙箱与成员同深度，`--build-command` 经 `scripts/sandbox-build.mjs` 在沙箱里先链依赖再构建。定义期与交付期可以分两个会话顺序交接，交接信息包模板在 `single-session-dev-flow/handoff-pack-template.md`，`check-plan --handoff` 核它的结构；`teach-pqw-skills/mental-models.md` 末节是「AI 主导研发交付的心智」十条。入口技能开头是「写代码的四条」（唯一正文，`check-repo` 第 8 段守），切片循环分做对与做好一轮，`check-plan` 核收口里的「做好一轮」。十五个发行技能正文齐全且宿主无关，模板与脚本随技能目录发行，两个写作技能迁自 omne-harness-lite（0.16.0 起随插件发行）。plan 模板有给人读的两层叙述与文档维护表，`spec-and-plan/scripts/check-plan.mjs` 守结构，哨兵判六问（含文档陈旧与实现是否比本质复杂），汇报件开头讲这程为什么做。结构读数、差分变异、HTML 汇报件与 demo 追加四个工具随技能发行，逻辑在 `scripts/lib/`；差分变异只有 Stryker 引擎，适配在 `slice-closeout/scripts/lib/stryker.mjs`，超时的变异体单独复核，依赖钉在 `slice-closeout/scripts/package.json`；清理只判断还要不要。读数多列没有断言的用例与没有函数的改动文件。本仓库测试迁 vitest，根 `package.json` 钉测试链依赖，`tests/` 118 个用例。`node scripts/check-repo.mjs` 退出 0。
+0.27.0：上下文地图多登记连通性。13 个环节技能与 `pass-the-baton` 的正文开头各有一行位置行，七个思维模型技能与 `candid-friend` 各有一行回到总入口；`check-repo` 多「连通性」一项。发行技能仍是二十六个，接入约定 version 2 没变。
 
 ## 校验
 

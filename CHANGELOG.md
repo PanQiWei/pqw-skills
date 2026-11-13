@@ -2,6 +2,40 @@
 
 每一版一节，写法见 [DEVELOPMENT.md 的「发版」](./DEVELOPMENT.md#发版)。「细节」之前的部分就是 GitHub Release 的正文。
 
+## 0.27.0 · 每个技能都能回到上层
+
+Every skill now says where it sits: flow skills open with a position line (step, previous, next, entry), and the thinking-model skills carry one line back to the entry skill.
+
+**要你动手的：** 不用，直接升级。
+**接入约定：** version 2，没变。
+
+### 变了什么
+
+- **13 个环节技能与 `pass-the-baton`**：正文第一行是位置行，写明在流的哪一步、上一步、下一步和入口技能。不在顺序链上的第 9、10 步只写什么时候加载。
+- **七个 `think-` 技能与 `candid-friend`**：末尾多一行回到上层，指到入口技能里的全表与整条流的顺序。
+- **`design/context-map.json`**：多登记 `flow`（流程轴的前后关系）与 `up`（回到上层的一行），位置行由 `flow` 生成。
+- **`check-repo`**：多「连通性」一项，核位置行一字不差且在正文前六行、上一步与下一步互逆、回到上层的一行在、每个发行技能至少被另一个技能点名。
+- **`teach-pqw-skills`** 的接入一节点到 `write-agents-md`，它原先没有任何技能点到。**入口技能**多一句：常驻入口文件里没有常驻卡片时，开工先读它。
+- **`domain-impact-analysis`** 只剩一句话的「下一步」一节删掉，位置行已经承担。
+
+### 细节
+
+依据是把 26 个技能与 61 个附属文件建成有向图量出来的读数，只看 SKILL.md 正文：
+
+| 读数 | 0.26.0 | 0.27.0 |
+| --- | --- | --- |
+| 1 跳回到入口技能的技能 | 6 个 | 24 个 |
+| 思维模型技能回到入口 | 6 个要 3 跳 | 都是 1 跳 |
+| 定义期第 3 步到第 4 步 | 5 跳 | 1 跳 |
+| 平均路径，直径 | 2.45 跳，6 跳 | 1.74 跳，3 跳 |
+| 没有任何技能点到的技能 | 1 个 | 0 个 |
+
+没回到入口的两个是工具技能 `clear-writing` 与 `write-agents-md`，它们不属于这条流。位置行放在正文开头，是因为宿主压缩上下文之后每个技能只留开头一段。
+
+三件事量过之后决定不做。一、不给「怎样走」加 Mermaid 图：文字版与图版各让两档模型答 13 道「现在在哪、下一步是什么」，四次都是全对，没有差别，图还要多维护一份源；查到的外部对照里，流程图只在旧模型的单轮定位上有优势。二、不加会话启动时注入常驻卡片的钩子：七个模型的 description 本来就常驻并带三句动作，钩子只对一个宿主有效，项目已经抄了卡片时会重复。三、不改常驻卡片：改它要每个接入的项目重抄。
+
+这一版没有验证过的事：只量了图上的跳数，没有量代理在真实一程里是否因此更少走丢；Mermaid 的对照每格只跑了一次，测的是读懂，不是长程里的遵从。
+
 ## 0.26.0 · 第七个思维模型：不知为不知
 
 A seventh thinking model, `think-unknowns`: where a task is silent or can be read two ways, sort the unknown, test or look it up, have the reading checked independently, and state what you decided yourself.
