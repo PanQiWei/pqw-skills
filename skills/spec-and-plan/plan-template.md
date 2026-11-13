@@ -37,7 +37,7 @@
 当前：切片 01 开工包
 预计收尾：<UTC 时刻> · 依据：<剩余切片的预算，或最近的实测>
 圈外发现：0 条，挡住验收 0 条
-思维模型：拆 `think-orthogonal` · 找差异 `think-ought-vs-is` · 定形 `think-model-first` · 建 `think-right-then-well` · 证 `think-evidence` · 转手 `think-closed-loop` · 问 `think-unknowns` · 对人 `candid-friend`（前七个是思维模型：前五个做每一步时按这个次序过一遍，转手在一件事要交出去时过，问在碰到没说清的地方时过；对人是流程轴上的横切立场；上下文压缩之后按这一行重新加载）
+思维模型：拆 `think-orthogonal` · 找差异 `think-ought-vs-is` · 定形 `think-model-first` · 建 `think-right-then-well` · 证 `think-evidence` · 转手 `think-closed-loop` · 问 `think-unknowns` · 对人 `candid-friend`（前七个是思维模型：前五个做每一步时按这个次序过一遍，转手在一件事要交出去时过，问在碰到没说清的地方时过；对人是流程轴上的横切立场；两句总纲管着它们：少的是范围与产出，不是验证；慢的是不可逆的和决定后面很多步的地方，不是所有地方；上下文压缩之后按这一行重新加载）
 
 | 切片 | 交付的行为 | 对应验收 | 状态 |
 | --- | --- | --- | --- |

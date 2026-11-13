@@ -45,4 +45,4 @@ description: 思维模型：闭环。一件事要从一方转到另一方之前�
 
 `think-orthogonal`：这个问题的空间怎么拆。`think-ought-vs-is`：这件事的工作到底是什么。`think-model-first`：代码该长成什么形状。`think-right-then-well`：按什么顺序建，怎样算好。`think-evidence`：怎么知道它是真的；转出去的结果怎么验，归它。`think-unknowns`：没说清的地方，凭什么定。
 
-回到上层：全部思维模型的表、放在一件事上的次序与整条流的顺序，在入口技能 `single-session-dev-flow`。
+主线：少即是多。回到上层：全部思维模型的表、放在一件事上的次序与整条流的顺序，在入口技能 `single-session-dev-flow`；按场景做事从总入口 `pqw-mode` 进。

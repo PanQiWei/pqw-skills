@@ -180,7 +180,7 @@ test("常驻卡片：仓库本身不报；少点一个技能、一行末尾不�
   const dir = copyRepo();
   try {
     assert.deepEqual(mapReported(dir), []);
-    const line = "- **对人。** 看到需求不清、不值得做，或一程大过人验得完的量，说一次，带依据和建议。人定了就照做。`candid-friend`";
+    const line = "- **对人。** 看到需求不清、不值得做，或一程大过人验得完的量，说一次，带依据和建议。人催进度而约定的验证还没跑完，也说一次：还要多久，卡在哪。人定了就照做。`candid-friend`";
     edit(dir, CARD, line, "- **对人。** 说一次，人定了就照做。");
     assert.deepEqual(mapReported(dir), [`常驻卡片 ${CARD} 没有点到 \`candid-friend\``, `常驻卡片 ${CARD} 的「- **对人。** 说一次，人定了就照做。」末尾不是技能名`]);
     edit(dir, CARD, "- **对人。** 说一次，人定了就照做。", `${line.replace("`candid-friend`", "`candid-friend` `no-such-skill`")}`);
@@ -301,16 +301,17 @@ test("连通性：地图里上一步与下一步不互逆、流程轴列了不�
   } finally { dispose(dir); }
 });
 
-const UP_LINE = "回到上层：全部思维模型的表、放在一件事上的次序与整条流的顺序，在入口技能 `single-session-dev-flow`。";
+const UP_TEXT = "回到上层：全部思维模型的表、放在一件事上的次序与整条流的顺序，在入口技能 `single-session-dev-flow`；按场景做事从总入口 `pqw-mode` 进。";
+const UP_LINE = UP_TEXT;
 
 test("连通性：思维模型或横切技能少了回到上层的一行，报是哪个文件；地图没有 up 也报", () => {
   const dir = copyRepo();
   try {
-    for (const skill of ["think-evidence", "candid-friend"]) {
+    for (const [skill, line] of [["think-evidence", `主线：慢即是快。${UP_TEXT}`], ["candid-friend", UP_TEXT]]) {
       const md = `skills/${skill}/SKILL.md`;
-      edit(dir, md, UP_LINE, "");
-      assert.deepEqual(linkReported(dir), [`${md} 缺回到上层的一行「${UP_LINE}」`]);
-      edit(dir, md, "\n", `\n${UP_LINE}\n`);
+      edit(dir, md, line, "");
+      assert.deepEqual(linkReported(dir), [`${md} 缺回到上层的一行「${line}」`]);
+      edit(dir, md, "\n", `\n${line}\n`);
     }
     editMap(dir, (map) => { delete map.up; });
     assert.deepEqual(linkReported(dir), ["design/context-map.json 没有 up：思维模型与横切技能回到上层的一行无处可核"]);
@@ -324,5 +325,33 @@ test("连通性：一个发行技能没有被别的技能目录点名，报出�
     writeFileSync(join(dir, teach), readFileSync(join(dir, teach), "utf8").replaceAll("`write-agents-md`", "那个技能"));
     appendFileSync(join(dir, "skills/write-agents-md/SKILL.md"), "\n本技能是 `write-agents-md`。\n");
     assert.deepEqual(linkReported(dir), ["skills/write-agents-md 没有被别的技能点名：从别的技能走不到它"]);
+  } finally { dispose(dir); }
+});
+
+const SPINE_CHECK = "[总纲]";
+const spineReported = (dir) => reported(run(dir), SPINE_CHECK);
+const LESS = "**少即是多。** 少的是范围与产出，不是验证：差异之外不做，同一个结构只设计一次，能自己做的不转手。管拆、找差异、转手。";
+
+test("总纲：仓库本身不报；登记的入口文件少了一句总纲，报是哪个文件、哪一句", () => {
+  const dir = copyRepo();
+  try {
+    assert.deepEqual(spineReported(dir), []);
+    for (const file of ["skills/single-session-dev-flow/resident-card.md", "skills/pqw-mode/SKILL.md", "skills/single-session-dev-flow/SKILL.md", "skills/teach-pqw-skills/mental-models.md"]) {
+      edit(dir, file, LESS, LESS.replace("不是验证", "不是别的"));
+      assert.deepEqual(spineReported(dir), [`${file} 缺总纲「${LESS}」`]);
+      edit(dir, file, LESS.replace("不是验证", "不是别的"), LESS);
+    }
+  } finally { dispose(dir); }
+});
+
+test("总纲：一个思维模型不属于任何一句，或同时属于两句，各报一处；地图没有 spine 也报", () => {
+  const dir = copyRepo();
+  try {
+    editMap(dir, (map) => { map.spine.lines[0].models = map.spine.lines[0].models.filter((m) => m !== "think-orthogonal"); });
+    assert.deepEqual(spineReported(dir).filter((m) => m.includes("think-orthogonal 属于")), ["think-orthogonal 属于 0 句总纲：每个思维模型恰好归一句"]);
+    editMap(dir, (map) => { map.spine.lines[0].models.push("think-orthogonal", "think-evidence"); });
+    assert.deepEqual(spineReported(dir).filter((m) => m.includes("属于")), ["think-evidence 属于 2 句总纲：每个思维模型恰好归一句"]);
+    editMap(dir, (map) => { delete map.spine; });
+    assert.deepEqual(spineReported(dir), ["design/context-map.json 没有 spine：两句总纲无处可核"]);
   } finally { dispose(dir); }
 });

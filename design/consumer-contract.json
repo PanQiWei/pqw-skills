@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "slots": [
     "类型检查与 lint 命令",
     "改动成员的合入检查",
@@ -31,5 +31,5 @@
     "只有人能定的待决",
     "四问"
   ],
-  "residentCardSha256": "f3587604e838582adbe726c53d7a342904a2cacc5b43c87cae5514c69fa2d1a4"
+  "residentCardSha256": "ff9c5ebe856d17ea128afa3ef4d5f3c15031e0af554eecfdd789d37b5d8d58af"
 }

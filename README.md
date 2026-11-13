@@ -10,7 +10,7 @@ claude plugin install pqw-skills@pqw
 Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装)。装好后问一句「这套流怎么用」，它会教你。
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.28.0-informational.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.29.0-informational.svg)](./CHANGELOG.md)
 [![Skills](https://img.shields.io/badge/skills-27-success.svg)](#技能)
 [![skills.sh](https://skills.sh/b/PanQiWei/pqw-skills)](https://skills.sh/PanQiWei/pqw-skills)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Kimi%20Code%20%7C%20DSH%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#安装)
@@ -121,7 +121,7 @@ Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装
 | 13 清理 |  |  |  |  |  |  | 空 |
 | 压缩之后 | 空 | 空 | 空 | 空 | 空 | 空 | 空 |
 
-接入自己的项目时，把[常驻卡片](./skills/single-session-dev-flow/resident-card.md)原样放进项目的常驻入口文件，例如根 AGENTS.md：七个思维模型与诤友各一句，每句末尾是技能名，不走这条流的会话也看得到它们。升级之后重新同步这一段，项目不手写第二份。写法见 `teach-pqw-skills` 的「接到自己的项目」。
+接入自己的项目时，把[常驻卡片](./skills/single-session-dev-flow/resident-card.md)原样放进项目的常驻入口文件，例如根 AGENTS.md：两句总纲（少即是多，慢即是快），七个思维模型与诤友各一句，每句末尾是技能名，不走这条流的会话也看得到它们。升级之后重新同步这一段，项目不手写第二份。写法见 `teach-pqw-skills` 的「接到自己的项目」。
 
 ### 诤友，流程轴上横切
 

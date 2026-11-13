@@ -11,6 +11,12 @@ description: pqw-skills 的总入口，人点名进入的做事模式：先认�
 
 七个想法：拆 `think-orthogonal`，找差异 `think-ought-vs-is`，定形 `think-model-first`，建 `think-right-then-well`，证 `think-evidence`，转手 `think-closed-loop`，问 `think-unknowns`。每个一句在[常驻卡片](../single-session-dev-flow/resident-card.md)，三句动作在同名技能。下面两张表只写叫法。
 
+两句总纲管着七个想法，哪个场景都一样：
+
+**少即是多。** 少的是范围与产出，不是验证：差异之外不做，同一个结构只设计一次，能自己做的不转手。管拆、找差异、转手。
+
+**慢即是快。** 慢的是不可逆的和决定后面很多步的地方，不是所有地方：先定形再写，先对再好，先有证据再说完成，先查再定。管定形、建、证、问。
+
 ## 先看叠加的条件
 
 条件与场景正交。命中几条就叠几条，叠在选中的场景上。

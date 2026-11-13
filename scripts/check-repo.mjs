@@ -374,9 +374,11 @@ function checkFlow(map) {
 /** 思维模型与横切技能不在顺序链上，各带同一行回到上层的话。 */
 function checkUp(map) {
   if (!map.up) return fail(LINK_CHECK, `${rel(CONTEXT_MAP)} 没有 up：思维模型与横切技能回到上层的一行无处可核`);
-  for (const { skill } of [...map.models, ...(map.crosscut ?? [])]) {
+  const spineOf = (skill) => (map.spine?.lines ?? []).find((l) => l.models.includes(skill))?.name;
+  const lines = [...map.models.map(({ skill }) => [skill, `主线：${spineOf(skill)}。${map.up}`]), ...(map.crosscut ?? []).map(({ skill }) => [skill, map.up])];
+  for (const [skill, line] of lines) {
     const md = join(config.skillsDir, skill, "SKILL.md");
-    if (existsSync(md) && !read(md).includes(map.up)) fail(LINK_CHECK, `${rel(md)} 缺回到上层的一行「${map.up}」`);
+    if (existsSync(md) && !read(md).includes(line)) fail(LINK_CHECK, `${rel(md)} 缺回到上层的一行「${line}」`);
   }
 }
 /** 每个发行技能至少被另一个技能目录里的文件点名，否则只能靠列表里的 description 碰到它。 */
@@ -386,6 +388,16 @@ function checkNamedByOthers() {
     const own = join(config.skillsDir, skill) + "/";
     if (!files.some(({ file, text }) => !file.startsWith(own) && text.includes(`\`${skill}\``))) fail(LINK_CHECK, `skills/${skill} 没有被别的技能点名：从别的技能走不到它`);
   }
+}
+/** 两句总纲管着七个模型：每个模型恰好归一句；登记的入口文件含这两句，一字不差，代理从哪个入口进来读到的都是同一套。 */
+const SPINE_CHECK = "总纲";
+function checkSpine(map) {
+  if (!map.spine?.lines?.length) return fail(SPINE_CHECK, `${rel(CONTEXT_MAP)} 没有 spine：两句总纲无处可核`);
+  for (const { skill } of map.models) {
+    const n = map.spine.lines.filter((l) => l.models.includes(skill)).length;
+    if (n !== 1) fail(SPINE_CHECK, `${skill} 属于 ${n} 句总纲：每个思维模型恰好归一句`);
+  }
+  for (const file of map.spine.files ?? []) for (const { line } of map.spine.lines) if (!hasText(file, line)) fail(SPINE_CHECK, `${file} 缺总纲「${line}」`);
 }
 function checkConnectivity() {
   let map;
@@ -397,6 +409,7 @@ function checkConnectivity() {
   checkFlow(map);
   checkUp(map);
   checkNamedByOthers();
+  checkSpine(map);
 }
 checkConnectivity();
 

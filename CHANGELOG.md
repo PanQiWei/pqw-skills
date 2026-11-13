@@ -2,6 +2,26 @@
 
 每一版一节，写法见 [DEVELOPMENT.md 的「发版」](./DEVELOPMENT.md#发版)。「细节」之前的部分就是 GitHub Release 的正文。
 
+## 0.29.0 · 两句总纲：少即是多，慢即是快
+
+Two governing lines now sit above the seven thinking models, "less is more" and "slow is fast", each with a limit so it cannot be misread; they appear verbatim in the resident card and every entry skill.
+
+**要你动手的：** 把常驻卡片分隔线以下的部分重新同步到项目的常驻入口文件：开头多了两句总纲，「对人」一行多了被催时怎么办。用了无人卡片的不用动它，它接在常驻卡片后面。
+**接入约定：** version 从 2 到 3：常驻卡片变了，槽位与交接信息包的节没变。
+
+### 变了什么
+
+- **两句总纲**：少即是多，少的是范围与产出，不是验证，管拆、找差异、转手；慢即是快，慢的是不可逆的和决定后面很多步的地方，不是所有地方，管定形、建、证、问。每个思维模型恰好归一句。
+- **在哪读到它**：常驻卡片开头、`pqw-mode`、`single-session-dev-flow` 的「怎么想」、`teach-pqw-skills` 的心智模型页，四处一字不差；每个 `think-` 技能回到上层的一行写明自己归哪一句，并多指一处总入口 `pqw-mode`。
+- **被催时条件不变**：`candid-friend` 多一个时机，人催进度而约定的验证还没出结果时，说一次还要多久、卡在哪，等不等由人定；`think-evidence` 的「什么时候必须重做」多同一条；常驻卡片「对人」一行跟着改。
+- **`design/context-map.json`** 多登记 `spine`；**`check-repo`** 多「总纲」一项，核每个模型恰好归一句、登记的入口文件含两句。
+
+### 细节
+
+依据是同一段维护会话里的两次真实走偏。一次是慢的反面：人说了一句着急，代理没等约定的验证跑完就发了版，事后验证通过是运气。现有技能讲了说完成之前要有证据，没讲被催的时候怎么办。一次是少的反面：`pqw-mode` 的第一版把读仓库里的代码就能回答的问题指到读外部资料的技能，花费是不带时的三倍多，结论没有更好。
+
+两句不做成第八个思维模型：它们没有自己独有的问题，三句动作全是另外七个的。它们是七个模型之上的一层，回答七个模型为什么是这七个。限定语是这一版真正写进去的东西，因为两句不带限定会互相打架，「少」会被读成少验证，「慢」会被读成处处都慢。
+
 ## 0.28.0 · 总入口 pqw-mode：按场景做事
 
 A new top entry, `pqw-mode`: name it, and the agent first recognizes the kind of work (review, answer a question, diagnose, refactor or optimize, change one behavior, large change), then applies the matching thinking models and loads the matching skill.

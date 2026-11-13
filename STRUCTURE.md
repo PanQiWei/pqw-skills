@@ -30,11 +30,11 @@ pqw-skills/
 ├── .claude-plugin/
 │   ├── plugin.json           插件清单：名字、版本、skills 数组逐个列出技能目录
 │   └── marketplace.json      仓库自带的单插件市场，供 claude plugin marketplace add
-├── design/                   设计文档：环节映射、自带资产与接入点、吸收的外部经验；context-map.json 是上下文地图（流程轴乘思维轴的矩阵，加流程轴自己的前后关系 flow 与回到上层的一行 up）的唯一源；consumer-contract.json 是接入约定（槽位名、交接信息包的节、常驻卡片）与它的版本，消费项目只钉这个版本
+├── design/                   设计文档：环节映射、自带资产与接入点、吸收的外部经验；context-map.json 是上下文地图（流程轴乘思维轴的矩阵，加流程轴自己的前后关系 flow、回到上层的一行 up、管着七个模型的两句总纲 spine）的唯一源；consumer-contract.json 是接入约定（槽位名、交接信息包的节、常驻卡片）与它的版本，消费项目只钉这个版本
 ├── scripts/
 │   ├── link-skills.sh        本机开发：把每个技能与元技能软链进 ~/.claude/skills 与 ~/.agents/skills
 │   ├── release-notes.mjs     从 CHANGELOG.md 取某一版的 GitHub Release 标题与正文
-│   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、工具版本常量与 plugin.json 一致、写代码的四条只有一处索引、上下文地图每一格兑现（含横切技能、阶段技能与常驻卡片）、连通性（流程轴技能的位置行、思维模型与横切技能回到上层的一行、每个技能至少被别的技能点名）、接入约定与它的版本、发版说明合模板
+│   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、工具版本常量与 plugin.json 一致、写代码的四条只有一处索引、上下文地图每一格兑现（含横切技能、阶段技能与常驻卡片）、总纲（两句总纲在各入口一字不差、每个模型恰好归一句）、连通性（流程轴技能的位置行、思维模型与横切技能回到上层的一行、每个技能至少被别的技能点名）、接入约定与它的版本、发版说明合模板
 ├── tests/                    仓库测试，vitest；根 package.json 钉依赖，npm install 后直接跑；根目录不提交锁文件
 └── skills/
     ├── pqw-mode/                  总入口：按场景路由，指出过哪几个思维模型、去哪个技能
@@ -86,7 +86,7 @@ pqw-skills/
 
 另有七个横切的思维模型技能，`think-` 前缀，全部自定义。它们不是环节，回答「做这一步时怎么想」；每个长成同一副骨架：一个问题、三句动作、按工作类型的表、写在哪、什么时候必须重做、相邻的模型，正文 50 行以内，细节放至多五页展开。环节技能在要用到的那一步上放一句一字不差的指路行或模板空位，不复述做法。哪个环节用哪个模型，唯一源是 `design/context-map.json`，`check-repo` 第 10 段按它逐格核，并核骨架、防复述、核 README 的矩阵表与入口能走到七个技能。
 
-另有一个流程轴上横切的技能 `candid-friend`（诤友），自定义。它不是思维模型，不用 `think-` 前缀，不进矩阵：它管代理对人说什么，看到人这一侧的风险说一次，人定了就照做。它放在哪些环节、模板里有哪些空位，登记在 `design/context-map.json` 的 `crosscut`，`check-repo` 按同样的核法核。七个模型与诤友各一句，压成 `single-session-dev-flow/resident-card.md` 这份常驻卡片，`check-repo` 核它点到每个技能。
+另有一个流程轴上横切的技能 `candid-friend`（诤友），自定义。它不是思维模型，不用 `think-` 前缀，不进矩阵：它管代理对人说什么，看到人这一侧的风险说一次，人定了就照做。它放在哪些环节、模板里有哪些空位，登记在 `design/context-map.json` 的 `crosscut`，`check-repo` 按同样的核法核。两句总纲加七个模型与诤友各一句，压成 `single-session-dev-flow/resident-card.md` 这份常驻卡片，`check-repo` 核它点到每个技能。
 
 另有一个流程轴上的阶段技能 `pass-the-baton`（交棒），自定义。它是交接期的家，夹在定义期与交付期之间，不是编号的环节，也不是思维模型，不进矩阵，正文 60 行以内。它的指路行登记在 `design/context-map.json` 的 `stages`，`check-repo` 与 `crosscut` 同样核；入口、教学与两份 README 都要点到它。
 
@@ -109,7 +109,7 @@ pqw-skills/
 
 ## 现在的状态
 
-0.28.0：新增总入口 `pqw-mode`，人点名进入，按场景路由：先看叠加的条件，再从上往下认六个场景，每个场景指出过哪几个思维模型、去哪个技能；`single-session-dev-flow` 成为流的入口，是它的「大改动」一路。发行技能共二十七个，接入约定 version 2 没变。
+0.29.0：两句总纲（少即是多，慢即是快）管着七个思维模型，登记在上下文地图的 `spine`，常驻卡片、`pqw-mode`、流的入口与教学技能各含这两句；`candid-friend` 与 `think-evidence` 多「被催时」一条。发行技能二十七个，接入约定 version 到 3（常驻卡片变了）。
 
 ## 校验
 
