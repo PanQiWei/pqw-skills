@@ -10,7 +10,7 @@ const keyOf = (row) => (row === "交接期" ? "h" : /^(\d+) /.exec(row)?.[1]);
 const ZH = {
   file: "map.svg",
   aria: "pqw-skills 技能集全景：流程轴十三个环节与中间的交接期，思维轴七个模型，一个诤友，以及入口、教学、写作技能与自带脚本",
-  title: "技能集全景：26 个技能，两条轴",
+  title: "技能集全景：27 个技能，两条轴",
   sub: "横着是流程：现在走到哪一步。竖着是想法：这一步怎么想。交点是它们相遇的地方。",
   flow: "流程轴", flowN: "13 个环节", think: "思维轴", thinkN: "7 个模型", countX: 96,
   define: "定义期 · 你主导", deliver: "交付期 · agent 自主",
@@ -21,7 +21,7 @@ const ZH = {
   stage: { badge: "交", question: "一程怎样交出去，怎样收回来" },
   questions: ["给用户什么能力，永远守住什么", "哪些领域受影响，边界怎么摆", "有没有现成的可以复用", "哪些性质靠测试守不住", "对象、关系、仓储长什么样", "哪些写成正式文档，落在哪层", "这一程切成哪几片，按什么顺序", "动手前要先知道什么", "什么自己做，什么派出去", "有没有偏离、兜圈、腐化", "承诺的做到了没有", "怎么让人十分钟看懂进展", "什么该清，什么等人验"],
   boxes: [
-    ["入口与教学", [["single-session-dev-flow", "总入口：够不够格、顺序、交接期"], ["teach-pqw-skills", "教人怎么用这套流，跑偏了怎么纠"]]],
+    ["入口与教学", [["pqw-mode", "总入口：认场景，指到模型与技能"], ["single-session-dev-flow", "流的入口：够不够格、顺序、交接期"], ["teach-pqw-skills", "教人怎么用这套流，跑偏了怎么纠"]]],
     ["写作", [["clear-writing", "文档、提示词、技能的清晰写作"], ["write-agents-md", "项目入口文件怎么写、怎么治理"]]],
     ["给你的项目", [["resident-card", "常驻卡片，原样放进项目入口文件"], ["接入点", "一张表填你项目的命令与位置"]]],
   ],
@@ -32,7 +32,7 @@ const ZH = {
 const EN = {
   file: "map-en.svg",
   aria: "pqw-skills at a glance: thirteen steps and the handoff phase on the flow axis, seven models on the thinking axis, one candid friend, plus the entry, teaching and writing skills and the bundled scripts",
-  title: "The whole set: 26 skills, two axes",
+  title: "The whole set: 27 skills, two axes",
   sub: "Across: the flow, where you are. Down: the thinking, how to do this step. Dots mark where they meet.",
   flow: "FLOW", flowN: "13 steps", think: "THINKING", thinkN: "7 models", countX: 126,
   define: "Definition · you lead", deliver: "Delivery · agent runs it",
@@ -43,7 +43,7 @@ const EN = {
   stage: { badge: "H", question: "How a run is passed and taken back" },
   questions: ["What users get; what must always hold", "Which domains change; where borders go", "Is something ready to reuse", "Which properties tests cannot guard", "Objects, relations, storage shapes", "What becomes a formal doc, and where", "Which slices, in which order", "What to know before starting", "Do it yourself, or delegate", "Any drift, looping or context rot", "Were the promises kept", "How a human gets it in ten minutes", "What to clean; what awaits review"],
   boxes: [
-    ["Entry and teaching", [["single-session-dev-flow", "Entry: who qualifies, order, handoff phase"], ["teach-pqw-skills", "Teaches people how to use the flow"]]],
+    ["Entry and teaching", [["pqw-mode", "Top entry: scenario, models, skill"], ["single-session-dev-flow", "Flow entry: who qualifies, order, handoff"], ["teach-pqw-skills", "Teaches people how to use the flow"]]],
     ["Writing", [["clear-writing", "Clear writing for docs and prompts"], ["write-agents-md", "How to write and govern AGENTS.md"]]],
     ["For your project", [["resident-card", "A resident card for your entry file"], ["access points", "One table: your commands and paths"]]],
   ],

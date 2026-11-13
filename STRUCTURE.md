@@ -37,7 +37,8 @@ pqw-skills/
 │   └── check-repo.mjs        仓库一致性检查：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、工具版本常量与 plugin.json 一致、写代码的四条只有一处索引、上下文地图每一格兑现（含横切技能、阶段技能与常驻卡片）、连通性（流程轴技能的位置行、思维模型与横切技能回到上层的一行、每个技能至少被别的技能点名）、接入约定与它的版本、发版说明合模板
 ├── tests/                    仓库测试，vitest；根 package.json 钉依赖，npm install 后直接跑；根目录不提交锁文件
 └── skills/
-    ├── single-session-dev-flow/   总入口；resident-card.md（常驻卡片，消费项目原样放进常驻入口文件）；unattended-card.md（无人卡片，没有人在场的运行接在常驻卡片后面）
+    ├── pqw-mode/                  总入口：按场景路由，指出过哪几个思维模型、去哪个技能
+    ├── single-session-dev-flow/   流的入口，pqw-mode 的「大改动」一路；resident-card.md（常驻卡片，消费项目原样放进常驻入口文件）；unattended-card.md（无人卡片，没有人在场的运行接在常驻卡片后面）
     ├── teach-pqw-skills/             教人用这套流；mental-models.md、who-does-what.md、prompting.md
     ├── requirement-and-invariants/   requirement-template.md
     ├── domain-impact-analysis/       impact-template.md
@@ -91,7 +92,7 @@ pqw-skills/
 
 ## 适用范围
 
-总入口技能的第一节就是适用范围：只为复杂系统新增领域、跨多领域纵线交付、子系统重构和较大规模改造而设；小修、原型、小规模增量接口不走，也不走缩水版。
+流的入口技能开头就是适用范围：只为复杂系统新增领域、跨多领域纵线交付、子系统重构和较大规模改造而设；小修、原型、小规模增量接口不走，也不走缩水版。
 
 ## 流的形状
 
@@ -108,7 +109,7 @@ pqw-skills/
 
 ## 现在的状态
 
-0.27.0：上下文地图多登记连通性。13 个环节技能与 `pass-the-baton` 的正文开头各有一行位置行，七个思维模型技能与 `candid-friend` 各有一行回到总入口；`check-repo` 多「连通性」一项。发行技能仍是二十六个，接入约定 version 2 没变。
+0.28.0：新增总入口 `pqw-mode`，人点名进入，按场景路由：先看叠加的条件，再从上往下认六个场景，每个场景指出过哪几个思维模型、去哪个技能；`single-session-dev-flow` 成为流的入口，是它的「大改动」一路。发行技能共二十七个，接入约定 version 2 没变。
 
 ## 校验
 

@@ -40,7 +40,7 @@
       }
     ]
   },
-  "entries": ["skills/single-session-dev-flow/SKILL.md", "skills/teach-pqw-skills/SKILL.md", "README.md", "README_EN.md"],
+  "entries": ["skills/pqw-mode/SKILL.md", "skills/single-session-dev-flow/SKILL.md", "skills/teach-pqw-skills/SKILL.md", "README.md", "README_EN.md"],
   "models": [
     {
       "skill": "think-orthogonal",
@@ -291,15 +291,6 @@
       }
     },
     { "row": "13 清理", "cells": { "think-unknowns": { "kind": "空", "slots": { "skills/cleanup/checklist-template.md": ["- [ ] 自己定的读法："] } } } },
-    {
-      "row": "不够格的小活",
-      "cells": {
-        "think-ought-vs-is": { "kind": "行", "files": ["skills/single-session-dev-flow/SKILL.md"] },
-        "think-right-then-well": { "kind": "行", "files": ["skills/single-session-dev-flow/SKILL.md"] },
-        "think-evidence": { "kind": "行", "files": ["skills/single-session-dev-flow/SKILL.md"] },
-        "think-unknowns": { "kind": "行", "files": ["skills/single-session-dev-flow/SKILL.md"] }
-      }
-    },
     {
       "row": "压缩之后",
       "cells": {

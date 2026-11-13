@@ -10,8 +10,8 @@ claude plugin install pqw-skills@pqw
 Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装)。装好后问一句「这套流怎么用」，它会教你。
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.27.0-informational.svg)](./CHANGELOG.md)
-[![Skills](https://img.shields.io/badge/skills-26-success.svg)](#技能)
+[![Version](https://img.shields.io/badge/version-0.28.0-informational.svg)](./CHANGELOG.md)
+[![Skills](https://img.shields.io/badge/skills-27-success.svg)](#技能)
 [![skills.sh](https://skills.sh/b/PanQiWei/pqw-skills)](https://skills.sh/PanQiWei/pqw-skills)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Kimi%20Code%20%7C%20DSH%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#安装)
 [![Language](https://img.shields.io/badge/lang-%E4%B8%AD%E6%96%87%20%7C%20English-lightgrey.svg)](./README_EN.md)
@@ -33,13 +33,13 @@ Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装
 | 子系统重构 | 小规模的增量接口设计与实现 |
 | 较大规模的改造 | 一处局部修改，影响范围一眼看得清 |
 
-不够格的工作整条流都不走，不走缩水版，直接按各自的技能做。
+不够格的工作整条流都不走，不走缩水版：总入口 `pqw-mode` 先认场景（评审、回答一个问题、定位问题、重构与优化、改一个行为），再指出过哪几个思维模型、去哪个技能。
 
 ## 有哪些东西
 
-![技能集全景：26 个技能，两条轴。横着是流程轴的 13 个环节，定义期六步由你主导，中间一段交接期，交付期七步由 agent 自主。竖着是思维轴的七个模型：拆、找差异、定形、建、证、转手、问，加一个对人直言的诤友。交点标出每个想法在哪一步出现。下面列出 13 个环节与交接期各回答的问题、入口与教学、写作技能、给项目的常驻卡片，以及九个自带脚本。](./assets/map.svg)
+![技能集全景：27 个技能，两条轴。横着是流程轴的 13 个环节，定义期六步由你主导，中间一段交接期，交付期七步由 agent 自主。竖着是思维轴的七个模型：拆、找差异、定形、建、证、转手、问，加一个对人直言的诤友。交点标出每个想法在哪一步出现。下面列出 13 个环节与交接期各回答的问题、入口与教学、写作技能、给项目的常驻卡片，以及九个自带脚本。](./assets/map.svg)
 
-仓库是扁平的：一个总入口技能，13 个环节技能，一个交接期的阶段技能，七个横切的思维模型技能，一个诤友技能，加教学与写作技能。自定义的环节正文在这里，已有成熟做法的环节直接引用 pstack、ub-mode、mattpocock 的技能，不复制它们的正文。
+仓库是扁平的：一个总入口技能，一个流的入口技能，13 个环节技能，一个交接期的阶段技能，七个横切的思维模型技能，一个诤友技能，加教学与写作技能。自定义的环节正文在这里，已有成熟做法的环节直接引用 pstack、ub-mode、mattpocock 的技能，不复制它们的正文。
 
 定义期由你主导，每一步回答一个问题、产出一样东西，并且是下一步的输入，顺序不能跳。交接期像接力赛的接力区，由设计会话做，你在场：定约写这一程的 spec，定程定这一程多大、要不要分程，交出写交接信息包，包里只有这一程。交出是物理条件：没进唯一源、没过评审的边界不算定好。交出之后，你可以把注意力移开，由主代理自主推进交付；这一程交回来，你回到设计会话收回：上手验收，再交下一程。
 
@@ -52,6 +52,7 @@ Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装
 
 ### 总入口
 
+- **[pqw-mode](./skills/pqw-mode/SKILL.md)**：整套技能的总入口。先看叠加的条件（没有人在场、碰到状态与操作、有两种读法、要转手、人这一侧有风险），再从上往下认场景：大改动、评审、回答一个问题、定位问题、重构与优化、改一个行为；每个场景给出过哪几个思维模型、去哪个技能。只路由，不写做法，不管执行风格；大改动指到 `single-session-dev-flow`。
 - **[single-session-dev-flow](./skills/single-session-dev-flow/SKILL.md)**：判断够不够格走这条流，定阶段、顺序、交接期，把 13 个环节与交接期的四件事写进会话任务清单，指出每个环节加载哪个技能。不写环节的做法。开头一节「写代码的四条」（先做对；再做好一轮；不过度设计、不提前优化；找本质解）对一切写代码的工作适用，是这几条心智在本仓库的唯一正文。引用 in-your-own-words、poteto-mode、tdd；不够格时转 prototype、diagnosing-bugs。
 - **[teach-pqw-skills](./skills/teach-pqw-skills/SKILL.md)**：教人用这套流。心智模型与哲学、每个环节人和代理各做什么、第一条提示怎么写、跑偏了怎么纠、接入自己的项目。只回答并给示例提示，不开工。
 
@@ -118,7 +119,6 @@ Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装
 | 11 切片收口 |  | 行 |  | 主 | 主 |  |  |
 | 12 汇报 |  | 主 |  |  |  | 行 |  |
 | 13 清理 |  |  |  |  |  |  | 空 |
-| 不够格的小活 |  | 行 |  | 行 | 行 |  | 行 |
 | 压缩之后 | 空 | 空 | 空 | 空 | 空 | 空 | 空 |
 
 接入自己的项目时，把[常驻卡片](./skills/single-session-dev-flow/resident-card.md)原样放进项目的常驻入口文件，例如根 AGENTS.md：七个思维模型与诤友各一句，每句末尾是技能名，不走这条流的会话也看得到它们。升级之后重新同步这一段，项目不手写第二份。写法见 `teach-pqw-skills` 的「接到自己的项目」。
@@ -133,7 +133,7 @@ Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装
 
 | 技能 | 来源 | 版本 | 本机名 |
 | --- | --- | --- | --- |
-| poteto-mode、deslop、unslop、create-formal-verification-skill、statechart、maintain-formal-verification-skill、architect、sharpen、recall、show-me-your-work、ketchup、in-your-own-words、blast-radius、swarm、technical-writing、typescript-best-practices 及 principle 系列 | Claude Code 与 Codex 用 [michael-denyer/pstack-claude](https://github.com/michael-denyer/pstack-claude/tree/df9bc05b818e2457ac23d3343e96e4ff284dd9e9/plugins/pstack)；Cursor 用 [cursor/plugins](https://github.com/cursor/plugins/tree/1b6d44ff26d4e242f4e8f68c391e6d2f7ca16def) 的官方 pstack | port 0.9.132；Cursor 0.15.20 | `pstack:<name>` |
+| poteto-mode、figure-it-out、benchmark-checklist、deslop、unslop、create-formal-verification-skill、statechart、maintain-formal-verification-skill、architect、sharpen、recall、show-me-your-work、ketchup、in-your-own-words、blast-radius、swarm、technical-writing、typescript-best-practices 及 principle 系列 | Claude Code 与 Codex 用 [michael-denyer/pstack-claude](https://github.com/michael-denyer/pstack-claude/tree/df9bc05b818e2457ac23d3343e96e4ff284dd9e9/plugins/pstack)；Cursor 用 [cursor/plugins](https://github.com/cursor/plugins/tree/1b6d44ff26d4e242f4e8f68c391e6d2f7ca16def) 的官方 pstack | port 0.9.132；Cursor 0.15.20 | `pstack:<name>` |
 | ub-mode | [unclebob/ub-mode](https://github.com/unclebob/ub-mode/tree/3da62bf3f)，只有一份 `SKILL.md`，放进宿主的用户技能目录 | 提交 3da62bf | `ub-mode` |
 | to-spec、to-tickets、to-questionnaire、research、domain-modeling、codebase-design、code-review、tdd、prototype、diagnosing-bugs、grilling、writing-for-agents | [mattpocock/skills](https://github.com/mattpocock/skills/tree/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d/skills) | 1.3.2，提交 4ae2317 | `mattpocock-skills:<name>` |
 

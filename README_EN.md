@@ -10,8 +10,8 @@ claude plugin install pqw-skills@pqw
 For Codex, Cursor, Kimi Code, DSH, Copilot and Gemini, see [Install](#install). After the install, ask "how do I use this flow" and the agent teaches you.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.27.0-informational.svg)](./CHANGELOG.md)
-[![Skills](https://img.shields.io/badge/skills-26-success.svg)](#skills)
+[![Version](https://img.shields.io/badge/version-0.28.0-informational.svg)](./CHANGELOG.md)
+[![Skills](https://img.shields.io/badge/skills-27-success.svg)](#skills)
 [![skills.sh](https://skills.sh/b/PanQiWei/pqw-skills)](https://skills.sh/PanQiWei/pqw-skills)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Kimi%20Code%20%7C%20DSH%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#install)
 [![Language](https://img.shields.io/badge/lang-%E4%B8%AD%E6%96%87%20%7C%20English-lightgrey.svg)](./README.md)
@@ -35,11 +35,11 @@ The flow exists for large changes only. The criterion is blast radius: use it wh
 | Refactoring a subsystem | A small incremental interface, designed and implemented |
 | A large-scale transformation | A local change whose impact is obvious at a glance |
 
-Work that does not qualify skips the whole flow. There is no reduced version. Such work goes straight to its own skill.
+Work that does not qualify skips the whole flow. There is no reduced version. The top entry `pqw-mode` first recognizes the scenario (review, answer a question, diagnose, refactor or optimize, change one behavior), then names the thinking models to apply and the skill to go to.
 
 ## What is in the set
 
-![The whole set: 26 skills on two axes. Across is the flow axis with 13 steps: six definition steps that you lead, a handoff phase between them, and seven delivery steps that the agent runs. Down is the thinking axis with seven models: decompose, find the gap, shape, build, prove, hand off, ask, plus one candid friend that speaks to the human. Marks show at which step each model appears. Below are the question each of the 13 steps and the handoff phase answers, the entry and teaching skills, the writing skills, the resident card for your project, and nine bundled scripts.](./assets/map-en.svg)
+![The whole set: 27 skills on two axes. Across is the flow axis with 13 steps: six definition steps that you lead, a handoff phase between them, and seven delivery steps that the agent runs. Down is the thinking axis with seven models: decompose, find the gap, shape, build, prove, hand off, ask, plus one candid friend that speaks to the human. Marks show at which step each model appears. Below are the question each of the 13 steps and the handoff phase answers, the entry and teaching skills, the writing skills, the resident card for your project, and nine bundled scripts.](./assets/map-en.svg)
 
 The repository is flat: one entry skill, 13 stage skills, one handoff-phase skill, seven cross-cutting thinking-model skills, one candid-friend skill, plus the teaching and writing skills. Stages with custom methods have their text here. Stages that already have a mature method reference skills from pstack, ub-mode and mattpocock/skills instead of copying them.
 
@@ -54,6 +54,7 @@ The two figures above are the whole picture. Open the details below for what eac
 
 ### Entry
 
+- **[pqw-mode](./skills/pqw-mode/SKILL.md)**: the top entry of the set. It first checks the overlay conditions (nobody present, state and operations, two possible readings, a handoff, a risk on the human side), then recognizes the scenario from the top down: large change, review, answer a question, diagnose, refactor or optimize, change one behavior. Each scenario names the thinking models to apply and the skill to go to. It only routes: it does not describe methods or execution style. A large change goes to `single-session-dev-flow`.
 - **[single-session-dev-flow](./skills/single-session-dev-flow/SKILL.md)**: decides whether the work qualifies, sets the stages, their order and the handoff phase, and names the skill to load at each stage. It writes the 13 stages and the four handoff-phase tasks into the session task list and contains no stage method. Its first section, the four rules for writing code (make it work first; then one pass to make it right; no speculative design or premature optimization; fix the root cause), applies to all coding work and is the only full statement of them in this repository. References in-your-own-words, poteto-mode and tdd; routes unqualified work to prototype or diagnosing-bugs.
 - **[teach-pqw-skills](./skills/teach-pqw-skills/SKILL.md)**: teaches a person how to use the flow. Mental models and philosophy, what the human and the agent each do at every stage, how to write the first prompt, how to steer a run that drifted, how to wire the flow into a project. Answers and gives an example prompt; never starts the work.
 
@@ -120,7 +121,6 @@ The two axes cross into the context map below. "Own" means the stage's output is
 | 11 Slice closeout |  | Line |  | Own | Own |  |  |
 | 12 Reporting |  | Own |  |  |  | Line |  |
 | 13 Cleanup |  |  |  |  |  |  | Slot |
-| Work that does not qualify |  | Line |  | Line | Line |  | Line |
 | After compaction | Slot | Slot | Slot | Slot | Slot | Slot | Slot |
 
 When you connect your own project, copy the [resident card](./skills/single-session-dev-flow/resident-card.md) verbatim into the project's always-loaded entry file, for example the root AGENTS.md: one sentence for each thinking model and one for the candid friend, each ending with the skill name. Sessions that do not run this flow then see them too. Re-sync that block after each upgrade; the project does not write a second copy by hand. The wording is in `teach-pqw-skills`, under connecting your own project.
@@ -135,7 +135,7 @@ When you connect your own project, copy the [resident card](./skills/single-sess
 
 | Skills | Source | Version | Local name |
 | --- | --- | --- | --- |
-| poteto-mode, deslop, unslop, create-formal-verification-skill, statechart, maintain-formal-verification-skill, architect, sharpen, recall, show-me-your-work, ketchup, in-your-own-words, blast-radius, swarm, technical-writing, typescript-best-practices and the principle series | Claude Code and Codex: [michael-denyer/pstack-claude](https://github.com/michael-denyer/pstack-claude/tree/df9bc05b818e2457ac23d3343e96e4ff284dd9e9/plugins/pstack); Cursor: the official pstack in [cursor/plugins](https://github.com/cursor/plugins/tree/1b6d44ff26d4e242f4e8f68c391e6d2f7ca16def) | port 0.9.132; Cursor 0.15.20 | `pstack:<name>` |
+| poteto-mode, figure-it-out, benchmark-checklist, deslop, unslop, create-formal-verification-skill, statechart, maintain-formal-verification-skill, architect, sharpen, recall, show-me-your-work, ketchup, in-your-own-words, blast-radius, swarm, technical-writing, typescript-best-practices and the principle series | Claude Code and Codex: [michael-denyer/pstack-claude](https://github.com/michael-denyer/pstack-claude/tree/df9bc05b818e2457ac23d3343e96e4ff284dd9e9/plugins/pstack); Cursor: the official pstack in [cursor/plugins](https://github.com/cursor/plugins/tree/1b6d44ff26d4e242f4e8f68c391e6d2f7ca16def) | port 0.9.132; Cursor 0.15.20 | `pstack:<name>` |
 | ub-mode | [unclebob/ub-mode](https://github.com/unclebob/ub-mode/tree/3da62bf3f), a single `SKILL.md` placed in the host's user skills directory | commit 3da62bf | `ub-mode` |
 | to-spec, to-tickets, to-questionnaire, research, domain-modeling, codebase-design, code-review, tdd, prototype, diagnosing-bugs, grilling, writing-for-agents | [mattpocock/skills](https://github.com/mattpocock/skills/tree/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d/skills) | 1.3.2, commit 4ae2317 | `mattpocock-skills:<name>` |
 

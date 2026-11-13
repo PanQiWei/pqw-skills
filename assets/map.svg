@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1326" width="960" height="1326" role="img" aria-label="pqw-skills 技能集全景：流程轴十三个环节与中间的交接期，思维轴七个模型，一个诤友，以及入口、教学、写作技能与自带脚本">
-  <title>技能集全景：26 个技能，两条轴</title>
+  <title>技能集全景：27 个技能，两条轴</title>
   <style>
     /* kami 的皮肤：羊皮纸底、一个墨蓝强调色、暖灰、衬线字、细线。色值都取自 kami 的 tokens。 */
     svg { --bg:#f5f4ed; --ink:#141413; --mut:#504e49; --stone:#6b6a64; --line:#d8d5c8; --card:#faf9f5; --stripe:#EEEDE6; --human:#141413; --humanbg:#faf9f5; --agent:#1B365D; --agentbg:#EEF2F7; --good:#1B365D; }
@@ -26,7 +26,7 @@
   </style>
   <rect class="bg" x="0" y="0" width="960" height="1326"/>
   <text class="eyebrow" x="40" y="52">PQW-SKILLS</text>
-  <text class="title" x="40" y="98">技能集全景：26 个技能，两条轴</text>
+  <text class="title" x="40" y="98">技能集全景：27 个技能，两条轴</text>
   <text class="sub" x="40" y="130">横着是流程：现在走到哪一步。竖着是想法：这一步怎么想。交点是它们相遇的地方。</text>
   <line x1="40" y1="156" x2="920" y2="156" stroke="#1B365D" stroke-width="0.8"/>
   <rect class="humanbg" x="204" y="180" width="326" height="26" rx="6"/>
@@ -192,12 +192,14 @@
   <text class="mono ink" x="526" y="946">cleanup</text>
   <text class="s" x="722" y="946">什么该清，什么等人验</text>
   <line class="rule" x1="40" y1="970" x2="920" y2="970"/>
-  <rect class="card" x="40" y="994" width="280" height="128" rx="6"/>
+  <rect class="card" x="40" y="994" width="280" height="168" rx="6"/>
   <text class="h3" x="56" y="1020">入口与教学</text>
-  <text class="mono agent" x="56" y="1046">single-session-dev-flow</text>
-  <text class="s" x="56" y="1063">总入口：够不够格、顺序、交接期</text>
-  <text class="mono agent" x="56" y="1086">teach-pqw-skills</text>
-  <text class="s" x="56" y="1103">教人怎么用这套流，跑偏了怎么纠</text>
+  <text class="mono agent" x="56" y="1046">pqw-mode</text>
+  <text class="s" x="56" y="1063">总入口：认场景，指到模型与技能</text>
+  <text class="mono agent" x="56" y="1086">single-session-dev-flow</text>
+  <text class="s" x="56" y="1103">流的入口：够不够格、顺序、交接期</text>
+  <text class="mono agent" x="56" y="1126">teach-pqw-skills</text>
+  <text class="s" x="56" y="1143">教人怎么用这套流，跑偏了怎么纠</text>
   <rect class="card" x="340" y="994" width="280" height="128" rx="6"/>
   <text class="h3" x="356" y="1020">写作</text>
   <text class="mono agent" x="356" y="1046">clear-writing</text>

@@ -2,6 +2,38 @@
 
 每一版一节，写法见 [DEVELOPMENT.md 的「发版」](./DEVELOPMENT.md#发版)。「细节」之前的部分就是 GitHub Release 的正文。
 
+## 0.28.0 · 总入口 pqw-mode：按场景做事
+
+A new top entry, `pqw-mode`: name it, and the agent first recognizes the kind of work (review, answer a question, diagnose, refactor or optimize, change one behavior, large change), then applies the matching thinking models and loads the matching skill.
+
+**要你动手的：** 不用，直接升级。想让小修、重构、调研这类工作也按这套想法做，在提示前点名 `/pqw-mode`。
+**接入约定：** version 2，没变。
+
+### 变了什么
+
+- **新增 `pqw-mode`**：整套技能的总入口，人点名进入。先看五个叠加的条件（没有人在场、碰到状态与操作、有两种读法、要转手、人这一侧有风险），再从上往下认六个场景：大改动、评审、回答一个问题、定位问题、重构与优化、改一个行为。每个场景写判定、过哪几个思维模型、去哪个技能。只路由，不写做法，不管执行风格。
+- **去向分三档**：必须（大改动、定位问题）认出场景就加载；默认（评审、重构与优化、改一个行为）加载，事情小到不值得时说明理由跳过；候选（回答一个问题）默认不加载，命中条件才加载。点名的技能没装时按想法一列自己做，并说明没装的是哪个。
+- **`single-session-dev-flow`** 从总入口变成流的入口，是 `pqw-mode` 的「大改动」一路。给不够格的工作的那一段搬到 `pqw-mode`，原处只留一句指路。
+- **`design/context-map.json`**：`pqw-mode` 登记为入口；矩阵里「不够格的小活」一行删掉，它由场景表承担。
+- **依赖表**：多引用 pstack 的 `figure-it-out` 与 `benchmark-checklist`。发行技能共 27 个。
+
+### 细节
+
+场景表是三路各自得出再合并的：pstack `poteto-mode` 的路由切法，mattpocock/skills 的场景分类，和这套技能自己七张「各类工作里怎么用」表里反复出现的工作类型。无人运行原先想单列一行，三路都指出它是「有没有人」这条轴，和工作类型正交，所以改成叠加的条件。小修并进「改一个行为」，原型与调研并成「回答一个问题」，因为相邻两行的判定分不开。
+
+对照：同一个仓库里三件小活（加一个命令行选项，整理一个函数，评估一项改动的工作量），每件各起一个全新的会话，模型是 sonnet，每格跑一次。
+
+| | 不带 | 列表里有它但没点名 | 点名 `/pqw-mode` |
+| --- | --- | --- | --- |
+| 加载它 | 不适用 | 0/3 | 3/3 |
+| 说出场景且判对 | 不适用 | 不适用 | 3/3 |
+| 整理函数时的验证 | 手工验三类报错 | 新旧两版比五种坏状态 | 新旧两版比九种变异，输出逐字一致 |
+| 三件合计花费 | 0.63 美元 | 0.53 美元 | 0.77 美元 |
+
+两处是照对照的结果改的。一、第一版点名之后三个会话都认对了场景，却没有一个加载「去向」一列的技能，读了表就动手；加了「先加载去向，再动手」一条规矩之后是 3/3。二、评估那一件的答案读仓库里的代码就有，第一版却把它指到读外部资料的 `research`，花费是不带时的三倍多，结论没有更好；改成「答案在仓库里就直接读」之后花费回到 0.24 美元。
+
+没有验证的事：每格只跑了一次，差别不大，只能算方向；对照用的仓库有很强的常驻入口文件，换一个没有的项目，不带时的表现可能差得多；评审与定位问题两个场景没有跑过；代理不会自己加载它，要人点名。
+
 ## 0.27.0 · 每个技能都能回到上层
 
 Every skill now says where it sits: flow skills open with a position line (step, previous, next, entry), and the thinking-model skills carry one line back to the entry skill.
