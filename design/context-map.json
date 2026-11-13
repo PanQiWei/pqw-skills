@@ -1,9 +1,44 @@
 {
-  "说明": "上下文地图：流程轴（行）与思维轴（列）交叉出的矩阵，是这张矩阵的唯一源。scripts/check-repo.mjs 按它核每一格。主：这个环节的产出本身就是这个模型的成果，不加指路行与空位，只在 files 里点名技能。行：files 里的每个文件含这个模型的指路行，一字不差。空：slots 里的每个文件含列出的每个空位；列了 files 的，那些文件另含指路行。没列出的格是有意留空的。entries 里的每个文件点到全部模型，人与代理从它们都能走到七个技能。models 的顺序：前五个是放在一件事上的自然次序，拆、找差异、定形、建、证；第六个闭环讲这件事在人和代理之间转手，排在证之后；第七个不知为不知讲没说清的地方凭什么定，任何一步碰到不知道的事时用，排在最后。README.md 的矩阵表照它生成，check-repo 逐行核。crosscut 放流程轴上的横切技能，它们不是思维模型，不进矩阵：每个列出指路行与 cells，cells 的每一格按同样的「行」「空」核法兑现，技能正文同样不超过 bodyMaxLines 行；entries 里的每个文件也点到它们。stages 放流程轴上的阶段技能，它不是编号的环节，也不是思维模型，不进矩阵：交接期的 pass-the-baton 夹在定义期与交付期之间，列出指路行与 cells，核法与 crosscut 相同，正文不超过 stageMaxLines 行；entries 里的每个文件也点到它。residentCard 是给消费项目原样放进常驻入口文件的卡片：分隔线以下点到每个模型与每个横切技能，每个列表项末尾是存在的技能名。",
+  "说明": "上下文地图：流程轴（行）与思维轴（列）交叉出的矩阵，是这张矩阵的唯一源。scripts/check-repo.mjs 按它核每一格。主：这个环节的产出本身就是这个模型的成果，不加指路行与空位，只在 files 里点名技能。行：files 里的每个文件含这个模型的指路行，一字不差。空：slots 里的每个文件含列出的每个空位；列了 files 的，那些文件另含指路行。没列出的格是有意留空的。entries 里的每个文件点到全部模型，人与代理从它们都能走到七个技能。models 的顺序：前五个是放在一件事上的自然次序，拆、找差异、定形、建、证；第六个闭环讲这件事在人和代理之间转手，排在证之后；第七个不知为不知讲没说清的地方凭什么定，任何一步碰到不知道的事时用，排在最后。README.md 的矩阵表照它生成，check-repo 逐行核。crosscut 放流程轴上的横切技能，它们不是思维模型，不进矩阵：每个列出指路行与 cells，cells 的每一格按同样的「行」「空」核法兑现，技能正文同样不超过 bodyMaxLines 行；entries 里的每个文件也点到它们。stages 放流程轴上的阶段技能，它不是编号的环节，也不是思维模型，不进矩阵：交接期的 pass-the-baton 夹在定义期与交付期之间，列出指路行与 cells，核法与 crosscut 相同，正文不超过 stageMaxLines 行；entries 里的每个文件也点到它。residentCard 是给消费项目原样放进常驻入口文件的卡片：分隔线以下点到每个模型与每个横切技能，每个列表项末尾是存在的技能名。flow 是流程轴自己的前后关系：每个流程轴技能一项，at 写它在流的哪一步，prev 与 next 列上一步与下一步（可带 when 说明什么情形），两者互逆；每个技能正文的前 withinLines 行里有一行由它生成的位置行，一字不差，末尾指回 entry。",
   "residentCard": "skills/single-session-dev-flow/resident-card.md",
   "skeleton": ["## 三句动作", "## 各类工作里怎么用", "## 写在哪", "## 什么时候必须重做", "## 相邻的模型"],
   "bodyMaxLines": 50,
   "stageMaxLines": 60,
+  "flow": {
+    "entry": "single-session-dev-flow",
+    "withinLines": 6,
+    "steps": [
+      { "skill": "requirement-and-invariants", "at": "定义期第 1 步", "prev": [], "next": ["domain-impact-analysis"] },
+      { "skill": "domain-impact-analysis", "at": "定义期第 2 步", "prev": ["requirement-and-invariants"], "next": ["tech-research-and-reuse"] },
+      { "skill": "tech-research-and-reuse", "at": "定义期第 3 步", "prev": ["domain-impact-analysis"], "next": ["formal-guard"] },
+      { "skill": "formal-guard", "at": "定义期第 4 步", "prev": ["tech-research-and-reuse"], "next": ["detailed-domain-design"] },
+      { "skill": "detailed-domain-design", "at": "定义期第 5 步", "prev": ["formal-guard"], "next": ["formal-docs-landing"] },
+      { "skill": "formal-docs-landing", "at": "定义期第 6 步", "prev": ["detailed-domain-design"], "next": ["pass-the-baton"] },
+      {
+        "skill": "pass-the-baton",
+        "at": "交接期，在定义期第 6 步与交付期第 7 步之间；一程交回之后的收回也在这里",
+        "prev": [{ "skill": "formal-docs-landing", "when": "交出之前" }, { "skill": "cleanup", "when": "收回之前" }],
+        "next": ["spec-and-plan"]
+      },
+      { "skill": "spec-and-plan", "at": "交接期定约时写 spec，交付期第 7 步写 plan", "prev": ["pass-the-baton"], "next": ["context-pack"] },
+      {
+        "skill": "context-pack",
+        "at": "交付期第 8 步，整程一次，每个切片开工前一次；开工包之后先实施，再收口",
+        "prev": [{ "skill": "spec-and-plan", "when": "整程包" }, { "skill": "cleanup", "when": "下一个切片" }],
+        "next": ["slice-closeout"]
+      },
+      { "skill": "delegate-brief", "at": "交付期第 9 步，不在顺序链上，只在准备派子代理时加载", "prev": [], "next": [] },
+      { "skill": "one-lesson-rule", "at": "交付期第 10 步，不在顺序链上，从第一个切片开工起常驻", "prev": [], "next": [] },
+      { "skill": "slice-closeout", "at": "交付期第 11 步，每个切片实施完一次，全部切片收口后整程一次", "prev": ["context-pack"], "next": ["progress-artifacts"] },
+      { "skill": "progress-artifacts", "at": "交付期第 12 步", "prev": ["slice-closeout"], "next": ["cleanup"] },
+      {
+        "skill": "cleanup",
+        "at": "交付期第 13 步，每个切片一次，一程交付后一次",
+        "prev": ["progress-artifacts"],
+        "next": [{ "skill": "context-pack", "when": "下一个切片" }, { "skill": "pass-the-baton", "when": "一程交付后收回" }]
+      }
+    ]
+  },
   "entries": ["skills/single-session-dev-flow/SKILL.md", "skills/teach-pqw-skills/SKILL.md", "README.md", "README_EN.md"],
   "models": [
     {

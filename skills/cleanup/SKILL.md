@@ -5,6 +5,8 @@ description: 交付期第 13 步，清理：每切片清一次不必留给下一
 
 # 清理
 
+位置：交付期第 13 步，每个切片一次，一程交付后一次。上一步 `progress-artifacts`，下一步 `context-pack`（下一个切片）、`pass-the-baton`（一程交付后收回）。顺序与例外见入口技能 `single-session-dev-flow`。
+
 清理是交付的一部分。一程交付完毕的声明里有一句「清了什么」。
 
 ## 只有一个判断

@@ -5,6 +5,8 @@ description: 交付期第 7 步，plan；另管交接期定约时写的 spec：s
 
 # spec 与 plan
 
+位置：交接期定约时写 spec，交付期第 7 步写 plan。上一步 `pass-the-baton`，下一步 `context-pack`。顺序与例外见入口技能 `single-session-dev-flow`。
+
 两份文档，两个时机。spec 回答做什么、做到什么算完，它是承诺，要人认可，所以在交接期的定约时由设计会话和人一起写。plan 回答按什么顺序做、每片怎么验，它在交付期开头由交付的主代理写，计划者就是执行者。一程的承诺、大小与交出收回归交接期，由设计会话做，人在场。做法加载技能 `pass-the-baton`。
 
 ## 顺序

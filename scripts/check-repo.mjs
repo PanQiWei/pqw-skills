@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 仓库一致性检查。只读，纯 Node，无依赖。退出 0 全部通过；退出 1 有失败；退出 2 用法错误。
-// 核的是 AGENTS.md 布局与写作规则里能机器化的那部分：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、写代码的四条只有一处正文、圈外的问题只有一处正文、上下文地图的每一格兑现（含流程轴上的横切技能、阶段技能与常驻卡片）。
+// 核的是 AGENTS.md 布局与写作规则里能机器化的那部分：三处同步、引用可解析、无待写、无项目概念、无破折号、模板被链接、写代码的四条只有一处正文、圈外的问题只有一处正文、上下文地图的每一格兑现（含流程轴上的横切技能、阶段技能与常驻卡片）、连通性（流程轴技能开头的位置行，思维模型与横切技能回到上层的一行，每个技能至少被别的技能点到一次）。
 
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
@@ -335,7 +335,54 @@ function checkContextMap() {
 }
 checkContextMap();
 
-// ---- 10. 接入约定：消费项目要跟着改的东西只有三样，槽位名、交接信息包的节、常驻卡片。
+// ---- 11. 连通性：单独读到一个技能时，正文里有回到上层的路。流程轴技能的正文开头有一行位置行，由 design/context-map.json 的 flow 生成：在流的哪一步、上一步、下一步、入口。上一步与下一步在地图里互逆。
+const LINK_CHECK = "连通性";
+const stepSkill = (ref) => (typeof ref === "string" ? ref : ref.skill);
+const stepNames = (refs) => refs.map((ref) => `\`${stepSkill(ref)}\`${ref.when ? `（${ref.when}）` : ""}`).join("、") || "无";
+/** 位置行。不在顺序链上的技能（没有上一步也没有下一步）只写位置与入口。 */
+const positionLine = (flow, step) => {
+  const chain = step.prev.length || step.next.length ? `上一步 ${stepNames(step.prev)}，下一步 ${stepNames(step.next)}。` : "";
+  return `位置：${step.at}。${chain}顺序与例外见入口技能 \`${flow.entry}\`。`;
+};
+const skillBody = (md) => read(md).replace(/^---\n[\s\S]*?\n---\n/, "").trim().split("\n");
+function checkFlowReciprocal(flow) {
+  const bySkill = new Map(flow.steps.map((s) => [s.skill, s]));
+  const has = (step, side, skill) => (step?.[side] ?? []).some((ref) => stepSkill(ref) === skill);
+  for (const step of flow.steps) {
+    for (const [side, other, sideName, otherName] of [["next", "prev", "下一步", "上一步"], ["prev", "next", "上一步", "下一步"]]) {
+      for (const ref of step[side]) {
+        const to = stepSkill(ref);
+        if (!has(bySkill.get(to), other, step.skill)) fail(LINK_CHECK, `${rel(CONTEXT_MAP)} 的 flow 不互逆：${step.skill} 的${sideName}有 ${to}，${to} 的${otherName}没有 ${step.skill}`);
+      }
+    }
+  }
+}
+function checkFlow(map) {
+  const flow = map.flow;
+  if (!flow?.steps?.length) return fail(LINK_CHECK, `${rel(CONTEXT_MAP)} 没有 flow：流程轴的位置行无处可核`);
+  checkFlowReciprocal(flow);
+  for (const step of flow.steps) {
+    const md = join(config.skillsDir, step.skill, "SKILL.md");
+    if (!existsSync(md)) {
+      fail(LINK_CHECK, `流程轴技能 ${step.skill} 没有 skills/${step.skill}/SKILL.md`);
+      continue;
+    }
+    const line = positionLine(flow, step);
+    if (!skillBody(md).slice(0, flow.withinLines).includes(line)) fail(LINK_CHECK, `${rel(md)} 正文前 ${flow.withinLines} 行里缺位置行「${line}」`);
+  }
+}
+function checkConnectivity() {
+  let map;
+  try {
+    map = JSON.parse(read(CONTEXT_MAP));
+  } catch {
+    return; // 读不了地图已由「上下文地图」一项报过
+  }
+  checkFlow(map);
+}
+checkConnectivity();
+
+// ---- 12. 接入约定：消费项目要跟着改的东西只有三样，槽位名、交接信息包的节、常驻卡片。
 // design/consumer-contract.json 把它们列全并带一个整数 version；三样任何一样变了，这份文件就得跟着改，version 就得涨。
 // 消费项目只钉 version：version 不变的发行版可以直接换用，不必改项目自己的文件。
 const CONTRACT_CHECK = "接入约定";
@@ -397,7 +444,7 @@ function checkConsumerContract() {
 }
 checkConsumerContract();
 
-// ---- 11. 发版说明：CHANGELOG 最新一节合模板，它「细节」之前的部分就是 GitHub Release 的正文。
+// ---- 13. 发版说明：CHANGELOG 最新一节合模板，它「细节」之前的部分就是 GitHub Release 的正文。
 // 只核最新一节：模板之前的旧节不回头改。
 function checkReleaseNotes() {
   const CHECK = "发版说明";

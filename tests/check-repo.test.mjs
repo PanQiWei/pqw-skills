@@ -271,3 +271,32 @@ test("接入约定：与上一个发行 tag 相比，内容变了而 version 没
     assert.deepEqual(reported(run(dir), CONTRACT_CHECK), [`${CONTRACT} 的内容与 v99.0.0 相同，version 却从 ${base} 变成 ${base + 1}：没有要消费项目跟着改的变化就不涨`]);
   } finally { dispose(dir); }
 });
+
+const LINK_CHECK = "[连通性]";
+const linkReported = (dir) => reported(run(dir), LINK_CHECK);
+const REQ = "skills/requirement-and-invariants/SKILL.md";
+const REQ_LINE = "位置：定义期第 1 步。上一步 无，下一步 `domain-impact-analysis`。顺序与例外见入口技能 `single-session-dev-flow`。";
+
+test("连通性：仓库本身不报；流程轴技能的位置行被改、被挪到正文前几行之外，各报是哪个文件、该是哪一行", () => {
+  const dir = copyRepo();
+  try {
+    assert.deepEqual(linkReported(dir), []);
+    edit(dir, REQ, REQ_LINE, REQ_LINE.replace("第 1 步", "第一步"));
+    assert.deepEqual(linkReported(dir), [`${REQ} 正文前 6 行里缺位置行「${REQ_LINE}」`]);
+    edit(dir, REQ, `${REQ_LINE.replace("第 1 步", "第一步")}\n`, "");
+    appendFileSync(join(dir, REQ), `\n${REQ_LINE}\n`);
+    assert.deepEqual(linkReported(dir), [`${REQ} 正文前 6 行里缺位置行「${REQ_LINE}」`]);
+  } finally { dispose(dir); }
+});
+
+test("连通性：地图里上一步与下一步不互逆、流程轴列了不存在的技能、没有 flow，各报一处", () => {
+  const dir = copyRepo();
+  try {
+    editMap(dir, (map) => { map.flow.steps.find((s) => s.skill === "domain-impact-analysis").prev = []; });
+    assert.deepEqual(linkReported(dir).filter((m) => m.includes("互逆")), ["design/context-map.json 的 flow 不互逆：requirement-and-invariants 的下一步有 domain-impact-analysis，domain-impact-analysis 的上一步没有 requirement-and-invariants"]);
+    editMap(dir, (map) => { map.flow.steps[0].skill = "no-such-skill"; });
+    assert.ok(linkReported(dir).includes("流程轴技能 no-such-skill 没有 skills/no-such-skill/SKILL.md"));
+    editMap(dir, (map) => { delete map.flow; });
+    assert.ok(linkReported(dir).includes("design/context-map.json 没有 flow：流程轴的位置行无处可核"));
+  } finally { dispose(dir); }
+});
