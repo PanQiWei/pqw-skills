@@ -88,7 +88,7 @@ description: 教人用 pqw-skills：讲这条流的心智模型、哲学与协�
 | 项目合入检查已按整程改动跑结构读数与差分变异时的命令（没有写「无」，一程全量读数由本流跑） | `slice-closeout` |
 | 文档检查命令 | `formal-docs-landing` |
 | 文档写作规则（项目自己的写作规范；没填用 `clear-writing` 自带的缺省规则） | `clear-writing` |
-| 三层正式文档的位置 | `formal-docs-landing` |
+| 三层正式文档的位置（约束类文档放哪：架构与领域正文、各领域的规格、产品规则。槽位名沿用） | `formal-docs-landing` |
 | 统一语言与领域对象的位置 | `requirement-and-invariants`、`domain-impact-analysis` |
 | 形式化工具链与声明边界 | `formal-guard` |
 | spec 与 plan 的项目模板 | `spec-and-plan` |

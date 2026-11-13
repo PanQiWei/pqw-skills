@@ -10,7 +10,7 @@ claude plugin install pqw-skills@pqw
 For Codex, Cursor, Kimi Code, DSH, Copilot and Gemini, see [Install](#install). After the install, ask "how do I use this flow" and the agent teaches you. For everyday work, start your prompt with `/pqw-mode`.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.29.0-informational.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.30.0-informational.svg)](./CHANGELOG.md)
 [![Skills](https://img.shields.io/badge/skills-27-success.svg)](#skills)
 [![skills.sh](https://skills.sh/b/PanQiWei/pqw-skills)](https://skills.sh/PanQiWei/pqw-skills)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Kimi%20Code%20%7C%20DSH%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#install)
@@ -70,7 +70,7 @@ The two lines, plus one sentence for each model, are compressed into a [resident
 
 The repository is flat: one top entry skill, one flow entry skill, 13 stage skills, one handoff-phase skill, seven cross-cutting thinking-model skills, one candid-friend skill, plus the teaching and writing skills. Stages with custom methods have their text here. Stages that already have a mature method reference skills from pstack, ub-mode and mattpocock/skills instead of copying them.
 
-The definition period is led by you. Each step answers one question, produces one artifact, and that artifact is the input to the next step. The order cannot be skipped. The handoff phase works like the exchange zone in a relay race. The design session runs it while you are present: commit writes this run's spec; size decides how big the run is and whether to split the work into several runs; pass writes the handoff pack, which holds this run only. Passing is a physical condition: a boundary that has not reached the single source of truth and has not passed review is not defined. After the pass, you can turn your attention away and the main agent drives delivery. When the run comes back, you return to the design session to take it back: you verify it by hand, then the next run is passed.
+The definition period is led by you. Each step answers one question, produces one artifact, and that artifact is the input to the next step. The order cannot be skipped. The handoff phase works like the exchange zone in a relay race. The design session runs it while you are present: commit writes this run's spec; size decides how big the run is and whether to split the work into several runs; pass writes the handoff pack, which holds this run only. Passing is a physical condition: a boundary is not defined until the constraints this run depends on are with their owners and have passed review (constraints are architecture and domain boundaries, specs, static checks and formal artifacts). After the pass, you can turn your attention away and the main agent drives delivery. When the run comes back, you return to the design session to take it back: you verify it by hand, then the next run is passed.
 
 ## Skills
 
@@ -94,7 +94,7 @@ The two figures above are the whole picture. Open the details below for what eac
 | 3 | [tech-research-and-reuse](./skills/tech-research-and-reuse/SKILL.md) | Is there a library, a similar system or a community implementation to reuse, and what is the argument for building our own | research, principle-subtract-before-you-add |
 | 4 | [formal-guard](./skills/formal-guard/SKILL.md) | Which properties cannot be guarded by tests and need partial-function totalization, mathematical modeling and proof | create-formal-verification-skill, statechart, maintain-formal-verification-skill |
 | 5 | [detailed-domain-design](./skills/detailed-domain-design/SKILL.md) | What do the objects, relations and repositories inside the domain look like, how are I/O and query performance decided | domain-modeling, codebase-design, architect, principle-type-system-discipline, principle-boundary-discipline |
-| 6 | [formal-docs-landing](./skills/formal-docs-landing/SKILL.md) | What becomes a long-lived formal document, what uses the source as its document, which layer each lands in; deterministic document review on five criteria | technical-writing, writing-for-agents |
+| 6 | [formal-docs-landing](./skills/formal-docs-landing/SKILL.md) | Sorts definition-phase outputs three ways: constraints go to their owners (architecture and domain boundaries, specs, static checks, formal proofs), what the source already says is not written again, and run-only material stays in the run directory; then a deterministic doc review. | technical-writing, writing-for-agents |
 
 ### Handoff phase, design session with you
 
@@ -234,7 +234,7 @@ The repository root has a Kimi Code plugin manifest, `kimi.plugin.json`. In a Ki
 /plugins install https://github.com/PanQiWei/pqw-skills
 ```
 
-Kimi Code asks once whether you trust this third-party plugin. Then it fetches the latest release and keeps a managed copy. Run `/new` or `/reload` to apply it. The skills appear as `/skill:pqw-skills:<name>`. To pin a version, use a release page as the address, for example `https://github.com/PanQiWei/pqw-skills/releases/tag/v0.29.0`. To update, run the same command again.
+Kimi Code asks once whether you trust this third-party plugin. Then it fetches the latest release and keeps a managed copy. Run `/new` or `/reload` to apply it. The skills appear as `/skill:pqw-skills:<name>`. To pin a version, use a release page as the address, for example `https://github.com/PanQiWei/pqw-skills/releases/tag/v0.30.0`. To update, run the same command again.
 
 ### DeepSeek Harness (DSH)
 

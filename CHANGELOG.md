@@ -2,6 +2,30 @@
 
 每一版一节，写法见 [DEVELOPMENT.md 的「发版」](./DEVELOPMENT.md#发版)。「细节」之前的部分就是 GitHub Release 的正文。
 
+## 0.30.0 · 落盘只落约束
+
+Landing now sorts definition-phase outputs three ways: constraints go to their owners, what the source already says is not written again, and run-only material stays in the run directory.
+
+**要你动手的：** 不用动。想让项目自己挡住多写的文档，照 `formal-docs-landing`「怎样防止长回来」加检查。
+
+**接入约定：** version 3，没变。
+
+### 变了什么
+
+- **判据换了**：`formal-docs-landing` 不再问读代码是不是更慢，只问一项产出是不是四样约束之一：架构设计与领域边界、规格、静态检查、形式化证明。一条约束落在它能落的最强的一样上，写成了检查或证明就不留文字版。
+- **规格只装六样**：总体架构、领域边界、心智模型、应然设计、原则与约束、不变式。一个领域一份，领域下面的模块不各带一份。
+- **其余各有去处**：接口、字段、配置项以源码为源头，不写；取舍的推导、实现状态、进度、验证记录、操作步骤留过程目录，不进项目正文。
+- **一程的 spec 不是项目的规格**：spec 与 plan 是过程材料，一程结束随清理删；这一程改了应然的，把改的那几句写进项目的规格。
+- **文档评审的五类判据**：约束遗漏、多写、工作日志式表达、断链、下层违背上层。「多写」是新的一类，「图」不再单列。
+- **plan 的文档维护表**：去掉「行为变了就改 CHANGELOG、README 状态节、结构说明、开发指南」那一行，换成改了应然才改的约束类文档。
+- **交出的条件**：从「长期维护的知识已进唯一源」改成「这一程依赖的约束已在各自的拥有者处并过评审」。
+- **收口与清理**：切片收口只在改了应然时更新规格或架构正文；汇报件里属于约束的落到拥有者，其余随清理删。
+
+### 细节
+
+- 槽位名「三层正式文档的位置」沿用，装的只是约束类文档。改名要动接入约定，留到下一次约定变化时一起改。
+- 没有验证的：新判据还没有在一程完整的交付里走过。
+
 ## 0.29.0 · 两句总纲：少即是多，慢即是快
 
 Two governing lines now sit above the seven thinking models, "less is more" and "slow is fast", each with a limit so it cannot be misread; they appear verbatim in the resident card and every entry skill.

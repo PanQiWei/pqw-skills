@@ -166,7 +166,7 @@
   <text class="s" x="272" y="890">Objects, relations, storage shapes</text>
   <rect class="humanbg" x="40" y="904" width="26" height="20" rx="5"/><text class="s human" x="53" y="918" text-anchor="middle" style="font-weight:700">6</text>
   <text class="mono ink" x="76" y="918">formal-docs-landing</text>
-  <text class="s" x="272" y="918">What becomes a formal doc, and where</text>
+  <text class="s" x="272" y="918">Which outputs are constraints; who owns them</text>
   <rect class="humanbg" x="40" y="932" width="26" height="20" rx="5"/><text class="s human" x="53" y="946" text-anchor="middle" style="font-weight:700">H</text>
   <text class="mono ink" x="76" y="946">pass-the-baton</text>
   <text class="s" x="272" y="946">How a run is passed and taken back</text>

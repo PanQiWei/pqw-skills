@@ -79,4 +79,4 @@ description: 定义期第 5 步，细化领域设计：对受影响的领域做 
 
 ## 下一步
 
-进入 `formal-docs-landing`，决定哪些进正式文档。
+进入 `formal-docs-landing`，决定每项产出的去处。

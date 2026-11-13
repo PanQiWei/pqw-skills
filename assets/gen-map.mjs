@@ -19,7 +19,7 @@ const ZH = {
   legend: [[212, "这一步的产出本身就是它"], [405, "模板里给它留了空位"], [592, "在要用到它的那一步有一句指路"], [830, "交接期"]],
   stepsTitle: "13 个环节与交接期，各回答一个问题",
   stage: { badge: "交", question: "一程怎样交出去，怎样收回来" },
-  questions: ["给用户什么能力，永远守住什么", "哪些领域受影响，边界怎么摆", "有没有现成的可以复用", "哪些性质靠测试守不住", "对象、关系、仓储长什么样", "哪些写成正式文档，落在哪层", "这一程切成哪几片，按什么顺序", "动手前要先知道什么", "什么自己做，什么派出去", "有没有偏离、兜圈、腐化", "承诺的做到了没有", "怎么让人十分钟看懂进展", "什么该清，什么等人验"],
+  questions: ["给用户什么能力，永远守住什么", "哪些领域受影响，边界怎么摆", "有没有现成的可以复用", "哪些性质靠测试守不住", "对象、关系、仓储长什么样", "哪些是约束，落到谁那里", "这一程切成哪几片，按什么顺序", "动手前要先知道什么", "什么自己做，什么派出去", "有没有偏离、兜圈、腐化", "承诺的做到了没有", "怎么让人十分钟看懂进展", "什么该清，什么等人验"],
   boxes: [
     ["入口与教学", [["pqw-mode", "总入口：认场景，指到模型与技能"], ["single-session-dev-flow", "流的入口：够不够格、顺序、交接期"], ["teach-pqw-skills", "教人怎么用这套流，跑偏了怎么纠"]]],
     ["写作", [["clear-writing", "文档、提示词、技能的清晰写作"], ["write-agents-md", "项目入口文件怎么写、怎么治理"]]],
@@ -41,7 +41,7 @@ const EN = {
   legend: [[212, "the step's output is the model"], [420, "a slot in the template"], [592, "a pointer line at the step"], [830, "handoff phase"]],
   stepsTitle: "13 steps and the handoff phase, one question each",
   stage: { badge: "H", question: "How a run is passed and taken back" },
-  questions: ["What users get; what must always hold", "Which domains change; where borders go", "Is something ready to reuse", "Which properties tests cannot guard", "Objects, relations, storage shapes", "What becomes a formal doc, and where", "Which slices, in which order", "What to know before starting", "Do it yourself, or delegate", "Any drift, looping or context rot", "Were the promises kept", "How a human gets it in ten minutes", "What to clean; what awaits review"],
+  questions: ["What users get; what must always hold", "Which domains change; where borders go", "Is something ready to reuse", "Which properties tests cannot guard", "Objects, relations, storage shapes", "Which outputs are constraints; who owns them", "Which slices, in which order", "What to know before starting", "Do it yourself, or delegate", "Any drift, looping or context rot", "Were the promises kept", "How a human gets it in ten minutes", "What to clean; what awaits review"],
   boxes: [
     ["Entry and teaching", [["pqw-mode", "Top entry: scenario, models, skill"], ["single-session-dev-flow", "Flow entry: who qualifies, order, handoff"], ["teach-pqw-skills", "Teaches people how to use the flow"]]],
     ["Writing", [["clear-writing", "Clear writing for docs and prompts"], ["write-agents-md", "How to write and govern AGENTS.md"]]],

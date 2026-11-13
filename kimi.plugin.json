@@ -1,6 +1,6 @@
 {
   "name": "pqw-skills",
-  "version": "0.29.0",
+  "version": "0.30.0",
   "description": "A development flow for large changes: define with the human, hand off one run at a time, let the agent deliver in slices, then verify. 给 coding agent 的单会话研发流：定义期、交接期、交付期，加七个思维模型。",
   "keywords": ["agent-skills", "workflow", "spec-driven-development", "tdd", "ddd", "handoff"],
   "author": {

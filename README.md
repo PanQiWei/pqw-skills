@@ -10,7 +10,7 @@ claude plugin install pqw-skills@pqw
 Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装)。装好后问一句「这套流怎么用」，它会教你；日常做事在提示前点名 `/pqw-mode`。
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-0.29.0-informational.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.30.0-informational.svg)](./CHANGELOG.md)
 [![Skills](https://img.shields.io/badge/skills-27-success.svg)](#技能)
 [![skills.sh](https://skills.sh/b/PanQiWei/pqw-skills)](https://skills.sh/PanQiWei/pqw-skills)
 [![Hosts](https://img.shields.io/badge/hosts-Claude%20Code%20%7C%20Codex%20%7C%20Cursor%20%7C%20Kimi%20Code%20%7C%20DSH%20%7C%20Copilot%20%7C%20Gemini-8A2BE2.svg)](#安装)
@@ -68,7 +68,7 @@ Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装
 
 仓库是扁平的：一个总入口技能，一个流的入口技能，13 个环节技能，一个交接期的阶段技能，七个横切的思维模型技能，一个诤友技能，加教学与写作技能。自定义的环节正文在这里，已有成熟做法的环节直接引用 pstack、ub-mode、mattpocock 的技能，不复制它们的正文。
 
-定义期由你主导，每一步回答一个问题、产出一样东西，并且是下一步的输入，顺序不能跳。交接期像接力赛的接力区，由设计会话做，你在场：定约写这一程的 spec，定程定这一程多大、要不要分程，交出写交接信息包，包里只有这一程。交出是物理条件：没进唯一源、没过评审的边界不算定好。交出之后，你可以把注意力移开，由主代理自主推进交付；这一程交回来，你回到设计会话收回：上手验收，再交下一程。
+定义期由你主导，每一步回答一个问题、产出一样东西，并且是下一步的输入，顺序不能跳。交接期像接力赛的接力区，由设计会话做，你在场：定约写这一程的 spec，定程定这一程多大、要不要分程，交出写交接信息包，包里只有这一程。交出是物理条件：这一程依赖的约束已在各自的拥有者处并过评审，否则边界不算定好。约束指架构与领域边界、规格、静态检查与形式化件。交出之后，你可以把注意力移开，由主代理自主推进交付；这一程交回来，你回到设计会话收回：上手验收，再交下一程。
 
 ## 技能
 
@@ -92,7 +92,7 @@ Codex、Cursor、Kimi Code、DSH、Copilot、Gemini 的装法见[安装](#安装
 | 3 | [tech-research-and-reuse](./skills/tech-research-and-reuse/SKILL.md) | 有没有现成的库、相近系统或社区实现可复用，自造的论证是什么 | research、principle-subtract-before-you-add |
 | 4 | [formal-guard](./skills/formal-guard/SKILL.md) | 哪些性质靠测试守不住，要靠偏函数全化、数理建模与证明 | create-formal-verification-skill、statechart、maintain-formal-verification-skill |
 | 5 | [detailed-domain-design](./skills/detailed-domain-design/SKILL.md) | 领域内部的对象、关系、仓储长什么样，I/O 与查询性能怎么定 | domain-modeling、codebase-design、architect、principle-type-system-discipline、principle-boundary-discipline |
-| 6 | [formal-docs-landing](./skills/formal-docs-landing/SKILL.md) | 哪些要长期维护写正式文档，哪些以源码为文档，落在哪一层；五类判据的确定性文档评审 | technical-writing、writing-for-agents |
+| 6 | [formal-docs-landing](./skills/formal-docs-landing/SKILL.md) | 把定义期的产出分三路：约束落到拥有者，源码已表达的不写，这一程的材料留过程目录；确定性文档评审 | technical-writing、writing-for-agents |
 
 ### 交接期，设计会话与你
 
@@ -232,7 +232,7 @@ VS Code 里运行 **Chat: Install Plugin From Source**，填 `https://github.com
 /plugins install https://github.com/PanQiWei/pqw-skills
 ```
 
-它会先问一次是否信任这个第三方插件，然后取最新的发行版，复制成托管副本；装完 `/new` 或 `/reload` 生效。技能以 `/skill:pqw-skills:<名字>` 出现。要固定版本，把地址换成发行页，例如 `https://github.com/PanQiWei/pqw-skills/releases/tag/v0.29.0`。更新时重跑同一条命令。
+它会先问一次是否信任这个第三方插件，然后取最新的发行版，复制成托管副本；装完 `/new` 或 `/reload` 生效。技能以 `/skill:pqw-skills:<名字>` 出现。要固定版本，把地址换成发行页，例如 `https://github.com/PanQiWei/pqw-skills/releases/tag/v0.30.0`。更新时重跑同一条命令。
 
 ### DeepSeek Harness（DSH）
 
