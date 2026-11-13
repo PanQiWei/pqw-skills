@@ -335,7 +335,7 @@ function checkContextMap() {
 }
 checkContextMap();
 
-// ---- 11. 连通性：单独读到一个技能时，正文里有回到上层的路。流程轴技能的正文开头有一行位置行，由 design/context-map.json 的 flow 生成：在流的哪一步、上一步、下一步、入口。上一步与下一步在地图里互逆。
+// ---- 11. 连通性：单独读到一个技能时，正文里有回到上层的路。流程轴技能的正文开头有一行位置行，由 design/context-map.json 的 flow 生成：在流的哪一步、上一步、下一步、入口。上一步与下一步在地图里互逆。思维模型与横切技能各带地图登记的回到上层一行。每个发行技能至少被别的技能目录点名一次。
 const LINK_CHECK = "连通性";
 const stepSkill = (ref) => (typeof ref === "string" ? ref : ref.skill);
 const stepNames = (refs) => refs.map((ref) => `\`${stepSkill(ref)}\`${ref.when ? `（${ref.when}）` : ""}`).join("、") || "无";
@@ -371,6 +371,22 @@ function checkFlow(map) {
     if (!skillBody(md).slice(0, flow.withinLines).includes(line)) fail(LINK_CHECK, `${rel(md)} 正文前 ${flow.withinLines} 行里缺位置行「${line}」`);
   }
 }
+/** 思维模型与横切技能不在顺序链上，各带同一行回到上层的话。 */
+function checkUp(map) {
+  if (!map.up) return fail(LINK_CHECK, `${rel(CONTEXT_MAP)} 没有 up：思维模型与横切技能回到上层的一行无处可核`);
+  for (const { skill } of [...map.models, ...(map.crosscut ?? [])]) {
+    const md = join(config.skillsDir, skill, "SKILL.md");
+    if (existsSync(md) && !read(md).includes(map.up)) fail(LINK_CHECK, `${rel(md)} 缺回到上层的一行「${map.up}」`);
+  }
+}
+/** 每个发行技能至少被另一个技能目录里的文件点名，否则只能靠列表里的 description 碰到它。 */
+function checkNamedByOthers() {
+  const files = walkMd(config.skillsDir).map((file) => ({ file, text: read(file) }));
+  for (const skill of skills) {
+    const own = join(config.skillsDir, skill) + "/";
+    if (!files.some(({ file, text }) => !file.startsWith(own) && text.includes(`\`${skill}\``))) fail(LINK_CHECK, `skills/${skill} 没有被别的技能点名：从别的技能走不到它`);
+  }
+}
 function checkConnectivity() {
   let map;
   try {
@@ -379,6 +395,8 @@ function checkConnectivity() {
     return; // 读不了地图已由「上下文地图」一项报过
   }
   checkFlow(map);
+  checkUp(map);
+  checkNamedByOthers();
 }
 checkConnectivity();
 

@@ -300,3 +300,29 @@ test("连通性：地图里上一步与下一步不互逆、流程轴列了不�
     assert.ok(linkReported(dir).includes("design/context-map.json 没有 flow：流程轴的位置行无处可核"));
   } finally { dispose(dir); }
 });
+
+const UP_LINE = "回到上层：全部思维模型的表、放在一件事上的次序与整条流的顺序，在入口技能 `single-session-dev-flow`。";
+
+test("连通性：思维模型或横切技能少了回到上层的一行，报是哪个文件；地图没有 up 也报", () => {
+  const dir = copyRepo();
+  try {
+    for (const skill of ["think-evidence", "candid-friend"]) {
+      const md = `skills/${skill}/SKILL.md`;
+      edit(dir, md, UP_LINE, "");
+      assert.deepEqual(linkReported(dir), [`${md} 缺回到上层的一行「${UP_LINE}」`]);
+      edit(dir, md, "\n", `\n${UP_LINE}\n`);
+    }
+    editMap(dir, (map) => { delete map.up; });
+    assert.deepEqual(linkReported(dir), ["design/context-map.json 没有 up：思维模型与横切技能回到上层的一行无处可核"]);
+  } finally { dispose(dir); }
+});
+
+test("连通性：一个发行技能没有被别的技能目录点名，报出它；自己目录里的点名不算", () => {
+  const dir = copyRepo();
+  try {
+    const teach = "skills/teach-pqw-skills/SKILL.md";
+    writeFileSync(join(dir, teach), readFileSync(join(dir, teach), "utf8").replaceAll("`write-agents-md`", "那个技能"));
+    appendFileSync(join(dir, "skills/write-agents-md/SKILL.md"), "\n本技能是 `write-agents-md`。\n");
+    assert.deepEqual(linkReported(dir), ["skills/write-agents-md 没有被别的技能点名：从别的技能走不到它"]);
+  } finally { dispose(dir); }
+});
