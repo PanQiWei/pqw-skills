@@ -16,7 +16,7 @@ const run = (dir, args, env = cleanEnv) => spawnSync("node", [SCRIPT, "--repo", 
 const fakeModules = (dir) => { const fake = join(dir, "fake-modules"); for (const name of ["@stryker-mutator/core", "@stryker-mutator/vitest-runner", "vitest"]) { mkdirSync(join(fake, name), { recursive: true }); writeFileSync(join(fake, name, "package.json"), JSON.stringify({ name, version: "10.1.1" })); } return fake; };
 
 test("0.8.0 退役的参数退出 2 并写原因，不需要别的输入", () => {
-  for (const [flag, why] of [["--engine", "内建引擎已删"], ["--test", "不再需要"], ["--budget", "单独复核"], ["--lcov", "不读 lcov"], ["--history", "incremental"]]) {
+  for (const [flag, why] of [["--engine", "内建引擎已删"], ["--test", "不再需要"], ["--budget", "时限按系数与常数定"], ["--lcov", "不读 lcov"], ["--history", "incremental"]]) {
     const r = spawnSync("node", [SCRIPT, flag, "x"], { encoding: "utf8" });
     assert.equal(r.status, 2, flag);
     assert.match(r.stderr, new RegExp(`^${flag} 0\\.8\\.0 起退役：.*${why}`), flag);
@@ -138,13 +138,13 @@ test.skipIf(skipReal)("pnpm 隔离布局：核心的真实位置旁边没有 vit
   } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); dispose(modules); }
 });
 
-test.skipIf(skipReal)("Stryker 真跑的超时复核：死循环变异体第一轮超时，第二轮一个进程、时限按 --recheck-timeout 放宽仍超时，抬头写复核 N（仍超时 N），项目文件不变", () => {
+test.skipIf(skipReal)("Stryker 真跑的超时复核（给了 --recheck）：死循环变异体第一轮超时，第二轮一个进程、时限按 --recheck-timeout 放宽仍超时，抬头写复核 N（仍超时 N），项目文件不变", () => {
   const dir = makeVitestRepo(MODULES);
   try {
     writeFiles(dir, { "src/loop.ts": "export function count(n: number): number {\n  let total = 0;\n  for (let i = 0; i < n; i++) total += 1;\n  return total;\n}\n", "test/loop.test.ts": 'import { test, expect } from "vitest";\nimport { count } from "../src/loop";\n\ntest("count", () => {\n  expect(count(3)).toBe(3);\n  expect(count(0)).toBe(0);\n});\n' });
     git(dir, "add -A"); git(dir, 'commit -q -m loop');
     writeFiles(dir, { "src/loop.ts": readFileSync(join(dir, "src/loop.ts"), "utf8").replace("total += 1", "total = total + 1") });
-    const r = strykerRun(dir, ["--json", join(dir, "out.json"), "--timeout", "2s", "--recheck-timeout", "8s"]);
+    const r = strykerRun(dir, ["--json", join(dir, "out.json"), "--timeout", "2s", "--recheck", "--recheck-timeout", "8s"]);
     assert.equal(r.status, 0, r.stderr + r.stdout);
     const json = JSON.parse(readFileSync(join(dir, "out.json"), "utf8"));
     assert.ok(json.recheck && json.recheck.total >= 1, `有超时才有复核：${JSON.stringify(json.recheck)}`);

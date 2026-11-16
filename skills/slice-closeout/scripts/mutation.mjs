@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// 差分变异：基线到工作树的改动行（给 --whole-units 时扩到改动行所在的单元），交给 Stryker 打变异体、跑碰到它的用例，裁定为杀死、存活、无覆盖、未跑四类；超时的变异体单独复核。
+// 差分变异：基线到工作树的改动行（给 --whole-units 时扩到改动行所在的单元），交给 Stryker 打变异体、跑碰到它的用例，裁定为杀死、存活、无覆盖、未跑四类；超时记杀死，时限的余量给在系数上，给了 --recheck 才单独复核。
 // 模型见 ../metrics-model.md；位点模型与读数在 lib/mutation.mjs，Stryker 适配在 lib/stryker.mjs，本文件是命令面与进程生命周期。
 // 用法与每个参数的含义见 --help。退出 0 正常；1 初跑不通过（含沙箱预检没通过、构建失败）；2 用法错误、未提供 typescript、项目不是 vitest 或找不到 Stryker；129 收到 SIGHUP、130 被中断、143 被终止。
 import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { parseArgs, parseScope, resolveBase, sh, changedLines, changedPaths, diffPrefixes } from "./lib/core.mjs";
 import { loadTypescript } from "./lib/adapter-typescript.mjs";
-import { resolveProject, inProject, tempDirFor, projectNotes, buildEnv, vitestBinFor, failedBaseline, baselineFailure, chooseEngine, mutateEntries, unitRanges, largeUnits, DEFAULT_UNIT_MAX_LINES, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries, strykerFingerprint, incrementalFor, rememberFingerprint, timeoutEntries, limitRecheck, mergeRecheck } from "./lib/stryker.mjs";
+import { resolveProject, inProject, tempDirFor, projectNotes, buildEnv, vitestBinFor, failedBaseline, baselineFailure, chooseEngine, mutateEntries, unitRanges, largeUnits, DEFAULT_UNIT_MAX_LINES, DEFAULT_TIMEOUT_FACTOR, STRYKER_TIMEOUT_MS, workDir, strykerConfig, runStryker, tempDirIgnored, readReport, mapReport, fileEntries, strykerFingerprint, incrementalFor, rememberFingerprint, timeoutEntries, limitRecheck, mergeRecheck } from "./lib/stryker.mjs";
 import { parseDuration, summarize, formatMutation, capacity, plannedWorkers, niceAvailable, isMutable, UNRECHECKED } from "./lib/mutation.mjs";
 
 const USAGE = `用法：mutation.mjs [选项]
@@ -28,7 +28,9 @@ const USAGE = `用法：mutation.mjs [选项]
   --unit-max-lines N         给了 --whole-units 时：单元的自有行数超过 N 时只变异改动行与包住它的最小嵌套函数（匿名回调也算），不取整个单元；
                              抬头逐个写明收窄了哪些单元，JSON 的 narrowed 列出。缺省 200；没给 --whole-units 时不起作用
   --plan-only                只列 mutate 条目，不起 Stryker
-  --timeout <时长>           Stryker 的 timeoutMS（在它按初跑估算的时限上再加的毫秒数）；缺省用 Stryker 的缺省
+  --timeout-factor <数>      Stryker 的 timeoutFactor：一个变异体的时限 = 系数 × 它要跑的用例在初跑里的用时 + 常数（--timeout）。缺省 ${DEFAULT_TIMEOUT_FACTOR}（Stryker 缺省 1.5）。
+                             负载让墙钟成倍变慢，是乘性的：常数对快用例已是几十倍的余量，余量薄的是慢用例，所以余量给在系数上。要正数
+  --timeout <时长>           Stryker 的 timeoutMS，即上式的常数；缺省用 Stryker 的缺省（${STRYKER_TIMEOUT_MS} 毫秒）
   --vitest-config <文件>     Stryker 与沙箱预检用的 vitest 配置（相对项目目录或绝对路径），覆盖自动找到的那份；只跑快层时指到快层的配置。文件不在退出 2
   --stryker-modules <目录>   装了 @stryker-mutator/core 与 vitest-runner 的 node_modules；解析顺序是项目根 node_modules、Git 根 node_modules（给了 --project 时）、这里（也读环境变量 PQW_STRYKER_MODULES）、本脚本目录的 node_modules（npm ci --prefix 该目录）
 
@@ -44,14 +46,16 @@ const USAGE = `用法：mutation.mjs [选项]
 增量：Stryker 的 incremental 文件在系统临时目录的工作目录里，指纹（工具版本、vitest 版本与配置文件、配置文件的内容、测试文件摘要、Stryker 版本；给了 --build-command 时再加构建产物目录的内容）变了整轮重跑，抬头写「沿用 N」。
 成员目录外被测试经相对路径读的文件不进指纹：它们变了不会触发重跑，要重跑时删掉工作目录里的 fingerprint.json。
 
-复核：第一轮有超时的变异体时再起一轮，只打它们所在的行，一个进程、时限放宽、不进增量；结果并回位点，抬头写「复核 N（超时转杀死 a、存活 b、仍超时 c）」。超时常是机器忙而不是测试强，复核过的分数才可信。
-  --no-recheck               不起第二轮
-  --recheck-timeout <时长>   第二轮的 timeoutMS；缺省是第一轮 --timeout（没给按 Stryker 缺省 5000 毫秒）的 4 倍且至少 60 秒
+超时：时限的余量给在系数上之后，超时就是变异体卡住、用例等不到结果，记杀死（timeout），测量有效；有超时时引擎说明写「超时杀死 N 个（时限系数 F）」。缺省不起第二轮。
+复核：给了 --recheck 时，第一轮有超时的变异体再起一轮，只打它们所在的行，一个进程、时限放宽、不进增量；结果并回位点，抬头写「复核 N（超时转杀死 a、存活 b、仍超时 c）」。
+  --recheck                  起第二轮复核；下面两个参数只在给了它时起作用
+  --no-recheck               不起第二轮；已是缺省，保留为兼容，不起作用
+  --recheck-timeout <时长>   第二轮的 timeoutMS；缺省是第一轮 --timeout（没给按 Stryker 缺省 ${STRYKER_TIMEOUT_MS} 毫秒）的 4 倍且至少 60 秒
   --recheck-limit N          最多复核 N 个超时位点（按位点顺序取前 N 个），缺省 8；其余记「超时未复核」，该成员测量无效。0 表示一个都不复核
 0.8.0 起退役的参数：--test、--engine、--lcov、--budget、--history、--no-tests-pattern、--load-ceiling（内建引擎及它的预算、覆盖门控、历史沿用、运行中自适应随之删除）；给了退出 2。
 退出 0 正常；1 初跑不通过（含沙箱预检没通过、构建失败）；2 用法错误、未提供 typescript、项目不是 vitest 或找不到 Stryker；129 收到 SIGHUP、130 被中断、143 被终止。`;
-const SPEC = { repo: "value", project: "value", "build-command": "value", base: "value", target: "value", ts: "value", scope: "value", files: "value", json: "value", format: "value", "plan-only": "flag", timeout: "value", "no-recheck": "flag", "recheck-timeout": "value", "stryker-modules": "value", workers: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "no-nice": "flag", "vitest-config": "value", "build-output": "value", "unit-max-lines": "value", "whole-units": "flag", "recheck-limit": "value" };
-const RETIRED = { test: "测试命令由 Stryker 起 vitest，不再需要", engine: "内建引擎已删，只有 Stryker 一种", lcov: "覆盖由 Stryker 按用例记，不读 lcov", budget: "Stryker 没有整轮预算，超时的变异体改为单独复核", history: "增量由 Stryker 的 incremental 文件负责", "no-tests-pattern": "「没跑测试」是内建引擎跑整套命令时的问题，Stryker 按用例跑", "load-ceiling": "并行度启动时定下，运行中不调" };
+const SPEC = { repo: "value", project: "value", "build-command": "value", base: "value", target: "value", ts: "value", scope: "value", files: "value", json: "value", format: "value", "plan-only": "flag", timeout: "value", "timeout-factor": "value", recheck: "flag", "no-recheck": "flag", "recheck-timeout": "value", "stryker-modules": "value", workers: "value", "other-heavy-tasks": "value", "low-memory-halve": "value", "no-nice": "flag", "vitest-config": "value", "build-output": "value", "unit-max-lines": "value", "whole-units": "flag", "recheck-limit": "value" };
+const RETIRED = { test: "测试命令由 Stryker 起 vitest，不再需要", engine: "内建引擎已删，只有 Stryker 一种", lcov: "覆盖由 Stryker 按用例记，不读 lcov", budget: "Stryker 没有整轮预算，每个变异体的时限按系数与常数定", history: "增量由 Stryker 的 incremental 文件负责", "no-tests-pattern": "「没跑测试」是内建引擎跑整套命令时的问题，Stryker 按用例跑", "load-ceiling": "并行度启动时定下，运行中不调" };
 const retired = process.argv.slice(2).map((a) => /^--([a-z-]+)/.exec(a)?.[1]).find((k) => k && k in RETIRED);
 if (retired) { console.error(`--${retired} 0.8.0 起退役：${RETIRED[retired]}`); process.exit(2); }
 const { opts, error } = parseArgs(process.argv.slice(2), SPEC);
@@ -64,6 +68,8 @@ const load = (fn, message) => { try { return fn(); } catch (e) { console.error(m
 const duration = (text, fallback) => { const ms = parseDuration(text, fallback); if (text && ms === null) { console.error(`时长格式错误：${text}`); process.exit(2); } return ms; };
 /** 非负数参数；给了但不是数退出 2。 */
 const number = (name, fallback) => { const text = opts[name]; if (text === undefined) return fallback; const n = Number(text); if (!Number.isFinite(n) || n < 0) { console.error(`数值格式错误：--${name} ${text}`); process.exit(2); } return n; };
+/** 正数参数；给了 0 也退出 2。 */
+const positive = (name, fallback) => { const n = number(name, fallback); if (n === 0) { console.error(`要正数：--${name} ${opts[name]}`); process.exit(2); } return n; };
 
 /** 资源：容量、份额、并行度、优先级。 */
 function planResources() {
@@ -85,7 +91,7 @@ function loadInputs() {
   if (given !== null && !existsSync(resolve(project.dir, given))) { console.error(`--vitest-config 不存在：${given}（相对项目目录）`); process.exit(2); }
   const { modules, configFile, ...engine } = load(() => chooseEngine({ root: project.dir, repoRoot: root, modulesDir: opts["stryker-modules"], configFile: given }));
   const { base, baseGiven } = load(() => resolveBase(root, opts.base, opts.target));
-  return { root, project: { ...project, temp: tempDirFor(project) }, ts, engine, stryker: { modules, configFile }, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources: planResources(), fingerprint: strykerFingerprint(project.dir, { ...engine, modules, configFile }, { buildOutputs: opts["build-command"] === undefined ? null : parseScope(opts["build-output"] ?? "dist") }), timeoutMs: duration(opts.timeout, null), recheckTimeoutMs: duration(opts["recheck-timeout"], null) };
+  return { root, project: { ...project, temp: tempDirFor(project) }, ts, engine, stryker: { modules, configFile }, base, baseGiven, head: sh(root, ["rev-parse", "HEAD"]), resources: planResources(), fingerprint: strykerFingerprint(project.dir, { ...engine, modules, configFile }, { buildOutputs: opts["build-command"] === undefined ? null : parseScope(opts["build-output"] ?? "dist") }), timeoutMs: duration(opts.timeout, null), timeoutFactor: positive("timeout-factor", DEFAULT_TIMEOUT_FACTOR), recheckTimeoutMs: duration(opts["recheck-timeout"], null) };
 }
 
 /** 写 JSON 文件与打印。 */
@@ -142,7 +148,7 @@ async function runOnce({ project, stryker, name, config, preflight = false }) {
 async function execute(result, { project, stryker, entries, ranges }) {
   const incremental = incrementalFor(workDir(project.dir), inputs.fingerprint);
   result.incremental = { file: incremental.file, force: incremental.force };
-  const { r, report, logPath, buildFailed, preflight } = await runOnce({ project, stryker, name: "mutation", config: { entries: result.mutate, concurrency: inputs.resources.workers, timeoutMs: inputs.timeoutMs, incremental }, preflight: true });
+  const { r, report, logPath, buildFailed, preflight } = await runOnce({ project, stryker, name: "mutation", config: { entries: result.mutate, concurrency: inputs.resources.workers, timeoutMs: inputs.timeoutMs, timeoutFactor: inputs.timeoutFactor, incremental }, preflight: true });
   result.resources.timing = { totalSeconds: r.seconds };
   if (!report) { result.baseline = failedBaseline({ seconds: r.seconds, tail: r.tail, logPath, buildFailed, preflight }); return { code: 1, report }; }
   result.baseline = { passed: true, seconds: r.dryRunSeconds };
@@ -165,8 +171,8 @@ async function recheckTimeouts(result, report, { project, stryker, entries, rang
   if (skipped) result.engine.notes.push(`超时位点 ${kept.size + skipped} 个，超过复核上限 ${limit}，${skipped} 个超时未复核；--recheck-limit 可调`);
   const mutate = timeoutEntries(report, entries, ranges, pinned, kept);
   if (mutate.length === 0) { if (skipped) result.recheck = { limit, skipped, total: 0, killed: 0, survived: 0, timedOut: 0, notRun: 0, seconds: null }; return; }
-  const timeoutMs = inputs.recheckTimeoutMs ?? Math.max(4 * (inputs.timeoutMs ?? 5000), 60000);
-  const { r, report: second, logPath } = await runOnce({ project, stryker, name: "recheck", config: { entries: mutate, concurrency: 1, timeoutMs, incremental: null } });
+  const timeoutMs = inputs.recheckTimeoutMs ?? Math.max(4 * (inputs.timeoutMs ?? STRYKER_TIMEOUT_MS), 60000);
+  const { r, report: second, logPath } = await runOnce({ project, stryker, name: "recheck", config: { entries: mutate, concurrency: 1, timeoutMs, timeoutFactor: inputs.timeoutFactor, incremental: null } });
   result.resources.timing.recheckSeconds = r.seconds;
   const { unknown, ...counts } = mergeRecheck(result.sites, second, entries);
   result.recheck = { ...(skipped ? { limit, skipped } : {}), ...counts, seconds: r.seconds };
@@ -188,13 +194,14 @@ const maxLines = wholeUnits ? number("unit-max-lines", DEFAULT_UNIT_MAX_LINES) :
 const ranges = new Map(files.map((p) => [p, unitRanges(entries.get(p).units, changed.get(p) ?? [], { maxLines, spans: entries.get(p).spans })]));
 const narrowed = wholeUnits ? files.filter((p) => !pinned.includes(p)).flatMap((p) => largeUnits(entries.get(p).units, changed.get(p) ?? [], maxLines).map((u) => ({ file: p, ...u }))) : [];
 const notes = [...projectNotes({ prefix: project.prefix, outside: mutable.length - files.length, temp: project.temp, ignored: tempDirIgnored(project.dir, project.temp.name) }), ...narrowed.map((n) => `大单元只变异改动行与包住它的最小嵌套函数：${n.file} ${n.unit}（自有 ${n.ownLines} 行，上限 ${maxLines}）`)];
-const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), project: project.label, base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, engine: { ...inputs.engine, notes }, fingerprint: inputs.fingerprint, pinned, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, resources: inputs.resources, mutate: mutateEntries(ranges, pinned, files), narrowed, sites: [], unmutated: [], summary: {}, survivors: [], recheck: null };
+const result = { kind: "pqw-mutation", generatedAt: new Date().toISOString(), project: project.label, base: inputs.base, baseGiven: inputs.baseGiven, head: inputs.head, engine: { ...inputs.engine, notes }, fingerprint: inputs.fingerprint, pinned, planOnly: Boolean(opts["plan-only"]), baseline: { passed: null, seconds: null }, resources: inputs.resources, mutate: mutateEntries(ranges, pinned, files), narrowed, sites: [], unmutated: [], summary: {}, survivors: [], recheck: null, timeoutFactor: inputs.timeoutFactor };
 let code = 0;
 if (!result.planOnly && result.mutate.length > 0) {
   const first = await execute(result, { project, stryker, entries, ranges });
   code = first.code;
-  if (first.report && !opts["no-recheck"]) await recheckTimeouts(result, first.report, { project, stryker, entries, ranges });
+  if (first.report && opts.recheck) await recheckTimeouts(result, first.report, { project, stryker, entries, ranges });
 }
 finish(result);
+if (!result.recheck && result.summary.timedOut) notes.push(`超时杀死 ${result.summary.timedOut} 个（时限系数 ${inputs.timeoutFactor}）：时限 = 系数 × 用例初跑用时 + ${inputs.timeoutMs ?? STRYKER_TIMEOUT_MS} 毫秒；没起第二轮，要复核给 --recheck`);
 emit(result);
 process.exit(code);

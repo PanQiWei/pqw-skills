@@ -44,13 +44,13 @@ test.skipIf(skipReal)("沙箱预检：用例文件只在沙箱里加载失败时
   } finally { rmSync(workDir(dir), { recursive: true, force: true }); dispose(dir); }
 });
 
-test.skipIf(skipReal)("超时复核上限：--recheck-limit 0 时超时位点都记「超时未复核」，不起第二轮，成员测量无效", () => {
+test.skipIf(skipReal)("超时复核上限：给了 --recheck 且 --recheck-limit 0 时超时位点都记「超时未复核」，不起第二轮，成员测量无效", () => {
   const dir = makeVitestRepo(MODULES);
   try {
     writeFiles(dir, { "src/loop.ts": "export function count(n: number): number {\n  let total = 0;\n  for (let i = 0; i < n; i++) total += 1;\n  return total;\n}\n", "test/loop.test.ts": 'import { test, expect } from "vitest";\nimport { count } from "../src/loop";\n\ntest("count", () => {\n  expect(count(3)).toBe(3);\n  expect(count(0)).toBe(0);\n});\n' });
     git(dir, "add -A"); git(dir, "commit -q -m loop");
     writeFiles(dir, { "src/loop.ts": readFileSync(join(dir, "src/loop.ts"), "utf8").replace("total += 1", "total = total + 1") });
-    const r = strykerRun(dir, ["--format", "json", "--timeout", "2s", "--recheck-limit", "0"]);
+    const r = strykerRun(dir, ["--format", "json", "--timeout", "2s", "--recheck", "--recheck-limit", "0"]);
     assert.equal(r.status, 0, r.stderr + r.stdout);
     const json = JSON.parse(r.stdout);
     const skipped = json.sites.filter((s) => s.reason === "超时未复核");

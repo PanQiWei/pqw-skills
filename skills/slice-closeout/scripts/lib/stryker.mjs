@@ -259,11 +259,21 @@ export const failedBaseline = ({ seconds, tail, logPath, buildFailed, preflight 
 export const baselineFailure = (baseline) => (baseline.preflightFailed ? "沙箱预检没通过" : baseline.buildFailed ? "构建失败" : "Stryker 初跑失败");
 
 /**
+ * 时限系数的缺省。Stryker 给一个变异体的时限是 timeoutFactor × 它要跑的用例的基线用时 + timeoutMS（缺省 5000 毫秒）。
+ * 负载让墙钟成倍变慢，是乘性的：常数对快用例已是几十倍的余量，余量薄的是慢用例，所以余量给在系数上（Stryker 缺省 1.5）。
+ */
+export const DEFAULT_TIMEOUT_FACTOR = 4;
+
+/** Stryker 自己的 timeoutMS 缺省；没给 --timeout 时配置不写这个键，这里只用来写说明与推第二轮的时限。 */
+export const STRYKER_TIMEOUT_MS = 5000;
+
+/**
  * Stryker 配置。并行度启动时定下；runnerEntry 是已经解析到的 vitest runner 入口的绝对路径，写成 plugins，
- * 不靠 Stryker 在核心旁边找 @stryker-mutator/*（pnpm 的隔离布局里核心的真实位置旁边没有 runner）；--timeout 给了就映射到 timeoutMS；增量按 incremental 参数（null 不开）。
+ * 不靠 Stryker 在核心旁边找 @stryker-mutator/*（pnpm 的隔离布局里核心的真实位置旁边没有 runner）；--timeout 给了就映射到 timeoutMS，
+ * --timeout-factor 映射到 timeoutFactor（缺省 DEFAULT_TIMEOUT_FACTOR）；增量按 incremental 参数（null 不开）。
  * Stryker 在项目目录里跑，条目要相对项目目录：这里是写方向的唯一换算处，去掉 prefix（读方向在 readReport）。
  */
-export function strykerConfig({ entries, configFile, concurrency, reportPath, incremental = null, timeoutMs = null, tempDirName = ".stryker-tmp", prefix = "", build = false, preflight = false, runnerEntry = null }) {
+export function strykerConfig({ entries, configFile, concurrency, reportPath, incremental = null, timeoutMs = null, timeoutFactor = DEFAULT_TIMEOUT_FACTOR, tempDirName = ".stryker-tmp", prefix = "", build = false, preflight = false, runnerEntry = null }) {
   return {
     testRunner: "vitest",
     ...(runnerEntry ? { plugins: [runnerEntry] } : {}),
@@ -275,6 +285,7 @@ export function strykerConfig({ entries, configFile, concurrency, reportPath, in
     ...(build || preflight ? { buildCommand: SANDBOX_BUILD_COMMAND } : {}),
     ...(build ? { symlinkNodeModules: false } : {}),
     concurrency,
+    timeoutFactor,
     ...(timeoutMs === null ? {} : { timeoutMS: timeoutMs }),
     ...(incremental ? { incremental: true, incrementalFile: incremental.file, force: incremental.force } : { incremental: false }),
     reporters: ["json", "progress-append-only"],

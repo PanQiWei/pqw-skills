@@ -2,6 +2,27 @@
 
 每一版一节，写法见 [DEVELOPMENT.md 的「发版」](./DEVELOPMENT.md#发版)。「细节」之前的部分就是 GitHub Release 的正文。
 
+## 0.30.1 · 变异时限给足系数，超时即杀死
+
+Mutation timeouts now scale with each mutant's own test time (factor 4 by default), so a timeout counts as killed and the second recheck round is off by default.
+
+**要你动手的：** 不用，直接升级。一直靠第二轮复核的，要照旧就加 `--recheck`。
+**接入约定：** version 3，没变。
+
+### 变了什么
+
+- **`mutation.mjs` 加 `--timeout-factor`**：写进 Stryker 配置的 `timeoutFactor`，缺省 4（Stryker 缺省 1.5）；常数 `--timeout` 仍用 Stryker 的缺省 5000 毫秒。
+- **第二轮复核缺省关**：要复核时给 `--recheck`，上限 `--recheck-limit` 与时限 `--recheck-timeout` 照旧；`--no-recheck` 已是缺省，保留为兼容。不复核时超时记杀死（timeout），不再有「超时未复核」，测量有效，引擎说明写「超时杀死 N 个（时限系数 4）」。JSON 顶层多 `timeoutFactor`。
+- **`slice-closeout` 正文与读数模型**：多一条「时限」，复核写明只在给了 `--recheck` 时做。
+
+### 细节
+
+量到的失败：一个成员的差分变异，第一轮 74 个位点超时。第二轮串行复核，上限 8，用了 261.7 秒，8 个里没有一个改变裁定；超出上限的 66 个记「超时未复核」，整次测量因此判成无效。另做了一次只起一轮、常数放到 15 秒的区分实验：同一批位点全部是超时杀死，没有一个变成存活，测量有效。那批变异体是真的卡住，第一轮的裁定本来就对。
+
+依据：Stryker 的时限是 `timeoutFactor × 用例的基线用时 + timeoutMS`。负载让墙钟成倍变慢，是乘性的。常数对快用例已是几十倍的余量，余量薄的是慢用例，所以余量应该加在系数上；加在常数上只会让每个卡住的变异体多等，不护住慢用例。时限可信之后，超时就是杀死，第二轮不再有必要。
+
+没验证的：缺省系数 4 是按「负载下墙钟慢几倍」推出来的，还没有在同机另有重任务在跑时量过「超时」会不会翻成「存活」。
+
 ## 0.30.0 · 落盘只落约束
 
 Landing now sorts definition-phase outputs three ways: constraints go to their owners, what the source already says is not written again, and run-only material stays in the run directory.

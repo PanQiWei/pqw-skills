@@ -39,10 +39,56 @@ function setup(reports) {
   return { dir, side, run, cleanup: () => { dispose(dir); dispose(side); } };
 }
 
-test.skipIf(skip)("两个超时复核成一杀死一存活：第二轮只打那一行、一个进程、不进增量、时限按 --recheck-timeout；抬头与 JSON 的复核段，其中超时归零，工作树不变", () => {
+test.skipIf(skip)("缺省只起一轮：时限系数 4 写进配置，超时位点记杀死（timeout），不出「超时未复核」，测量有效，抬头如实写超时杀死几个与系数", () => {
   const f = setup([FIRST, SECOND]);
   try {
-    const r = f.run("--recheck-timeout", "90s");
+    const r = f.run();
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.calls, 1);
+    assert.equal(r.seen("mutation").timeoutFactor, 4);
+    assert.equal("timeoutMS" in r.seen("mutation"), false, "常数仍用 Stryker 的缺省");
+    assert.equal(r.json.recheck, null);
+    assert.deepEqual(r.json.sites.map((s) => [s.mutant, s.verdict, s.reason]), [["true", "killed", null], ["n > 1", "killed", "timeout"], ["n < 1", "killed", "timeout"]]);
+    assert.deepEqual([r.json.summary.valid, r.json.summary.timedOut, r.json.timeoutFactor], [true, 2, 4]);
+    assert.match(r.stdout, /位点 3：杀死 3（其中超时 2）、存活 0、无覆盖 0、未跑 0；分数 100%\n/);
+    assert.match(r.stdout, /\n超时杀死 2 个（时限系数 4）/);
+    assert.doesNotMatch(r.stdout, /超时未复核|复核 \d/);
+    assert.equal(existsSync(join(workDir(f.dir), "stryker-recheck.json")), false, "没有起第二轮");
+  } finally { f.cleanup(); }
+});
+
+test.skipIf(skip)("--timeout-factor 给了就写进配置的 timeoutFactor 并写进抬头；不是正数退出 2", () => {
+  const f = setup([FIRST, SECOND]);
+  try {
+    const r = f.run("--timeout-factor", "6");
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.seen("mutation").timeoutFactor, 6);
+    assert.equal(r.json.timeoutFactor, 6);
+    assert.match(r.stdout, /\n超时杀死 2 个（时限系数 6）/);
+    for (const bad of ["0", "-1", "abc"]) {
+      const b = f.run("--timeout-factor", bad);
+      assert.equal(b.status, 2, `${bad}：${b.stdout}`);
+      assert.match(b.stderr, /--timeout-factor/);
+    }
+  } finally { f.cleanup(); }
+});
+
+test.skipIf(skip)("给了 --recheck 时上限照旧：--recheck-limit 1 只复核一个，另一个记「超时未复核」，测量无效；第二轮带同一个系数", () => {
+  const f = setup([FIRST, SECOND]);
+  try {
+    const r = f.run("--recheck", "--recheck-limit", "1", "--timeout-factor", "6");
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.calls, 2);
+    assert.deepEqual([r.seen("mutation").timeoutFactor, r.seen("recheck").timeoutFactor], [6, 6], "第二轮也带同一个系数");
+    assert.deepEqual([r.json.summary.valid, r.json.summary.invalidReason], [false, "超时未复核 1 个"]);
+    assert.deepEqual([r.json.recheck.limit, r.json.recheck.skipped], [1, 1]);
+  } finally { f.cleanup(); }
+});
+
+test.skipIf(skip)("两个超时复核成一杀死一存活（给了 --recheck）：第二轮只打那一行、一个进程、不进增量、时限按 --recheck-timeout；抬头与 JSON 的复核段，其中超时归零，工作树不变", () => {
+  const f = setup([FIRST, SECOND]);
+  try {
+    const r = f.run("--recheck", "--recheck-timeout", "90s");
     assert.equal(r.status, 0, r.stderr);
     assert.equal(r.calls, 2);
     const second = r.seen("recheck");
@@ -59,7 +105,7 @@ test.skipIf(skip)("两个超时复核成一杀死一存活：第二轮只打那�
   } finally { f.cleanup(); }
 });
 
-test.skipIf(skip)("--no-recheck 只起一轮：超时留在杀死里，抬头写其中超时，recheck 为 null", () => {
+test.skipIf(skip)("--no-recheck 已是缺省、仍然接受：只起一轮，超时留在杀死里，抬头写其中超时，recheck 为 null", () => {
   const f = setup([FIRST, SECOND]);
   try {
     const r = f.run("--no-recheck");
@@ -82,10 +128,10 @@ test.skipIf(skip)("没有超时不起第二轮", () => {
   } finally { f.cleanup(); }
 });
 
-test.skipIf(skip)("第二轮失败：第一轮裁定不动，全部记未复核，引擎说明写复核未完成，退出码仍是 0，缺省时限 60 秒", () => {
+test.skipIf(skip)("第二轮失败（给了 --recheck）：第一轮裁定不动，全部记未复核，引擎说明写复核未完成，退出码仍是 0，缺省时限 60 秒", () => {
   const f = setup([FIRST]);
   try {
-    const r = f.run();
+    const r = f.run("--recheck");
     assert.equal(r.status, 0, r.stderr);
     assert.equal(r.calls, 2);
     assert.equal(r.seen("recheck").timeoutMS, 60000);
@@ -96,10 +142,10 @@ test.skipIf(skip)("第二轮失败：第一轮裁定不动，全部记未复核�
   } finally { f.cleanup(); }
 });
 
-test.skipIf(skip)("第二轮报告里有映射表没有的状态：和第一轮一样使测量无效，对不上的位点记未复核", () => {
+test.skipIf(skip)("第二轮报告里有映射表没有的状态（给了 --recheck）：和第一轮一样使测量无效，对不上的位点记未复核", () => {
   const f = setup([FIRST, SECOND_WEIRD]);
   try {
-    const r = f.run();
+    const r = f.run("--recheck");
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stdout, /位点 3：测量无效（报告里有映射表没有的状态：Weird）\n/);
     assert.deepEqual([r.json.summary.valid, r.json.summary.score, r.json.unknown], [false, null, ["Weird"]]);

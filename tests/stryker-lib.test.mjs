@@ -118,11 +118,18 @@ test("runner 入口：取包的 exports 的 . 项（字符串，或对象的 imp
 
 test("配置：逐项按 spec；没有配置文件就不写 configFile；--timeout 映射 timeoutMS；增量按参数", () => {
   const c = strykerConfig({ entries: ["a.ts:1-2"], configFile: "vitest.config.ts", concurrency: 3, reportPath: "/r/m.json" });
-  assert.deepEqual(c, { testRunner: "vitest", vitest: { configFile: "vitest.config.ts", related: false }, coverageAnalysis: "perTest", mutate: ["a.ts:1-2"], tempDirName: ".stryker-tmp", cleanTempDir: true, concurrency: 3, incremental: false, reporters: ["json", "progress-append-only"], jsonReporter: { fileName: "/r/m.json" }, thresholds: { high: 80, low: 60, break: null } });
+  assert.deepEqual(c, { testRunner: "vitest", vitest: { configFile: "vitest.config.ts", related: false }, coverageAnalysis: "perTest", mutate: ["a.ts:1-2"], tempDirName: ".stryker-tmp", cleanTempDir: true, concurrency: 3, timeoutFactor: 4, incremental: false, reporters: ["json", "progress-append-only"], jsonReporter: { fileName: "/r/m.json" }, thresholds: { high: 80, low: 60, break: null } });
   const d = strykerConfig({ entries: [], configFile: null, concurrency: 1, reportPath: "/r", timeoutMs: 5000, incremental: { file: "/i.json", force: true } });
   assert.equal("configFile" in d.vitest, false);
   assert.equal(d.timeoutMS, 5000);
   assert.deepEqual([d.incremental, d.incrementalFile, d.force], [true, "/i.json", true]);
+});
+
+test("配置：时限系数写成 timeoutFactor，缺省 4（余量给在系数上），给了就用给的；常数 timeoutMS 不跟着变", () => {
+  const plain = strykerConfig({ entries: [], configFile: null, concurrency: 1, reportPath: "/r" });
+  assert.deepEqual([plain.timeoutFactor, "timeoutMS" in plain], [4, false]);
+  const given = strykerConfig({ entries: [], configFile: null, concurrency: 1, reportPath: "/r", timeoutFactor: 2.5, timeoutMs: 7000 });
+  assert.deepEqual([given.timeoutFactor, given.timeoutMS], [2.5, 7000]);
 });
 
 test("类别：去掉变异器名的后缀并小写", () => {
