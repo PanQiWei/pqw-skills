@@ -82,7 +82,7 @@ description: 教人用 pqw-skills：讲这条流的心智模型、哲学与协�
 | 槽位 | 谁用 |
 | --- | --- |
 | 类型检查与 lint 命令 | `slice-closeout` |
-| 改动成员的合入检查（与项目合入检查同口径、只限改动成员、含全部测试层；没有写「同合入检查」） | `slice-closeout` |
+| 改动成员的合入检查（与项目合入检查同口径、只限改动成员、含全部测试层；没有写「无」，项目的合入检查本身在一程末尾跑一次） | `slice-closeout` |
 | 结构读数的覆盖率文件、范围与带位线（工具自带，`--lcov`、`--scope`、`--cc`、`--crap`） | `slice-closeout` |
 | 差分变异的范围与点名文件（工具自带，`--scope`、`--files`；修复轮 `--base` 取上一轮收口头；由 Stryker 执行，只支持 vitest 项目；多包仓库按成员 `--project`，用例导入构建产物的成员加 `--build-command`） | `slice-closeout` |
 | 项目合入检查已按整程改动跑结构读数与差分变异时的命令（没有写「无」，一程全量读数由本流跑） | `slice-closeout` |

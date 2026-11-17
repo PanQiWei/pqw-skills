@@ -2,6 +2,26 @@
 
 每一版一节，写法见 [DEVELOPMENT.md 的「发版」](./DEVELOPMENT.md#发版)。「细节」之前的部分就是 GitHub Release 的正文。
 
+## 0.31.0 · 切片之间轻，一程最后重
+
+The project's merge check now runs once, on the final head of a run, next to the whole-run metrics; slices in between run only cheap, local checks and land together.
+
+**要你动手的：** 接入点「改动成员的合入检查」一格原来写「同合入检查」的，改成「无」：切片之间不再跑项目的合入检查本身。项目自己的合入流程要求每次合入都跑全量检查的，把一程默认改成一次合入。
+**接入约定：** version 3，没变。
+
+### 变了什么
+
+- **`slice-closeout` 的「两个尺度」管到合入检查**：切片之间只跑类型检查、lint、改动成员的合入检查与关键位置的读数、变异；项目的合入检查本身、一程全量读数、要安静机器的对照，在一程最终的头上集中跑一次。切片在一程自己的分支上累积，主干头照常勤合，一程默认一次进主干。提前进主干只为一程之外点名在等的消费者，那一片自带整套证据。
+- **第 1 步的兜底变了**：接入点没给「改动成员的合入检查」时，切片只跑类型检查、lint 与改动碰到的测试，不再跑项目的合入检查本身。
+- **「一程全量读数」一节先合主干头、跑项目的合入检查**，两者都过了才进主干。
+- **入口 `single-session-dev-flow` 第 4 步、`spec-and-plan` 的验收标准、plan 模板的「顺序与并行」**跟着改：验收里不写每片或每次合入一次的贵检查；plan 多一行「进主干」。
+
+### 细节
+
+量到的失败：一个消费项目的一程有 11 个切片，按项目的合入流程分 8 次进主干，每次之前各跑一次全量准入（一次 50 到 65 分钟，占满整机的核）、各等一次合入确认。切片之间大部分时间在等这些检查，中间头上的准入在下一次合入之后就过期了，验收另要在最终的头上再跑。人看到后指出：切片之间便宜行事，一程最后再集中跑准入与差分变异。
+
+依据：贵检查回答的是「合起来之后整体还对不对」，只有最终的头上的答案有用；中间头上的答案验证的是一个不会进主干的状态。便宜的局部检查仍然每片跑，它们是第一道检测器，合入检查只剩跨成员的组合问题。
+
 ## 0.30.1 · 变异时限给足系数，超时即杀死
 
 Mutation timeouts now scale with each mutant's own test time (factor 4 by default), so a timeout counts as killed and the second recheck round is off by default.
