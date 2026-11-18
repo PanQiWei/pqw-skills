@@ -3,6 +3,7 @@
 // 圈外改动信号只给事实：上次唤醒以来的提交与未提交改动里，落在责任分级所有路径之外的文件。它可能是圈外做功，也可能是本程改动带出、还没补进 spec 的消费者，由哨兵与主代理判。
 // 文档陈旧信号：进度行 head 不是 HEAD、汇报件早于最近提交、切片收口了而汇报件没有在那之后生成、预计收尾已过、plan 连续两轮没改而有新提交、plan 结构不合模板（经 spec-and-plan 的 check-plan；它核不了时才由本脚本自己报处置断号）、维护表「最近更新」落后而最近提交改了该文档。
 // 超出验收窗口信号：预计收尾晚于 plan「人的验收窗口」一行写的回来时刻，人没有说过按一程做。
+// 切片超预算信号：进行中的切片从哨兵第一次看到它进行中算起的墙钟分钟数，超过 plan「每个切片预算：」一句给它的分钟数。每轮在进度里写一行切片用时，预算读不出时照写。
 // 退出 0 正常；1 读不到 plan 或写不了汇报；2 用法错误。
 //
 // 用法：
@@ -320,6 +321,44 @@ const planStill = (planText, prev, commits) => {
   return { signals, state: { planHash, planStillStreak } };
 };
 
+/** 一段文字开头的时长，换成分钟：「<n> 小时」「<n> 小时 <m> 分钟」「<n> 分钟」；bare 为真时也认不带单位的 <n>。不是时长返回 null。 */
+const minutesAt = (text, bare) => {
+  const m = /^(\d+)\s*小时(?:\s*(\d+)\s*分钟?)?/.exec(text) ?? (bare ? /^()()(\d+)(?:\s*分钟)?/ : /^()()(\d+)\s*分钟/).exec(text);
+  return m ? Number(m[1] || 0) * 60 + Number(m[2] || 0) + Number(m[3] || 0) : null;
+};
+
+/**
+ * plan「每个切片预算：」那一句给各片的分钟数，返回 切片号 → 分钟。认两种写法：开头一个带单位的时长，各片相同；
+ * 「<切片号> <时长>」逐片写，中间可有「是」或冒号，「分钟」可省，逐片写的盖过相同的。别的写法（例如「见各片」）读不出，那一片不在返回里。
+ */
+const sliceBudgets = (planText, ids) => {
+  const sentence = /每个切片预算：([^。\n]*)/.exec(planText)?.[1] ?? "";
+  const shared = minutesAt(sentence.trim(), false);
+  const own = (id) => {
+    const at = new RegExp(`(?<![\\d.])${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*(?:是|：|:)?\\s*(?=\\d)`).exec(sentence);
+    return at ? minutesAt(sentence.slice(at.index + at[0].length), true) : null;
+  };
+  return new Map(ids.map((id) => [id, own(id) ?? shared]).filter(([, minutes]) => minutes !== null));
+};
+
+/**
+ * 进行中的切片各用了多久。起点是哨兵第一次看到它进行中的那一轮（存在 state.json 的 sliceSince 里），所以算出来的是下限，按墙钟计；
+ * 停摆与等人的时段由主代理在处置里扣。返回 { lines, signals, state }：lines 每片一行用时对预算，预算读不出照写；超过预算的另出信号。
+ */
+const sliceClock = (planText, plan, prev, now) => {
+  const running = plan.slices.filter((r) => (r[3] ?? "").startsWith("进行中")).map((r) => r[0]);
+  const budgets = sliceBudgets(planText, running);
+  const sliceSince = Object.fromEntries(running.map((id) => [id, prev?.sliceSince?.[id] ?? now.toISOString()]));
+  const lines = [], signals = [];
+  for (const id of running) {
+    const elapsed = Math.floor((now.getTime() - Date.parse(sliceSince[id])) / 60000);
+    const budget = budgets.get(id);
+    lines.push(`切片用时：${id} 进行中至少 ${elapsed} 分钟，${budget === undefined ? "预算读不出（「每个切片预算：」写一个时长，或逐片写成「01 40、02 75 分钟」）" : `预算 ${budget} 分钟`}`);
+    if (budget !== undefined && elapsed > budget) signals.push(`切片超预算：切片 ${id} 进行中至少 ${elapsed} 分钟（墙钟，从哨兵第一次看到它进行中算起），预算 ${budget} 分钟`);
+  }
+  return { lines, signals, state: { sliceSince } };
+};
+
 /** 在跑的子代理：状态格以「进行中」或「第 n/N 轮」开头（plan 模板的约定，check-plan 核）。只看开头，说明里写的「第 3/5 轮后终止」不算。 */
 const runningAgents = (plan) => plan.agents.filter((r) => /^(进行中|第 \d+\/\d+ 轮)(?=$|[ ：（])/.test(r[5] ?? ""));
 
@@ -390,6 +429,8 @@ const wake = (n) => {
   signals.push(...windowSignal(planText));
   const closeout = closeoutLag(plan, prev, dirname(outDir));
   signals.push(...closeout.signals);
+  const clock = sliceClock(planText, plan, prev, now);
+  signals.push(...clock.signals);
 
   const report = [
     `# 哨兵汇报 ${now.toISOString()}`,
@@ -408,6 +449,7 @@ const wake = (n) => {
     ...plan.slices.map((r) => `| ${r[0]} | ${r[3] ?? ""} |`),
     "",
     `里程碑：${doneM}/${plan.milestones.length} 已勾`,
+    ...clock.lines,
     findingsLine(findings, prev),
     "",
     "## 增量摘要",
@@ -431,7 +473,7 @@ const wake = (n) => {
     "",
     "## 读这份汇报的要做的",
     "",
-    "哨兵按 one-lesson-rule 对照 spec 与 plan 判六问：进度有没有偏离 spec 与 plan（含在圈外做功：信号里的「圈外改动」只是事实，可能是圈外做功，也可能是本程改动带出、还没补进 spec 责任分级的消费者，提醒里两种都写，由主代理判；「责任分级缺失」时判不了圈外，消息里写明）；是不是在局部兜圈（一直在改却没有进展才算，看「可能兜圈」信号、收口轮数与反复红；先实现再补用例这类顺着推进的连续提交不算；是就提醒加载技能 think-ought-vs-is，先答应然、实然、差异三问）；上下文有没有腐化的迹象；每个在跑的子代理是否健康；实现是不是比本质复杂（切片用时超预算、同一切片提交过多、读数变差、改动面过大，是就提醒回到本质解与必要的建模，并按技能 think-right-then-well 先做对、再单独做好一轮；从已经定义的不变式出发，主代理或子代理在给不变式排除的状态写处理、分支或用例，是就提醒这是过度设计、违背对不变式的守护，按技能 think-ought-vs-is 的「不多做」删掉）；给人看的文档有没有过期（信号里以「文档陈旧」开头的）。信号里有「超出验收窗口」时消息里照写，主代理在处置里选截程交付或写明为什么继续。写回看记录，给主代理发不超过十行的消息；主代理把处置写进 plan 的进度总览。",
+    "哨兵按 one-lesson-rule 对照 spec 与 plan 判六问：进度有没有偏离 spec 与 plan（含在圈外做功：信号里的「圈外改动」只是事实，可能是圈外做功，也可能是本程改动带出、还没补进 spec 责任分级的消费者，提醒里两种都写，由主代理判；「责任分级缺失」时判不了圈外，消息里写明；处置或当前行写着偏离已接受的设计、收窄某条验收，或把 spec 待决事项之外的事留给人定，而 spec 没有升修订的也算偏离，写明了理由也报，提醒加载技能 think-ought-vs-is，先答应然、实然、差异三问）；是不是在局部兜圈（一直在改却没有进展才算，看「可能兜圈」信号、收口轮数与反复红；先实现再补用例这类顺着推进的连续提交不算；是就提醒加载技能 think-ought-vs-is，先答应然、实然、差异三问）；上下文有没有腐化的迹象；每个在跑的子代理是否健康；实现是不是比本质复杂（切片用时超预算，看「切片超预算」信号与进度里的「切片用时」行；同一切片提交过多、读数变差、改动面过大，是就提醒回到本质解与必要的建模，并按技能 think-right-then-well 先做对、再单独做好一轮；从已经定义的不变式出发，主代理或子代理在给不变式排除的状态写处理、分支或用例，是就提醒这是过度设计、违背对不变式的守护，按技能 think-ought-vs-is 的「不多做」删掉）；给人看的文档有没有过期（信号里以「文档陈旧」开头的）。信号里有「超出验收窗口」时消息里照写，主代理在处置里选截程交付或写明为什么继续。写回看记录，给主代理发不超过十行的消息；主代理把处置写进 plan 的进度总览。",
     "",
   ].join("\n");
 
@@ -441,7 +483,7 @@ const wake = (n) => {
   try {
     writeFileSync(file, report);
     writeFileSync(join(outDir, "latest.md"), report);
-    writeFileSync(statePath, JSON.stringify({ at: now.toISOString(), head, dirty, current: plan.current, progress, stuckFiles: stuck ? touched : null, n, dispositions, noDispositionStreak, findings, ...still.state, ...closeout.state }, null, 2));
+    writeFileSync(statePath, JSON.stringify({ at: now.toISOString(), head, dirty, current: plan.current, progress, stuckFiles: stuck ? touched : null, n, dispositions, noDispositionStreak, findings, ...still.state, ...closeout.state, ...clock.state }, null, 2));
   } catch (e) {
     console.error(`写不了汇报：${outDir}：${e.message}`);
     process.exit(1);

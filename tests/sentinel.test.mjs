@@ -476,3 +476,46 @@ test("超出验收窗口：预计收尾晚于人回来的时刻，报一条；�
     assert.doesNotMatch(wake(dir, out), /^- 超出验收窗口/m, "没有窗口一行的旧 plan");
   } finally { dispose(dir); }
 });
+
+test("切片超预算：进行中的切片从第一次看到算起，每轮写一行用时对预算；过了预算报一条；收口了不再记；预算读不出照写、不报", () => {
+  const dir = makeRepo({ "README.md": "x\n", ".gitignore": "tmp/\n" });
+  const out = join(dir, "tmp/run-x/sentinel");
+  const plan = (budget, text = PLAN) => `${text}\n## 预算与回看\n\n- 一程时间预算：2 小时。每个切片预算：${budget}。到预算先回看，不继续跑。\n`;
+  const statePath = join(out, "state.json");
+  /** 把记下的起点往回拨：等于这一片已经被看到进行中这么多分钟。 */
+  const rewind = (id, minutes) => {
+    const state = JSON.parse(readFileSync(statePath, "utf8"));
+    state.sliceSince[id] = new Date(Date.now() - minutes * 60_000 - 5_000).toISOString();
+    writeFileSync(statePath, JSON.stringify(state));
+  };
+  try {
+    writeFiles(dir, { "tmp/run-x/plan.md": plan("30 分钟"), "tmp/run-x/spec.md": SPEC("src/") });
+    const first = wake(dir, out);
+    assert.match(first, /里程碑：1\/2 已勾\n切片用时：02 进行中至少 0 分钟，预算 30 分钟\n/, "第一次看到就是起点，只列进行中的切片");
+    assert.doesNotMatch(first, /^- 切片超预算/m);
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(statePath, "utf8")).sliceSince), ["02"]);
+    rewind("02", 30);
+    assert.doesNotMatch(wake(dir, out), /^- 切片超预算/m, "正好到预算不报");
+    rewind("02", 31);
+    assert.match(wake(dir, out), /^- 切片超预算：切片 02 进行中至少 31 分钟（墙钟，从哨兵第一次看到它进行中算起），预算 30 分钟$/m);
+
+    for (const [budget, minutes] of [["01 40、02 75 分钟", 75], ["01 是 40 分钟；02 是 75；03 是 55", 75], ["25 分钟（切片 02 40 分钟）", 40], ["01 45 分钟，02 1 小时 30 分钟", 90], ["2 小时", 120], ["01：20，02: 1 小时", 60]]) {
+      writeFiles(dir, { "tmp/run-x/plan.md": plan(budget) });
+      assert.match(wake(dir, out), new RegExp(`\\n切片用时：02 进行中至少 31 分钟，预算 ${minutes} 分钟\\n`), budget);
+    }
+    for (const budget of ["见各片", "01、02 各 1 小时 30 分钟", "01 一小时，02 一小时三十分", "01 40 分钟"]) {
+      writeFiles(dir, { "tmp/run-x/plan.md": plan(budget) });
+      const report = wake(dir, out);
+      assert.match(report, /\n切片用时：02 进行中至少 31 分钟，预算读不出（「每个切片预算：」写一个时长，或逐片写成「01 40、02 75 分钟」）\n/, budget);
+      assert.doesNotMatch(report, /^- 切片超预算/m, budget);
+    }
+    writeFiles(dir, { "tmp/run-x/plan.md": PLAN });
+    assert.match(wake(dir, out), /切片用时：02 进行中至少 31 分钟，预算读不出/, "没有预算一句的 plan");
+
+    writeFiles(dir, { "tmp/run-x/plan.md": plan("30 分钟", PLAN.replace("| 02 | b | C2 | 进行中（x） |", "| 02 | b | C2 | 已完成 def5678 |\n| 03 | c | C3 | 进行中（y） |")) });
+    const next = wake(dir, out);
+    assert.match(next, /\n切片用时：03 进行中至少 0 分钟，预算 30 分钟\n/, "下一片从它自己第一次被看到算起");
+    assert.doesNotMatch(next, /切片用时：02|^- 切片超预算/m, "收口的切片不再记");
+    assert.deepEqual(Object.keys(JSON.parse(readFileSync(statePath, "utf8")).sliceSince), ["03"]);
+  } finally { dispose(dir); }
+});

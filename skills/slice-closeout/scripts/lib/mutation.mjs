@@ -105,9 +105,10 @@ function tallyText(result) {
   return `：杀死 ${sm.killed}${timedOut}、存活 ${sm.survived}、无覆盖 ${sm.uncovered}、未跑 ${sm.notRun}；分数 ${score}${carried}${recheckText(result.recheck)}`;
 }
 
-/** 抬头之后关于基线的说明：初跑不通过的尾巴；沙箱预检没跑通时再列没跑通的测试文件。 */
+/** 抬头之后关于基线的说明：初跑不通过的尾巴；沙箱预检没跑通时再列没跑通的测试文件，到时限没跑完的改写去处。 */
 function baselineNotes(result) {
   if (result.planOnly || result.baseline.passed !== false) return [];
+  if (result.baseline.preflightTimedOut) return [`基线不通过：\n${result.baseline.tail}`, "沙箱预检超时：一个工作进程没在时限内跑完这份配置里的全部用例，不是用例失败。用 --vitest-config 给一份只含相关用例的配置再跑。"];
   const files = result.baseline.failedFiles;
   return [`基线不通过：\n${result.baseline.tail}`, ...(files ? ["没跑通的测试文件：", ...(files.length ? files.map((f) => `- ${f}`) : ["- （报告里没有定位到文件，见上面的日志）"])] : [])];
 }

@@ -221,12 +221,15 @@ function preflightRun({ cwd, env, stdio, timeoutMs }) {
   if (code === 0) return 0;
   let files = [];
   try { files = JSON.parse(readFileSync(report, "utf8")).testResults.filter((t) => t.status === "failed").map((t) => relative(cwd, t.name).split(sep).join("/")).sort(); } catch { files = []; }
-  writeFileSync(env[PREFLIGHT_ENV.mark], JSON.stringify({ status: timedOut ? "超时" : r.status ?? r.signal, files }) + "\n");
+  writeFileSync(env[PREFLIGHT_ENV.mark], JSON.stringify({ status: timedOut ? PREFLIGHT_TIMED_OUT : r.status ?? r.signal, files }) + "\n");
   return code;
 }
 
 /** 沙箱预检的时限：Stryker 初跑的缺省时限。 */
 export const PREFLIGHT_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** 标记里记预检到时限没跑完的 status。 */
+const PREFLIGHT_TIMED_OUT = "超时";
 
 /**
  * 包装脚本的全部逻辑，在沙箱（cwd）里跑：项目目录有 node_modules 而沙箱里没有时链过去；给了构建命令就经 shell 跑它，输出照传，
@@ -250,13 +253,13 @@ export function sandboxBuild({ cwd = process.cwd(), env = process.env, stdio = "
 }
 
 /**
- * 没有报告时的基线：初跑不通过，带日志尾；构建失败（包装脚本留了标记）时多 buildFailed；沙箱预检没跑通时多 preflightFailed 与 failedFiles；
- * 都没有时字段与 0.11.0 一致。
+ * 没有报告时的基线：初跑不通过，带日志尾；构建失败（包装脚本留了标记）时多 buildFailed；沙箱预检没跑通时多 preflightFailed 与 failedFiles，
+ * 其中到时限没跑完的再多 preflightTimedOut：它不是用例失败，去处也不同。都没有时字段与 0.11.0 一致。
  */
-export const failedBaseline = ({ seconds, tail, logPath, buildFailed, preflight = null }) => ({ passed: false, seconds, tail: `${tail}\n（完整日志 ${logPath}）`, ...(buildFailed ? { buildFailed: true } : {}), ...(preflight ? { preflightFailed: true, failedFiles: preflight.files } : {}) });
+export const failedBaseline = ({ seconds, tail, logPath, buildFailed, preflight = null }) => ({ passed: false, seconds, tail: `${tail}\n（完整日志 ${logPath}）`, ...(buildFailed ? { buildFailed: true } : {}), ...(preflight ? { preflightFailed: true, failedFiles: preflight.files } : {}), ...(preflight?.status === PREFLIGHT_TIMED_OUT ? { preflightTimedOut: true } : {}) });
 
 /** 基线不通过时抬头写的原因。 */
-export const baselineFailure = (baseline) => (baseline.preflightFailed ? "沙箱预检没通过" : baseline.buildFailed ? "构建失败" : "Stryker 初跑失败");
+export const baselineFailure = (baseline) => (baseline.preflightTimedOut ? "沙箱预检超时" : baseline.preflightFailed ? "沙箱预检没通过" : baseline.buildFailed ? "构建失败" : "Stryker 初跑失败");
 
 /**
  * 时限系数的缺省。Stryker 给一个变异体的时限是 timeoutFactor × 它要跑的用例的基线用时 + timeoutMS（缺省 5000 毫秒）。

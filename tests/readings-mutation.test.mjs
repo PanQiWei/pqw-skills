@@ -160,7 +160,7 @@ process.exit(fail ? 1 : 0);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test("沙箱预检有时限：用例挂住时到时限就算没跑通，标记写「超时」，不无限等", () => {
+test("沙箱预检有时限：用例挂住时到时限就算没跑通，标记写「超时」，不无限等；抬头写沙箱预检超时并给去处，不列失败文件", () => {
   const dir = mkdtempSync(join(tmpdir(), "pqw-readings-"));
   try {
     const project = join(dir, "project"), sandbox = join(dir, "sandbox"), hang = join(dir, "hang.mjs");
@@ -170,6 +170,13 @@ test("沙箱预检有时限：用例挂住时到时限就算没跑通，标记�
     const t0 = Date.now();
     assert.notEqual(sandboxBuild({ cwd: sandbox, env, stdio: "ignore", preflightTimeoutMs: 500 }), 0);
     assert.ok(Date.now() - t0 < 20000, `到时限就停：${Date.now() - t0}ms`);
-    assert.deepEqual(JSON.parse(readFileSync(join(dir, "p-failed"), "utf8")), { status: "超时", files: [] });
+    const mark = JSON.parse(readFileSync(join(dir, "p-failed"), "utf8"));
+    assert.deepEqual(mark, { status: "超时", files: [] });
+    const baseline = failedBaseline({ seconds: 300, tail: "t", logPath: "/l", buildFailed: false, preflight: mark });
+    assert.deepEqual([baseline.preflightFailed, baseline.preflightTimedOut, baselineFailure(baseline)], [true, true, "沙箱预检超时"]);
+    const text = formatMutation({ base: "abcdef1234567890", baseGiven: null, planOnly: false, baseline, sites: [], ...summarize([], { baselinePassed: false }), unmutated: [], recheck: null });
+    assert.match(text, /\n沙箱预检超时：一个工作进程没在时限内跑完这份配置里的全部用例，不是用例失败。用 --vitest-config 给一份只含相关用例的配置再跑。\n/);
+    assert.doesNotMatch(text, /没跑通的测试文件/);
+    assert.equal("preflightTimedOut" in failedBaseline({ seconds: 1, tail: "t", logPath: "/l", buildFailed: false, preflight: { status: 1, files: [] } }), false, "用例失败不算超时");
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
